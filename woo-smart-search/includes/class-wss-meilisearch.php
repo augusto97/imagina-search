@@ -1,6 +1,9 @@
 <?php
 /**
- * Meilisearch adapter.
+ * Meilisearch connection class (singleton).
+ *
+ * Direct connection to Meilisearch without abstraction layers.
+ * Uses wp_remote_* for HTTP communication.
  *
  * @package WooSmartSearch
  */
@@ -11,11 +14,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Class WSS_Meilisearch
- *
- * Implements WSS_Search_Engine for Meilisearch.
- * Uses wp_remote_* functions for HTTP communication (no SDK dependency).
  */
-class WSS_Meilisearch implements WSS_Search_Engine {
+class WSS_Meilisearch {
+
+	/**
+	 * Singleton instance.
+	 *
+	 * @var WSS_Meilisearch|null
+	 */
+	private static $instance = null;
 
 	/**
 	 * Base URL of the Meilisearch server.
@@ -39,6 +46,51 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 	private $connected = false;
 
 	/**
+	 * Get the singleton instance, auto-configured from plugin settings.
+	 *
+	 * @return WSS_Meilisearch|null Returns null if API key is not configured.
+	 */
+	public static function get_instance() {
+		if ( null !== self::$instance ) {
+			return self::$instance;
+		}
+
+		$api_key = wss_get_option( 'api_key', '' );
+		if ( empty( $api_key ) ) {
+			return null;
+		}
+
+		self::$instance = new self();
+		self::$instance->connect( array(
+			'host'     => wss_get_option( 'host', 'localhost' ),
+			'port'     => wss_get_option( 'port', '7700' ),
+			'protocol' => wss_get_option( 'protocol', 'http' ),
+			'api_key'  => self::decrypt_key( $api_key ),
+		) );
+
+		return self::$instance;
+	}
+
+	/**
+	 * Create a new instance with custom config (for testing connection).
+	 *
+	 * @param array $config Connection config.
+	 * @return WSS_Meilisearch
+	 */
+	public static function create( array $config ) {
+		$instance = new self();
+		$instance->connect( $config );
+		return $instance;
+	}
+
+	/**
+	 * Reset the singleton (for config changes).
+	 */
+	public static function reset() {
+		self::$instance = null;
+	}
+
+	/**
 	 * Connect to Meilisearch.
 	 *
 	 * @param array $config Configuration array.
@@ -49,7 +101,6 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 		$host     = isset( $config['host'] ) ? rtrim( $config['host'], '/' ) : 'localhost';
 		$port     = isset( $config['port'] ) ? $config['port'] : '7700';
 
-		// Remove protocol from host if already included.
 		$host = preg_replace( '#^https?://#', '', $host );
 
 		$this->base_url  = $protocol . '://' . $host . ':' . $port;
@@ -62,7 +113,7 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 	/**
 	 * Test the connection.
 	 *
-	 * @return array
+	 * @return array { success: bool, message: string, version: string }
 	 */
 	public function test_connection(): array {
 		$response = $this->request( 'GET', '/version' );
@@ -101,24 +152,19 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 	 * Create an index.
 	 *
 	 * @param string $index_name Index name.
-	 * @param array  $settings   Index settings.
 	 * @return bool
 	 */
-	public function create_index( string $index_name, array $settings = array() ): bool {
-		$body = array(
+	public function create_index( string $index_name ): bool {
+		$body     = array(
 			'uid'        => $index_name,
 			'primaryKey' => 'id',
 		);
-
 		$response = $this->request( 'POST', '/indexes', $body );
-
 		if ( is_wp_error( $response ) ) {
 			wss_log( 'Failed to create index: ' . $response->get_error_message(), 'error' );
 			return false;
 		}
-
-		$code = wp_remote_retrieve_response_code( $response );
-		return in_array( $code, array( 200, 201, 202 ), true );
+		return in_array( wp_remote_retrieve_response_code( $response ), array( 200, 201, 202 ), true );
 	}
 
 	/**
@@ -129,13 +175,10 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 	 */
 	public function delete_index( string $index_name ): bool {
 		$response = $this->request( 'DELETE', '/indexes/' . $index_name );
-
 		if ( is_wp_error( $response ) ) {
 			return false;
 		}
-
-		$code = wp_remote_retrieve_response_code( $response );
-		return in_array( $code, array( 200, 202, 204 ), true );
+		return in_array( wp_remote_retrieve_response_code( $response ), array( 200, 202, 204 ), true );
 	}
 
 	/**
@@ -146,16 +189,10 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 	 */
 	public function get_index_stats( string $index_name ): array {
 		$response = $this->request( 'GET', '/indexes/' . $index_name . '/stats' );
-
 		if ( is_wp_error( $response ) ) {
-			return array(
-				'numberOfDocuments' => 0,
-				'isIndexing'        => false,
-			);
+			return array( 'numberOfDocuments' => 0, 'isIndexing' => false );
 		}
-
 		$body = json_decode( wp_remote_retrieve_body( $response ), true );
-
 		return array(
 			'numberOfDocuments' => isset( $body['numberOfDocuments'] ) ? (int) $body['numberOfDocuments'] : 0,
 			'isIndexing'        => isset( $body['isIndexing'] ) ? (bool) $body['isIndexing'] : false,
@@ -163,7 +200,7 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 	}
 
 	/**
-	 * Configure index settings.
+	 * Configure index settings (searchable, filterable, sortable attributes).
 	 *
 	 * @param string $index_name Index name.
 	 * @param array  $settings   Settings.
@@ -171,18 +208,15 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 	 */
 	public function configure_index( string $index_name, array $settings ): bool {
 		$response = $this->request( 'PATCH', '/indexes/' . $index_name . '/settings', $settings );
-
 		if ( is_wp_error( $response ) ) {
 			wss_log( 'Failed to configure index: ' . $response->get_error_message(), 'error' );
 			return false;
 		}
-
-		$code = wp_remote_retrieve_response_code( $response );
-		return in_array( $code, array( 200, 202 ), true );
+		return in_array( wp_remote_retrieve_response_code( $response ), array( 200, 202 ), true );
 	}
 
 	/**
-	 * Index documents.
+	 * Add or replace documents in the index.
 	 *
 	 * @param string $index_name Index name.
 	 * @param array  $documents  Documents array.
@@ -190,49 +224,15 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 	 */
 	public function index_documents( string $index_name, array $documents ): array {
 		$response = $this->request( 'POST', '/indexes/' . $index_name . '/documents', $documents );
-
 		if ( is_wp_error( $response ) ) {
-			return array(
-				'success' => false,
-				'message' => $response->get_error_message(),
-			);
+			return array( 'success' => false, 'message' => $response->get_error_message() );
 		}
-
 		$body = json_decode( wp_remote_retrieve_body( $response ), true );
-
-		return array(
-			'success' => true,
-			'taskUid' => isset( $body['taskUid'] ) ? $body['taskUid'] : null,
-		);
+		return array( 'success' => true, 'taskUid' => isset( $body['taskUid'] ) ? $body['taskUid'] : null );
 	}
 
 	/**
-	 * Update documents.
-	 *
-	 * @param string $index_name Index name.
-	 * @param array  $documents  Documents array.
-	 * @return array
-	 */
-	public function update_documents( string $index_name, array $documents ): array {
-		$response = $this->request( 'PUT', '/indexes/' . $index_name . '/documents', $documents );
-
-		if ( is_wp_error( $response ) ) {
-			return array(
-				'success' => false,
-				'message' => $response->get_error_message(),
-			);
-		}
-
-		$body = json_decode( wp_remote_retrieve_body( $response ), true );
-
-		return array(
-			'success' => true,
-			'taskUid' => isset( $body['taskUid'] ) ? $body['taskUid'] : null,
-		);
-	}
-
-	/**
-	 * Delete a document.
+	 * Delete a single document.
 	 *
 	 * @param string $index_name  Index name.
 	 * @param string $document_id Document ID.
@@ -240,30 +240,24 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 	 */
 	public function delete_document( string $index_name, string $document_id ): bool {
 		$response = $this->request( 'DELETE', '/indexes/' . $index_name . '/documents/' . $document_id );
-
 		if ( is_wp_error( $response ) ) {
 			return false;
 		}
-
-		$code = wp_remote_retrieve_response_code( $response );
-		return in_array( $code, array( 200, 202 ), true );
+		return in_array( wp_remote_retrieve_response_code( $response ), array( 200, 202 ), true );
 	}
 
 	/**
-	 * Delete all documents.
+	 * Delete all documents from an index.
 	 *
 	 * @param string $index_name Index name.
 	 * @return bool
 	 */
 	public function delete_all_documents( string $index_name ): bool {
 		$response = $this->request( 'DELETE', '/indexes/' . $index_name . '/documents' );
-
 		if ( is_wp_error( $response ) ) {
 			return false;
 		}
-
-		$code = wp_remote_retrieve_response_code( $response );
-		return in_array( $code, array( 200, 202 ), true );
+		return in_array( wp_remote_retrieve_response_code( $response ), array( 200, 202 ), true );
 	}
 
 	/**
@@ -280,24 +274,19 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 		if ( isset( $options['limit'] ) ) {
 			$body['limit'] = (int) $options['limit'];
 		}
-
 		if ( isset( $options['offset'] ) ) {
 			$body['offset'] = (int) $options['offset'];
 		}
-
-		if ( isset( $options['filters'] ) && ! empty( $options['filters'] ) ) {
+		if ( ! empty( $options['filters'] ) ) {
 			$body['filter'] = $options['filters'];
 		}
-
-		if ( isset( $options['facets'] ) && ! empty( $options['facets'] ) ) {
+		if ( ! empty( $options['facets'] ) ) {
 			$body['facets'] = $options['facets'];
 		}
-
-		if ( isset( $options['sort'] ) && ! empty( $options['sort'] ) ) {
+		if ( ! empty( $options['sort'] ) ) {
 			$body['sort'] = (array) $options['sort'];
 		}
-
-		if ( isset( $options['highlight_fields'] ) && ! empty( $options['highlight_fields'] ) ) {
+		if ( ! empty( $options['highlight_fields'] ) ) {
 			$body['attributesToHighlight'] = $options['highlight_fields'];
 			$body['highlightPreTag']       = '<mark>';
 			$body['highlightPostTag']      = '</mark>';
@@ -307,18 +296,18 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 
 		if ( is_wp_error( $response ) ) {
 			return array(
-				'hits'             => array(),
-				'query'            => $query,
+				'hits'               => array(),
+				'query'              => $query,
 				'estimatedTotalHits' => 0,
-				'error'            => $response->get_error_message(),
+				'error'              => $response->get_error_message(),
 			);
 		}
 
 		$result = json_decode( wp_remote_retrieve_body( $response ), true );
 
 		return array(
-			'hits'             => isset( $result['hits'] ) ? $result['hits'] : array(),
-			'query'            => $query,
+			'hits'               => isset( $result['hits'] ) ? $result['hits'] : array(),
+			'query'              => $query,
 			'estimatedTotalHits' => isset( $result['estimatedTotalHits'] ) ? (int) $result['estimatedTotalHits'] : 0,
 			'facetDistribution'  => isset( $result['facetDistribution'] ) ? $result['facetDistribution'] : array(),
 			'processingTimeMs'   => isset( $result['processingTimeMs'] ) ? (int) $result['processingTimeMs'] : 0,
@@ -386,6 +375,45 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 	}
 
 	/**
+	 * Encrypt an API key for storage.
+	 *
+	 * @param string $key The plain API key.
+	 * @return string
+	 */
+	public static function encrypt_key( string $key ): string {
+		if ( empty( $key ) ) {
+			return '';
+		}
+		$salt = defined( 'AUTH_SALT' ) ? AUTH_SALT : 'wss-default-salt';
+		$iv   = substr( hash( 'sha256', $salt ), 0, 16 );
+		if ( function_exists( 'openssl_encrypt' ) ) {
+			$encrypted = openssl_encrypt( $key, 'AES-256-CBC', $salt, 0, $iv );
+			return base64_encode( $encrypted ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+		}
+		return base64_encode( $key ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+	}
+
+	/**
+	 * Decrypt an API key from storage.
+	 *
+	 * @param string $encrypted The encrypted API key.
+	 * @return string
+	 */
+	public static function decrypt_key( string $encrypted ): string {
+		if ( empty( $encrypted ) ) {
+			return '';
+		}
+		$salt = defined( 'AUTH_SALT' ) ? AUTH_SALT : 'wss-default-salt';
+		$iv   = substr( hash( 'sha256', $salt ), 0, 16 );
+		if ( function_exists( 'openssl_encrypt' ) ) {
+			$decoded   = base64_decode( $encrypted ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
+			$decrypted = openssl_decrypt( $decoded, 'AES-256-CBC', $salt, 0, $iv );
+			return false !== $decrypted ? $decrypted : $encrypted;
+		}
+		return base64_decode( $encrypted ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
+	}
+
+	/**
 	 * Make an HTTP request to Meilisearch.
 	 *
 	 * @param string     $method HTTP method.
@@ -402,11 +430,9 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 			),
 			'timeout' => 30,
 		);
-
 		if ( null !== $body ) {
 			$args['body'] = wp_json_encode( $body );
 		}
-
 		return wp_remote_request( $this->base_url . $path, $args );
 	}
 }

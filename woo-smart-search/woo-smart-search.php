@@ -2,8 +2,8 @@
 /**
  * Plugin Name:       Woo Smart Search
  * Plugin URI:        https://example.com/woo-smart-search
- * Description:       Replace WooCommerce native search with an instant, ultra-fast search experience powered by Meilisearch or Typesense.
- * Version:           1.0.0
+ * Description:       Replace WooCommerce native search with an instant, ultra-fast search experience powered by Meilisearch.
+ * Version:           2.0.0
  * Author:            Imagina
  * Author URI:        https://example.com
  * License:           GPL-2.0+
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Plugin constants.
-define( 'WSS_VERSION', '1.0.0' );
+define( 'WSS_VERSION', '2.0.0' );
 define( 'WSS_PLUGIN_FILE', __FILE__ );
 define( 'WSS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WSS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -65,22 +65,10 @@ function wss_autoloader( $class_name ) {
 
 	$directories = array(
 		WSS_PLUGIN_DIR . 'includes/',
-		WSS_PLUGIN_DIR . 'includes/engines/',
 		WSS_PLUGIN_DIR . 'includes/sync/',
 		WSS_PLUGIN_DIR . 'includes/admin/',
 		WSS_PLUGIN_DIR . 'includes/frontend/',
 	);
-
-	// Handle interface files.
-	if ( strpos( $class_name, 'Interface' ) !== false || strpos( $class_name, '_Search_Engine' ) !== false ) {
-		$interface_file = 'interface-' . strtolower( str_replace( '_', '-', $class_name ) ) . '.php';
-		foreach ( $directories as $dir ) {
-			if ( file_exists( $dir . $interface_file ) ) {
-				require_once $dir . $interface_file;
-				return;
-			}
-		}
-	}
 
 	foreach ( $directories as $dir ) {
 		if ( file_exists( $dir . $class_file ) ) {
@@ -137,12 +125,12 @@ function wss_init() {
 add_action( 'plugins_loaded', 'wss_init' );
 
 /**
- * Get the search engine instance.
+ * Get the Meilisearch instance (singleton).
  *
- * @return WSS_Search_Engine|null
+ * @return WSS_Meilisearch|null
  */
 function wss_get_engine() {
-	return WSS_Engine_Factory::get_instance();
+	return WSS_Meilisearch::get_instance();
 }
 
 /**

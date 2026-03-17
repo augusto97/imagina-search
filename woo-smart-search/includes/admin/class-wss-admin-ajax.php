@@ -27,6 +27,8 @@ class WSS_Admin_Ajax {
 		add_action( 'wp_ajax_wss_clear_logs', array( $this, 'clear_logs' ) );
 		add_action( 'wp_ajax_wss_export_logs', array( $this, 'export_logs' ) );
 		add_action( 'wp_ajax_wss_get_index_stats', array( $this, 'get_index_stats' ) );
+		add_action( 'wp_ajax_wss_get_analytics', array( $this, 'get_analytics' ) );
+		add_action( 'wp_ajax_wss_get_connection_status', array( $this, 'get_connection_status' ) );
 	}
 
 	/**
@@ -58,7 +60,7 @@ class WSS_Admin_Ajax {
 
 		// Connection tab fields.
 		$text_fields = array(
-			'engine', 'host', 'port', 'protocol', 'index_name',
+			'host', 'port', 'protocol', 'index_name',
 			'search_api_key', 'theme', 'primary_color', 'bg_color',
 			'text_color', 'border_color', 'font_size', 'border_radius',
 			'placeholder_text', 'custom_css', 'integration_mode',
@@ -75,7 +77,7 @@ class WSS_Admin_Ajax {
 		if ( isset( $_POST['api_key'] ) ) {
 			$raw_key = sanitize_text_field( wp_unslash( $_POST['api_key'] ) );
 			if ( ! empty( $raw_key ) ) {
-				$settings['api_key'] = WSS_Engine_Factory::encrypt_key( $raw_key );
+				$settings['api_key'] = WSS_Meilisearch::encrypt_key( $raw_key );
 			}
 		}
 
@@ -119,8 +121,8 @@ class WSS_Admin_Ajax {
 
 		update_option( 'wss_settings', $settings );
 
-		// Reset engine instance.
-		WSS_Engine_Factory::reset();
+		// Reset Meilisearch singleton so it picks up new config.
+		WSS_Meilisearch::reset();
 
 		wss_log( __( 'Settings updated', 'woo-smart-search' ), 'info' );
 
@@ -128,34 +130,32 @@ class WSS_Admin_Ajax {
 	}
 
 	/**
-	 * Test the search engine connection.
+	 * Test the Meilisearch connection.
 	 */
 	public function test_connection() {
 		$this->verify_request();
 
-		$engine_type = isset( $_POST['engine'] ) ? sanitize_text_field( wp_unslash( $_POST['engine'] ) ) : 'meilisearch';
-		$config      = array(
+		$config = array(
 			'host'     => isset( $_POST['host'] ) ? sanitize_text_field( wp_unslash( $_POST['host'] ) ) : '',
 			'port'     => isset( $_POST['port'] ) ? sanitize_text_field( wp_unslash( $_POST['port'] ) ) : '',
 			'protocol' => isset( $_POST['protocol'] ) ? sanitize_text_field( wp_unslash( $_POST['protocol'] ) ) : 'http',
 			'api_key'  => isset( $_POST['api_key'] ) ? sanitize_text_field( wp_unslash( $_POST['api_key'] ) ) : '',
 		);
 
-		$engine = WSS_Engine_Factory::create( $engine_type, $config );
+		$engine = WSS_Meilisearch::create( $config );
 		if ( ! $engine ) {
-			wp_send_json_error( array( 'message' => __( 'Invalid engine type.', 'woo-smart-search' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Could not create Meilisearch instance.', 'woo-smart-search' ) ) );
 			return;
 		}
 
 		$result = $engine->test_connection();
 
 		if ( $result['success'] ) {
-			do_action( 'wss_connection_established', $engine_type );
+			do_action( 'wss_connection_established', 'meilisearch' );
 			wss_log(
 				sprintf(
-					/* translators: 1: engine type 2: engine version */
-					__( 'Connection test successful: %1$s v%2$s', 'woo-smart-search' ),
-					$engine_type,
+					/* translators: %s: Meilisearch version */
+					__( 'Connection test successful: Meilisearch v%s', 'woo-smart-search' ),
 					$result['version']
 				),
 				'info'
@@ -210,9 +210,9 @@ class WSS_Admin_Ajax {
 	public function clear_index() {
 		$this->verify_request();
 
-		$engine = wss_get_engine();
+		$engine = WSS_Meilisearch::get_instance();
 		if ( ! $engine ) {
-			wp_send_json_error( array( 'message' => __( 'Search engine not configured.', 'woo-smart-search' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Meilisearch is not configured.', 'woo-smart-search' ) ) );
 			return;
 		}
 
@@ -235,17 +235,17 @@ class WSS_Admin_Ajax {
 
 		global $wpdb;
 
-		$table = $wpdb->prefix . 'wss_logs';
-		$type  = isset( $_POST['log_type'] ) ? sanitize_text_field( wp_unslash( $_POST['log_type'] ) ) : '';
-		$page  = isset( $_POST['page'] ) ? absint( $_POST['page'] ) : 1;
-		$limit = 50;
+		$table  = $wpdb->prefix . 'wss_logs';
+		$type   = isset( $_POST['log_type'] ) ? sanitize_text_field( wp_unslash( $_POST['log_type'] ) ) : '';
+		$page   = isset( $_POST['page'] ) ? absint( $_POST['page'] ) : 1;
+		$limit  = 50;
 		$offset = ( $page - 1 ) * $limit;
 
-		$where = '1=1';
+		$where  = '1=1';
 		$params = array();
 
 		if ( ! empty( $type ) ) {
-			$where .= ' AND type = %s';
+			$where   .= ' AND type = %s';
 			$params[] = $type;
 		}
 
@@ -290,7 +290,7 @@ class WSS_Admin_Ajax {
 		$table = $wpdb->prefix . 'wss_logs';
 		$logs  = $wpdb->get_results( "SELECT type, message, context, created_at FROM {$table} ORDER BY created_at DESC", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-		$csv_rows = array();
+		$csv_rows   = array();
 		$csv_rows[] = array( 'Type', 'Message', 'Context', 'Date' );
 		foreach ( $logs as $log ) {
 			$csv_rows[] = array( $log['type'], $log['message'], $log['context'], $log['created_at'] );
@@ -298,7 +298,7 @@ class WSS_Admin_Ajax {
 
 		$csv = '';
 		foreach ( $csv_rows as $row ) {
-			$csv .= '"' . implode( '","', array_map( function( $v ) { return str_replace( '"', '""', $v ); }, $row ) ) . "\"\n";
+			$csv .= '"' . implode( '","', array_map( function ( $v ) { return str_replace( '"', '""', $v ); }, $row ) ) . "\"\n";
 		}
 
 		wp_send_json_success( array( 'csv' => $csv ) );
@@ -310,9 +310,9 @@ class WSS_Admin_Ajax {
 	public function get_index_stats() {
 		$this->verify_request();
 
-		$engine = wss_get_engine();
+		$engine = WSS_Meilisearch::get_instance();
 		if ( ! $engine ) {
-			wp_send_json_error( array( 'message' => __( 'Search engine not configured.', 'woo-smart-search' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Meilisearch is not configured.', 'woo-smart-search' ) ) );
 			return;
 		}
 
@@ -322,5 +322,111 @@ class WSS_Admin_Ajax {
 		$stats['last_sync'] = wss_get_option( 'last_sync', 0 );
 
 		wp_send_json_success( $stats );
+	}
+
+	/**
+	 * Get search analytics data.
+	 *
+	 * Returns top queries, zero-result queries, search volume, and CTR.
+	 */
+	public function get_analytics() {
+		$this->verify_request();
+
+		$analytics = new WSS_Search_Analytics();
+		$period    = isset( $_POST['period'] ) ? sanitize_text_field( wp_unslash( $_POST['period'] ) ) : 'week';
+
+		$top_queries         = $analytics->get_top_queries( 20 );
+		$zero_result_queries = $analytics->get_zero_result_queries( 20 );
+		$search_volume       = $analytics->get_search_volume( $period );
+		$ctr                 = $analytics->get_click_through_rate();
+
+		// Calculate totals for today, week, and month.
+		$volume_today = $analytics->get_search_volume( 'today' );
+		$volume_week  = $analytics->get_search_volume( 'week' );
+		$volume_month = $analytics->get_search_volume( 'month' );
+
+		$total_today = 0;
+		foreach ( $volume_today as $day ) {
+			$total_today += (int) $day->count;
+		}
+
+		$total_week = 0;
+		foreach ( $volume_week as $day ) {
+			$total_week += (int) $day->count;
+		}
+
+		$total_month = 0;
+		foreach ( $volume_month as $day ) {
+			$total_month += (int) $day->count;
+		}
+
+		wp_send_json_success(
+			array(
+				'top_queries'         => $top_queries,
+				'zero_result_queries' => $zero_result_queries,
+				'search_volume'       => $search_volume,
+				'click_through_rate'  => $ctr,
+				'totals'              => array(
+					'today' => $total_today,
+					'week'  => $total_week,
+					'month' => $total_month,
+				),
+			)
+		);
+	}
+
+	/**
+	 * Get the current Meilisearch connection status.
+	 *
+	 * Returns status (connected, error, not_configured), version, and document count.
+	 */
+	public function get_connection_status() {
+		$this->verify_request();
+
+		$error = get_transient( 'wss_connection_error' );
+		if ( $error ) {
+			wp_send_json_success(
+				array(
+					'status'  => 'error',
+					'message' => $error,
+				)
+			);
+			return;
+		}
+
+		$engine = WSS_Meilisearch::get_instance();
+		if ( ! $engine ) {
+			wp_send_json_success(
+				array(
+					'status'  => 'not_configured',
+					'message' => __( 'Meilisearch is not configured.', 'woo-smart-search' ),
+				)
+			);
+			return;
+		}
+
+		$result = $engine->test_connection();
+		if ( ! $result['success'] ) {
+			wp_send_json_success(
+				array(
+					'status'  => 'error',
+					'message' => $result['message'],
+				)
+			);
+			return;
+		}
+
+		// Get document count.
+		$index_name = wss_get_option( 'index_name', 'woo_products' );
+		$stats      = $engine->get_index_stats( $index_name );
+		$doc_count  = isset( $stats['numberOfDocuments'] ) ? (int) $stats['numberOfDocuments'] : 0;
+
+		wp_send_json_success(
+			array(
+				'status'    => 'connected',
+				'version'   => isset( $result['version'] ) ? $result['version'] : '',
+				'documents' => $doc_count,
+			)
+		);
 	}
 }

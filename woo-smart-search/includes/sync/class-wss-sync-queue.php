@@ -3,6 +3,7 @@
  * Sync Queue.
  *
  * Manages the product sync queue using Action Scheduler.
+ * Uses WSS_Meilisearch via wss_get_engine() for engine access.
  *
  * @package WooSmartSearch
  */
@@ -80,9 +81,25 @@ class WSS_Sync_Queue {
 
 	/**
 	 * Process the sync queue.
+	 *
+	 * Uses WSS_Meilisearch via wss_get_engine() for engine access.
 	 */
 	public function process_queue() {
 		global $wpdb;
+
+		// Verify the engine is available before processing.
+		$engine = wss_get_engine();
+
+		if ( ! $engine ) {
+			wss_log( __( 'Sync queue: Meilisearch engine not available. Rescheduling.', 'woo-smart-search' ), 'warning' );
+
+			// Reschedule so items are not lost.
+			if ( function_exists( 'as_schedule_single_action' ) ) {
+				as_schedule_single_action( time() + self::QUEUE_DELAY, 'wss_process_sync_queue', array(), 'woo-smart-search' );
+			}
+
+			return;
+		}
 
 		$table = $wpdb->prefix . 'wss_sync_queue';
 		$sync  = new WSS_Product_Sync();
@@ -102,6 +119,7 @@ class WSS_Sync_Queue {
 			$action     = $item['action'];
 
 			$success = false;
+
 			if ( 'delete' === $action ) {
 				$success = $sync->delete_single_product( $product_id );
 			} else {
@@ -128,8 +146,9 @@ class WSS_Sync_Queue {
 			)
 		);
 
-		// If more pending items, schedule again.
+		// If more pending items remain, schedule another run.
 		$remaining = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE status = 'pending'" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
 		if ( $remaining > 0 && function_exists( 'as_schedule_single_action' ) ) {
 			as_schedule_single_action( time() + 5, 'wss_process_sync_queue', array(), 'woo-smart-search' );
 		}
