@@ -1,0 +1,427 @@
+# Spanish (Spain) translation for Woo Smart Search
+# Copyright (C) 2024 Imagina
+# This file is distributed under the GPL-2.0+.
+msgid ""
+msgstr ""
+"Project-Id-Version: Woo Smart Search 1.0.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-01-01 00:00+0000\n"
+"PO-Revision-Date: 2024-01-01 00:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: Spanish (Spain)\n"
+"Language: es_ES\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Woo Smart Search requires WooCommerce to be installed and active."
+msgstr "Woo Smart Search requiere que WooCommerce esté instalado y activo."
+
+msgid "Health check failed: %s"
+msgstr "Verificación de estado falló: %s"
+
+msgid "Settings"
+msgstr "Ajustes"
+
+msgid "Smart Search"
+msgstr "Búsqueda Inteligente"
+
+msgid "Testing connection..."
+msgstr "Probando conexión..."
+
+msgid "Connection successful!"
+msgstr "¡Conexión exitosa!"
+
+msgid "Connection failed:"
+msgstr "Conexión fallida:"
+
+msgid "Synchronization started."
+msgstr "Sincronización iniciada."
+
+msgid "Synchronization completed!"
+msgstr "¡Sincronización completada!"
+
+msgid "Synchronization failed:"
+msgstr "Sincronización fallida:"
+
+msgid "This will re-index all products. Continue?"
+msgstr "Esto re-indexará todos los productos. ¿Continuar?"
+
+msgid "This will delete ALL indexed data. Are you sure?"
+msgstr "Esto eliminará TODOS los datos indexados. ¿Estás seguro?"
+
+msgid "Delete all logs?"
+msgstr "¿Eliminar todos los registros?"
+
+msgid "Saving..."
+msgstr "Guardando..."
+
+msgid "Settings saved."
+msgstr "Ajustes guardados."
+
+msgid "An error occurred."
+msgstr "Ocurrió un error."
+
+msgid "Woo Smart Search"
+msgstr "Woo Smart Search"
+
+msgid "Connection"
+msgstr "Conexión"
+
+msgid "Indexing"
+msgstr "Indexación"
+
+msgid "Search"
+msgstr "Búsqueda"
+
+msgid "Appearance"
+msgstr "Apariencia"
+
+msgid "Logs"
+msgstr "Registros"
+
+msgid "Search Engine"
+msgstr "Motor de Búsqueda"
+
+msgid "Host"
+msgstr "Servidor"
+
+msgid "Server hostname or IP address (without protocol)."
+msgstr "Nombre de host o dirección IP del servidor (sin protocolo)."
+
+msgid "Port"
+msgstr "Puerto"
+
+msgid "Meilisearch default: 7700, Typesense default: 8108"
+msgstr "Meilisearch por defecto: 7700, Typesense por defecto: 8108"
+
+msgid "Protocol"
+msgstr "Protocolo"
+
+msgid "API Key (Master)"
+msgstr "API Key (Maestra)"
+
+msgid "Master API key for admin operations. Leave empty to keep current."
+msgstr "API key maestra para operaciones de administración. Dejar vacío para mantener la actual."
+
+msgid "Search API Key"
+msgstr "API Key de Búsqueda"
+
+msgid "Read-only key (optional, not exposed to frontend)."
+msgstr "Clave de solo lectura (opcional, no se expone al frontend)."
+
+msgid "Index Name"
+msgstr "Nombre del Índice"
+
+msgid "Test Connection"
+msgstr "Probar Conexión"
+
+msgid "Save Settings"
+msgstr "Guardar Ajustes"
+
+msgid "Synchronization"
+msgstr "Sincronización"
+
+msgid "WooCommerce Products"
+msgstr "Productos WooCommerce"
+
+msgid "Indexed Documents"
+msgstr "Documentos Indexados"
+
+msgid "Last Sync"
+msgstr "Última Sincronización"
+
+msgid "Never"
+msgstr "Nunca"
+
+msgid "Full Sync"
+msgstr "Sincronización Completa"
+
+msgid "Clear Index"
+msgstr "Limpiar Índice"
+
+msgid "Indexing Settings"
+msgstr "Ajustes de Indexación"
+
+msgid "Batch Size"
+msgstr "Tamaño de Lote"
+
+msgid "Products per batch during full sync. Default: 100."
+msgstr "Productos por lote durante la sincronización completa. Por defecto: 100."
+
+msgid "Index Out of Stock"
+msgstr "Indexar Agotados"
+
+msgid "Include out-of-stock products in the index"
+msgstr "Incluir productos agotados en el índice"
+
+msgid "Index Hidden Products"
+msgstr "Indexar Productos Ocultos"
+
+msgid "Include products hidden from catalog"
+msgstr "Incluir productos ocultos del catálogo"
+
+msgid "Exclude Categories"
+msgstr "Excluir Categorías"
+
+msgid "Products in these categories will not be indexed."
+msgstr "Los productos en estas categorías no serán indexados."
+
+msgid "Custom Fields"
+msgstr "Campos Personalizados"
+
+msgid "Custom meta fields / ACF fields to include in the index."
+msgstr "Campos meta personalizados / campos ACF para incluir en el índice."
+
+msgid "Autocomplete Results"
+msgstr "Resultados de Autocompletado"
+
+msgid "Maximum results shown in the autocomplete dropdown."
+msgstr "Máximo de resultados mostrados en el desplegable de autocompletado."
+
+msgid "Results Per Page"
+msgstr "Resultados por Página"
+
+msgid "Faceted Filters"
+msgstr "Filtros Facetados"
+
+msgid "Enable faceted filters in search results"
+msgstr "Habilitar filtros facetados en los resultados de búsqueda"
+
+msgid "Visible Facets"
+msgstr "Facetas Visibles"
+
+msgid "Categories"
+msgstr "Categorías"
+
+msgid "Price"
+msgstr "Precio"
+
+msgid "Stock"
+msgstr "Stock"
+
+msgid "Attributes"
+msgstr "Atributos"
+
+msgid "Brands"
+msgstr "Marcas"
+
+msgid "Rating"
+msgstr "Valoración"
+
+msgid "Search by SKU"
+msgstr "Buscar por SKU"
+
+msgid "Include SKU in searchable fields"
+msgstr "Incluir SKU en los campos de búsqueda"
+
+msgid "Out of Stock Results"
+msgstr "Resultados Agotados"
+
+msgid "Show out-of-stock products in search results"
+msgstr "Mostrar productos agotados en los resultados de búsqueda"
+
+msgid "Cache TTL (seconds)"
+msgstr "Caché TTL (segundos)"
+
+msgid "How long to cache search results. 0 to disable."
+msgstr "Tiempo de caché de resultados de búsqueda. 0 para deshabilitar."
+
+msgid "Rate Limit"
+msgstr "Límite de Peticiones"
+
+msgid "Max requests per minute per IP."
+msgstr "Máximo de peticiones por minuto por IP."
+
+msgid "Synonyms"
+msgstr "Sinónimos"
+
+msgid "Stop Words"
+msgstr "Palabras Vacías"
+
+msgid "Integration Mode"
+msgstr "Modo de Integración"
+
+msgid "Replace native search"
+msgstr "Reemplazar búsqueda nativa"
+
+msgid "Shortcode only"
+msgstr "Solo shortcode"
+
+msgid "Theme"
+msgstr "Tema"
+
+msgid "Light"
+msgstr "Claro"
+
+msgid "Dark"
+msgstr "Oscuro"
+
+msgid "Custom"
+msgstr "Personalizado"
+
+msgid "Primary Color"
+msgstr "Color Primario"
+
+msgid "Background Color"
+msgstr "Color de Fondo"
+
+msgid "Text Color"
+msgstr "Color de Texto"
+
+msgid "Border Color"
+msgstr "Color de Borde"
+
+msgid "Font Size (px)"
+msgstr "Tamaño de Fuente (px)"
+
+msgid "Border Radius (px)"
+msgstr "Radio de Borde (px)"
+
+msgid "Visible Elements"
+msgstr "Elementos Visibles"
+
+msgid "Product image"
+msgstr "Imagen del producto"
+
+msgid "Stock status"
+msgstr "Estado de stock"
+
+msgid "Placeholder Text"
+msgstr "Texto del Placeholder"
+
+msgid "Custom CSS"
+msgstr "CSS Personalizado"
+
+msgid "Preview"
+msgstr "Vista Previa"
+
+msgid "All types"
+msgstr "Todos los tipos"
+
+msgid "Info"
+msgstr "Info"
+
+msgid "Warning"
+msgstr "Advertencia"
+
+msgid "Error"
+msgstr "Error"
+
+msgid "Refresh"
+msgstr "Actualizar"
+
+msgid "Export CSV"
+msgstr "Exportar CSV"
+
+msgid "Clear Logs"
+msgstr "Limpiar Registros"
+
+msgid "Type"
+msgstr "Tipo"
+
+msgid "Message"
+msgstr "Mensaje"
+
+msgid "Date"
+msgstr "Fecha"
+
+msgid "Search products..."
+msgstr "Buscar productos..."
+
+msgid "No results found for"
+msgstr "No se encontraron resultados para"
+
+msgid "View all %d results"
+msgstr "Ver los %d resultados"
+
+msgid "Connection error, please try again"
+msgstr "Error de conexión, inténtalo de nuevo"
+
+msgid "In stock"
+msgstr "En stock"
+
+msgid "Out of stock"
+msgstr "Agotado"
+
+msgid "On backorder"
+msgstr "Bajo pedido"
+
+msgid "Clear search"
+msgstr "Limpiar búsqueda"
+
+msgid "Product search"
+msgstr "Búsqueda de productos"
+
+msgid "Smart product search bar with instant results."
+msgstr "Barra de búsqueda inteligente de productos con resultados instantáneos."
+
+msgid "Search Products"
+msgstr "Buscar Productos"
+
+msgid "Rate limit exceeded. Please try again later."
+msgstr "Límite de peticiones excedido. Por favor, inténtalo más tarde."
+
+msgid "Search engine not configured."
+msgstr "Motor de búsqueda no configurado."
+
+msgid "Invalid security token."
+msgstr "Token de seguridad inválido."
+
+msgid "Insufficient permissions."
+msgstr "Permisos insuficientes."
+
+msgid "Settings saved successfully."
+msgstr "Ajustes guardados correctamente."
+
+msgid "Connection test successful: %1$s v%2$s"
+msgstr "Prueba de conexión exitosa: %1$s v%2$s"
+
+msgid "Invalid engine type."
+msgstr "Tipo de motor inválido."
+
+msgid "Index cleared successfully."
+msgstr "Índice limpiado correctamente."
+
+msgid "Failed to clear index."
+msgstr "Error al limpiar el índice."
+
+msgid "Logs cleared."
+msgstr "Registros limpiados."
+
+msgid "Settings updated"
+msgstr "Ajustes actualizados"
+
+msgid "Index cleared"
+msgstr "Índice limpiado"
+
+msgid "Starting full sync of %d products"
+msgstr "Iniciando sincronización completa de %d productos"
+
+msgid "No products to sync."
+msgstr "No hay productos para sincronizar."
+
+msgid "Sync started: %1$d products in %2$d batches"
+msgstr "Sincronización iniciada: %1$d productos en %2$d lotes"
+
+msgid "Batch %1$d failed: %2$s"
+msgstr "Lote %1$d falló: %2$s"
+
+msgid "Full sync completed: %1$d products processed, %2$d errors"
+msgstr "Sincronización completa: %1$d productos procesados, %2$d errores"
+
+msgid "Connected successfully to Meilisearch"
+msgstr "Conectado exitosamente a Meilisearch"
+
+msgid "Meilisearch returned HTTP %d"
+msgstr "Meilisearch devolvió HTTP %d"
+
+msgid "Connected successfully to Typesense"
+msgstr "Conectado exitosamente a Typesense"
+
+msgid "Typesense returned HTTP %d"
+msgstr "Typesense devolvió HTTP %d"
+
+msgid "Documents indexed successfully"
+msgstr "Documentos indexados correctamente"

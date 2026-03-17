@@ -1,0 +1,180 @@
+/**
+ * Woo Smart Search - Admin Styles
+ */
+
+.wss-admin-wrap {
+	max-width: 900px;
+}
+
+.wss-tabs {
+	margin-bottom: 20px;
+}
+
+/* Stats Grid */
+.wss-stats-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	gap: 16px;
+	margin: 20px 0;
+}
+
+.wss-stat-card {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 16px 20px;
+	display: flex;
+	flex-direction: column;
+}
+
+.wss-stat-label {
+	font-size: 12px;
+	color: #646970;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	margin-bottom: 4px;
+}
+
+.wss-stat-value {
+	font-size: 24px;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+/* Sync Actions */
+.wss-sync-actions {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	margin: 16px 0;
+	flex-wrap: wrap;
+}
+
+/* Progress Bar */
+.wss-progress-bar {
+	margin: 16px 0;
+}
+
+.wss-progress-bar-inner {
+	background: #f0f0f1;
+	border-radius: 4px;
+	height: 24px;
+	overflow: hidden;
+}
+
+.wss-progress-bar-fill {
+	height: 100%;
+	background: #2271b1;
+	border-radius: 4px;
+	transition: width 0.3s ease;
+}
+
+.wss-progress-text {
+	display: inline-block;
+	margin-top: 4px;
+	font-size: 13px;
+	color: #646970;
+}
+
+/* Status Messages */
+.wss-status-message {
+	display: inline-block;
+	margin-left: 8px;
+	font-size: 13px;
+	color: #00a32a;
+}
+
+.wss-status-message.wss-error {
+	color: #d63638;
+}
+
+/* Notice */
+.wss-notice {
+	padding: 12px 16px;
+	margin: 12px 0;
+	border-radius: 4px;
+	border-left: 4px solid #2271b1;
+	background: #f0f6fc;
+}
+
+.wss-notice.wss-notice-success {
+	border-left-color: #00a32a;
+	background: #edfaef;
+}
+
+.wss-notice.wss-notice-error {
+	border-left-color: #d63638;
+	background: #fcf0f1;
+}
+
+/* Sync Section */
+.wss-sync-section {
+	margin-bottom: 30px;
+	padding-bottom: 20px;
+	border-bottom: 1px solid #c3c4c7;
+}
+
+/* Select Multi */
+.wss-select-multi {
+	min-width: 300px;
+	min-height: 120px;
+}
+
+/* Logs */
+.wss-logs-toolbar {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	margin-bottom: 12px;
+	flex-wrap: wrap;
+}
+
+.wss-col-type {
+	width: 80px;
+}
+
+.wss-col-date {
+	width: 160px;
+}
+
+.wss-log-type {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: 3px;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+}
+
+.wss-log-type-info {
+	background: #e7f0f7;
+	color: #2271b1;
+}
+
+.wss-log-type-warning {
+	background: #fef8e7;
+	color: #996800;
+}
+
+.wss-log-type-error {
+	background: #fcf0f1;
+	color: #d63638;
+}
+
+/* Form */
+.wss-form .form-table th {
+	width: 200px;
+}
+
+/* Preview */
+.wss-preview-section {
+	margin-top: 30px;
+	padding-top: 20px;
+	border-top: 1px solid #c3c4c7;
+}
+
+.wss-admin-preview {
+	padding: 30px;
+	background: #f6f7f7;
+	border-radius: 4px;
+}
