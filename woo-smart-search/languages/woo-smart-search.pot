@@ -1,0 +1,274 @@
+# Copyright (C) 2024 Imagina
+# This file is distributed under the GPL-2.0+.
+msgid ""
+msgstr ""
+"Project-Id-Version: Woo Smart Search 1.0.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-01-01 00:00+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: woo-smart-search.php
+msgid "Woo Smart Search requires WooCommerce to be installed and active."
+msgstr ""
+
+#: includes/class-wss-loader.php
+msgid "Health check failed: %s"
+msgstr ""
+
+#: includes/class-wss-loader.php
+msgid "Settings"
+msgstr ""
+
+#: includes/admin/class-wss-admin.php
+msgid "Smart Search"
+msgstr ""
+
+#: includes/admin/class-wss-admin.php
+msgid "Testing connection..."
+msgstr ""
+
+#: includes/admin/class-wss-admin.php
+msgid "Connection successful!"
+msgstr ""
+
+#: includes/admin/class-wss-admin.php
+msgid "Connection failed:"
+msgstr ""
+
+#: includes/admin/class-wss-admin.php
+msgid "Synchronization started."
+msgstr ""
+
+#: includes/admin/class-wss-admin.php
+msgid "Synchronization completed!"
+msgstr ""
+
+#: includes/admin/class-wss-admin.php
+msgid "Synchronization failed:"
+msgstr ""
+
+#: includes/admin/class-wss-admin.php
+msgid "This will re-index all products. Continue?"
+msgstr ""
+
+#: includes/admin/class-wss-admin.php
+msgid "This will delete ALL indexed data. Are you sure?"
+msgstr ""
+
+#: includes/admin/class-wss-admin.php
+msgid "Delete all logs?"
+msgstr ""
+
+#: includes/admin/class-wss-admin.php
+msgid "Saving..."
+msgstr ""
+
+#: includes/admin/class-wss-admin.php
+msgid "Settings saved."
+msgstr ""
+
+#: includes/admin/class-wss-admin.php
+msgid "An error occurred."
+msgstr ""
+
+#: includes/admin/views/settings-page.php
+msgid "Woo Smart Search"
+msgstr ""
+
+#: includes/admin/views/settings-page.php
+msgid "Connection"
+msgstr ""
+
+#: includes/admin/views/settings-page.php
+msgid "Indexing"
+msgstr ""
+
+#: includes/admin/views/settings-page.php
+msgid "Search"
+msgstr ""
+
+#: includes/admin/views/settings-page.php
+msgid "Appearance"
+msgstr ""
+
+#: includes/admin/views/settings-page.php
+msgid "Logs"
+msgstr ""
+
+#: includes/admin/views/tab-connection.php
+msgid "Search Engine"
+msgstr ""
+
+#: includes/admin/views/tab-connection.php
+msgid "Host"
+msgstr ""
+
+#: includes/admin/views/tab-connection.php
+msgid "Server hostname or IP address (without protocol)."
+msgstr ""
+
+#: includes/admin/views/tab-connection.php
+msgid "Port"
+msgstr ""
+
+#: includes/admin/views/tab-connection.php
+msgid "Protocol"
+msgstr ""
+
+#: includes/admin/views/tab-connection.php
+msgid "API Key (Master)"
+msgstr ""
+
+#: includes/admin/views/tab-connection.php
+msgid "Master API key for admin operations. Leave empty to keep current."
+msgstr ""
+
+#: includes/admin/views/tab-connection.php
+msgid "Search API Key"
+msgstr ""
+
+#: includes/admin/views/tab-connection.php
+msgid "Read-only key (optional, not exposed to frontend)."
+msgstr ""
+
+#: includes/admin/views/tab-connection.php
+msgid "Index Name"
+msgstr ""
+
+#: includes/admin/views/tab-connection.php
+msgid "Test Connection"
+msgstr ""
+
+#: includes/admin/views/tab-connection.php
+msgid "Save Settings"
+msgstr ""
+
+#: includes/admin/views/sync-status.php
+msgid "Synchronization"
+msgstr ""
+
+#: includes/admin/views/sync-status.php
+msgid "WooCommerce Products"
+msgstr ""
+
+#: includes/admin/views/sync-status.php
+msgid "Indexed Documents"
+msgstr ""
+
+#: includes/admin/views/sync-status.php
+msgid "Last Sync"
+msgstr ""
+
+#: includes/admin/views/sync-status.php
+msgid "Never"
+msgstr ""
+
+#: includes/admin/views/sync-status.php
+msgid "Full Sync"
+msgstr ""
+
+#: includes/admin/views/sync-status.php
+msgid "Clear Index"
+msgstr ""
+
+#: includes/admin/views/sync-status.php
+msgid "Indexing Settings"
+msgstr ""
+
+#: includes/admin/views/sync-status.php
+msgid "Batch Size"
+msgstr ""
+
+#: includes/admin/views/sync-status.php
+msgid "Products per batch during full sync. Default: 100."
+msgstr ""
+
+#: includes/admin/views/sync-status.php
+msgid "Index Out of Stock"
+msgstr ""
+
+#: includes/admin/views/sync-status.php
+msgid "Include out-of-stock products in the index"
+msgstr ""
+
+#: includes/admin/views/sync-status.php
+msgid "Index Hidden Products"
+msgstr ""
+
+#: includes/admin/views/sync-status.php
+msgid "Include products hidden from catalog"
+msgstr ""
+
+#: includes/admin/views/sync-status.php
+msgid "Exclude Categories"
+msgstr ""
+
+#: includes/admin/views/sync-status.php
+msgid "Products in these categories will not be indexed."
+msgstr ""
+
+#: includes/admin/views/sync-status.php
+msgid "Custom Fields"
+msgstr ""
+
+#: includes/admin/views/sync-status.php
+msgid "Custom meta fields / ACF fields to include in the index."
+msgstr ""
+
+#: includes/frontend/class-wss-frontend.php
+msgid "Search products..."
+msgstr ""
+
+#: includes/frontend/class-wss-frontend.php
+msgid "No results found for"
+msgstr ""
+
+#: includes/frontend/class-wss-frontend.php
+msgid "View all %d results"
+msgstr ""
+
+#: includes/frontend/class-wss-frontend.php
+msgid "Connection error, please try again"
+msgstr ""
+
+#: includes/frontend/class-wss-frontend.php
+msgid "In stock"
+msgstr ""
+
+#: includes/frontend/class-wss-frontend.php
+msgid "Out of stock"
+msgstr ""
+
+#: includes/frontend/class-wss-frontend.php
+msgid "On backorder"
+msgstr ""
+
+#: includes/frontend/class-wss-frontend.php
+msgid "Clear search"
+msgstr ""
+
+#: templates/search-widget.php
+msgid "Product search"
+msgstr ""
+
+#: includes/frontend/class-wss-shortcode.php
+msgid "Woo Smart Search"
+msgstr ""
+
+#: includes/frontend/class-wss-shortcode.php
+msgid "Smart product search bar with instant results."
+msgstr ""
+
+#: includes/frontend/class-wss-shortcode.php
+msgid "Search Products"
+msgstr ""
+
+#: includes/frontend/class-wss-rest-api.php
+msgid "Rate limit exceeded. Please try again later."
+msgstr ""
