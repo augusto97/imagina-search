@@ -13,8 +13,10 @@
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
+
+$widget_layout = $settings['widget_layout'] ?? 'standard';
 ?>
-<div class="wss-search-wrapper" role="search" aria-label="<?php esc_attr_e( 'Product search', 'woo-smart-search' ); ?>" style="width:<?php echo esc_attr( $width ); ?>">
+<div class="wss-search-wrapper wss-layout-<?php echo esc_attr( $widget_layout ); ?>" role="search" aria-label="<?php esc_attr_e( 'Product search', 'woo-smart-search' ); ?>" style="width:<?php echo esc_attr( $width ); ?>">
 	<div class="wss-search-input-container">
 		<input
 			type="search"
@@ -37,45 +39,49 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 	<div class="wss-results-dropdown" role="listbox" id="wss-results-list" aria-label="<?php esc_attr_e( 'Search results', 'woo-smart-search' ); ?>">
 
-		<!-- Category Suggestions -->
-		<div class="wss-results-categories" role="group" aria-label="<?php esc_attr_e( 'Category suggestions', 'woo-smart-search' ); ?>"></div>
-
-		<!-- Skeleton Loading -->
-		<div class="wss-results-skeleton" aria-hidden="true">
-			<div class="wss-skeleton-item">
-				<div class="wss-skeleton-image"></div>
-				<div class="wss-skeleton-lines">
-					<div class="wss-skeleton-line wss-skeleton-line--short"></div>
-					<div class="wss-skeleton-line wss-skeleton-line--long"></div>
-					<div class="wss-skeleton-line wss-skeleton-line--medium"></div>
+		<?php if ( 'expanded' === $widget_layout ) : ?>
+		<!-- Expanded layout: two-column -->
+		<div class="wss-expanded-columns">
+			<!-- Left sidebar: suggestions, popular, categories -->
+			<div class="wss-expanded-sidebar">
+				<div class="wss-popular-searches">
+					<h5 class="wss-sidebar-heading"></h5>
+					<ul class="wss-popular-list"></ul>
+				</div>
+				<div class="wss-sidebar-categories">
+					<h5 class="wss-sidebar-heading"></h5>
+					<ul class="wss-sidebar-categories-list"></ul>
+				</div>
+				<div class="wss-suggestions">
+					<h5 class="wss-sidebar-heading"></h5>
+					<ul class="wss-suggestions-list"></ul>
 				</div>
 			</div>
-			<div class="wss-skeleton-item">
-				<div class="wss-skeleton-image"></div>
-				<div class="wss-skeleton-lines">
-					<div class="wss-skeleton-line wss-skeleton-line--short"></div>
-					<div class="wss-skeleton-line wss-skeleton-line--long"></div>
-					<div class="wss-skeleton-line wss-skeleton-line--medium"></div>
+			<!-- Right: product results -->
+			<div class="wss-expanded-main">
+				<div class="wss-results-categories" role="group" aria-label="<?php esc_attr_e( 'Category suggestions', 'woo-smart-search' ); ?>"></div>
+				<div class="wss-results-skeleton" aria-hidden="true">
+					<div class="wss-skeleton-item"><div class="wss-skeleton-image"></div><div class="wss-skeleton-lines"><div class="wss-skeleton-line wss-skeleton-line--short"></div><div class="wss-skeleton-line wss-skeleton-line--long"></div><div class="wss-skeleton-line wss-skeleton-line--medium"></div></div></div>
+					<div class="wss-skeleton-item"><div class="wss-skeleton-image"></div><div class="wss-skeleton-lines"><div class="wss-skeleton-line wss-skeleton-line--short"></div><div class="wss-skeleton-line wss-skeleton-line--long"></div><div class="wss-skeleton-line wss-skeleton-line--medium"></div></div></div>
+					<div class="wss-skeleton-item"><div class="wss-skeleton-image"></div><div class="wss-skeleton-lines"><div class="wss-skeleton-line wss-skeleton-line--short"></div><div class="wss-skeleton-line wss-skeleton-line--long"></div><div class="wss-skeleton-line wss-skeleton-line--medium"></div></div></div>
 				</div>
-			</div>
-			<div class="wss-skeleton-item">
-				<div class="wss-skeleton-image"></div>
-				<div class="wss-skeleton-lines">
-					<div class="wss-skeleton-line wss-skeleton-line--short"></div>
-					<div class="wss-skeleton-line wss-skeleton-line--long"></div>
-					<div class="wss-skeleton-line wss-skeleton-line--medium"></div>
-				</div>
+				<div class="wss-results-products"></div>
+				<div class="wss-results-empty" role="status"></div>
+				<div class="wss-results-error" role="alert"></div>
 			</div>
 		</div>
-
-		<!-- Product Results -->
+		<?php else : ?>
+		<!-- Standard / Compact layout -->
+		<div class="wss-results-categories" role="group" aria-label="<?php esc_attr_e( 'Category suggestions', 'woo-smart-search' ); ?>"></div>
+		<div class="wss-results-skeleton" aria-hidden="true">
+			<div class="wss-skeleton-item"><div class="wss-skeleton-image"></div><div class="wss-skeleton-lines"><div class="wss-skeleton-line wss-skeleton-line--short"></div><div class="wss-skeleton-line wss-skeleton-line--long"></div><div class="wss-skeleton-line wss-skeleton-line--medium"></div></div></div>
+			<div class="wss-skeleton-item"><div class="wss-skeleton-image"></div><div class="wss-skeleton-lines"><div class="wss-skeleton-line wss-skeleton-line--short"></div><div class="wss-skeleton-line wss-skeleton-line--long"></div><div class="wss-skeleton-line wss-skeleton-line--medium"></div></div></div>
+			<div class="wss-skeleton-item"><div class="wss-skeleton-image"></div><div class="wss-skeleton-lines"><div class="wss-skeleton-line wss-skeleton-line--short"></div><div class="wss-skeleton-line wss-skeleton-line--long"></div><div class="wss-skeleton-line wss-skeleton-line--medium"></div></div></div>
+		</div>
 		<div class="wss-results-products"></div>
-
-		<!-- Empty State -->
 		<div class="wss-results-empty" role="status"></div>
-
-		<!-- Error State -->
 		<div class="wss-results-error" role="alert"></div>
+		<?php endif; ?>
 
 		<!-- Footer -->
 		<div class="wss-results-footer">
