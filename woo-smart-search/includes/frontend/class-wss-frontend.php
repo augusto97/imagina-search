@@ -103,7 +103,7 @@ class WSS_Frontend {
 				'decimals'       => (int) get_option( 'woocommerce_price_num_decimals', 2 ),
 				'decimalSep'     => get_option( 'woocommerce_price_decimal_sep', '.' ),
 				'thousandSep'    => get_option( 'woocommerce_price_thousand_sep', ',' ),
-				'searchUrl'      => home_url( '/?s={query}&post_type=product' ),
+				'searchUrl'      => self::get_search_url_template(),
 				'placeholderImg' => WSS_PLUGIN_URL . 'assets/images/placeholder.svg',
 				'i18n'           => array(
 					'placeholder'      => ! empty( $settings['placeholder_text'] ) ? $settings['placeholder_text'] : __( 'Search products...', 'woo-smart-search' ),
@@ -132,15 +132,18 @@ class WSS_Frontend {
 
 	/**
 	 * Enqueue search results page assets when applicable.
+	 *
+	 * @param bool $force Force enqueue regardless of context (used by shortcode).
 	 */
-	public function enqueue_results_page_assets() {
-		if ( ! is_search() || get_query_var( 'post_type' ) !== 'product' ) {
-			return;
-		}
+	public function enqueue_results_page_assets( $force = false ) {
+		if ( ! $force ) {
+			// Also enqueue on the designated results page.
+			$results_page_id = (int) wss_get_option( 'results_page_id', 0 );
+			$is_results_page = $results_page_id && is_page( $results_page_id );
 
-		$mode = wss_get_option( 'integration_mode', 'replace' );
-		if ( 'replace' !== $mode ) {
-			return;
+			if ( ! $is_results_page && ( ! is_search() || get_query_var( 'post_type' ) !== 'product' ) ) {
+				return;
+			}
 		}
 
 		wp_enqueue_style(
@@ -228,10 +231,11 @@ class WSS_Frontend {
 	}
 
 	/**
-	 * Replace the WooCommerce product search results template.
+	 * Redirect WooCommerce product searches to the designated results page.
 	 *
-	 * Injects the faceted results page HTML via the_content filter
-	 * instead of replacing the entire template file.
+	 * If a results page is configured, redirect ?s=query&post_type=product
+	 * to that page with the query parameter preserved.
+	 * Falls back to template override if no page is configured.
 	 *
 	 * @param string $template Current template path.
 	 * @return string
@@ -241,6 +245,19 @@ class WSS_Frontend {
 			return $template;
 		}
 
+		$results_page_id = (int) wss_get_option( 'results_page_id', 0 );
+
+		if ( $results_page_id && get_post_status( $results_page_id ) === 'publish' ) {
+			$query       = get_search_query();
+			$results_url = get_permalink( $results_page_id );
+			$results_url = add_query_arg( 's', rawurlencode( $query ), $results_url );
+			$results_url = add_query_arg( 'post_type', 'product', $results_url );
+
+			wp_safe_redirect( $results_url, 302 );
+			exit;
+		}
+
+		// Fallback: use custom template if no page is configured.
 		$custom_template = locate_template( 'woo-smart-search/search-results.php' );
 		if ( ! $custom_template ) {
 			$custom_template = WSS_PLUGIN_DIR . 'templates/search-results.php';
@@ -258,7 +275,7 @@ class WSS_Frontend {
 		global $post;
 
 		if ( $post ) {
-			if ( has_shortcode( $post->post_content, 'woo_smart_search' ) ) {
+			if ( has_shortcode( $post->post_content, 'woo_smart_search' ) || has_shortcode( $post->post_content, 'woo_smart_search_results' ) ) {
 				return true;
 			}
 
@@ -273,6 +290,29 @@ class WSS_Frontend {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Build the search URL template used by the JS widget.
+	 *
+	 * If a results page is configured, returns its permalink with {query} placeholder.
+	 * Otherwise, returns the default WordPress search URL.
+	 *
+	 * @return string
+	 */
+	private static function get_search_url_template() {
+		$results_page_id = (int) wss_get_option( 'results_page_id', 0 );
+		if ( $results_page_id && get_post_status( $results_page_id ) === 'publish' ) {
+			$base = get_permalink( $results_page_id );
+			return add_query_arg(
+				array(
+					's'         => '{query}',
+					'post_type' => 'product',
+				),
+				$base
+			);
+		}
+		return home_url( '/?s={query}&post_type=product' );
 	}
 
 	/**

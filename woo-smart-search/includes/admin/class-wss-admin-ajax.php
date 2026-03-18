@@ -82,7 +82,7 @@ class WSS_Admin_Ajax {
 		}
 
 		// Integer fields.
-		$int_fields = array( 'batch_size', 'max_autocomplete_results', 'results_per_page', 'cache_ttl', 'rate_limit' );
+		$int_fields = array( 'batch_size', 'max_autocomplete_results', 'results_per_page', 'cache_ttl', 'rate_limit', 'results_page_id' );
 		foreach ( $int_fields as $field ) {
 			if ( isset( $_POST[ $field ] ) ) {
 				$settings[ $field ] = absint( $_POST[ $field ] );

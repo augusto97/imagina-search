@@ -19,6 +19,7 @@ class WSS_Shortcode {
 	 */
 	public function init() {
 		add_shortcode( 'woo_smart_search', array( $this, 'render' ) );
+		add_shortcode( 'woo_smart_search_results', array( $this, 'render_results_page' ) );
 
 		// Register WordPress widget.
 		add_action( 'widgets_init', array( $this, 'register_widget' ) );
@@ -59,6 +60,35 @@ class WSS_Shortcode {
 		$frontend->enqueue_assets();
 
 		return $frontend->get_search_widget_html( $atts );
+	}
+
+	/**
+	 * Render the search results page shortcode.
+	 *
+	 * @param array $atts Shortcode attributes.
+	 * @return string
+	 */
+	public function render_results_page( $atts ) {
+		$atts = shortcode_atts( array(), $atts, 'woo_smart_search_results' );
+
+		// Ensure assets are loaded.
+		$frontend = new WSS_Frontend();
+		$frontend->enqueue_assets();
+		$frontend->enqueue_results_page_assets( true );
+
+		$query = get_search_query();
+		if ( empty( $query ) && isset( $_GET['q'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$query = sanitize_text_field( wp_unslash( $_GET['q'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		}
+
+		$template = locate_template( 'woo-smart-search/results-page.php' );
+		if ( ! $template ) {
+			$template = WSS_PLUGIN_DIR . 'templates/results-page.php';
+		}
+
+		ob_start();
+		include $template;
+		return ob_get_clean();
 	}
 
 	/**

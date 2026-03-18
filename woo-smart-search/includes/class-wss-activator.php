@@ -20,6 +20,7 @@ class WSS_Activator {
 	public static function activate() {
 		self::create_tables();
 		self::set_default_options();
+		self::maybe_create_results_page();
 
 		flush_rewrite_rules();
 		set_transient( 'wss_activation_redirect', true, 30 );
@@ -124,11 +125,59 @@ class WSS_Activator {
 			'synonyms'                  => '',
 			'stop_words'                => '',
 			'enable_analytics'          => 'yes',
+			'results_page_id'           => 0,
 		);
 
 		$existing = get_option( 'wss_settings', array() );
 		if ( empty( $existing ) ) {
 			update_option( 'wss_settings', $defaults );
+		}
+	}
+
+	/**
+	 * Create the search results page if it doesn't exist yet.
+	 *
+	 * Works like WooCommerce's auto-created Cart/Checkout/My Account pages.
+	 */
+	private static function maybe_create_results_page() {
+		$settings = get_option( 'wss_settings', array() );
+
+		// Already configured.
+		if ( ! empty( $settings['results_page_id'] ) && get_post_status( $settings['results_page_id'] ) ) {
+			return;
+		}
+
+		// Check if a page with the shortcode already exists.
+		$existing = get_posts(
+			array(
+				'post_type'      => 'page',
+				's'              => '[woo_smart_search_results]',
+				'posts_per_page' => 1,
+				'post_status'    => array( 'publish', 'draft', 'private' ),
+				'fields'         => 'ids',
+			)
+		);
+
+		if ( ! empty( $existing ) ) {
+			$settings['results_page_id'] = $existing[0];
+			update_option( 'wss_settings', $settings );
+			return;
+		}
+
+		// Create the page.
+		$page_id = wp_insert_post(
+			array(
+				'post_title'   => __( 'Search Results', 'woo-smart-search' ),
+				'post_content' => '[woo_smart_search_results]',
+				'post_status'  => 'publish',
+				'post_type'    => 'page',
+				'post_name'    => 'product-search-results',
+			)
+		);
+
+		if ( $page_id && ! is_wp_error( $page_id ) ) {
+			$settings['results_page_id'] = $page_id;
+			update_option( 'wss_settings', $settings );
 		}
 	}
 }
