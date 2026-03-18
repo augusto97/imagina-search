@@ -11,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 ?>
 <form id="wss-search-form" class="wss-form">
+	<input type="hidden" name="_wss_tab" value="search" />
 	<table class="form-table">
 		<tr>
 			<th scope="row">

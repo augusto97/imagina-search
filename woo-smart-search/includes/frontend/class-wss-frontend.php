@@ -272,8 +272,15 @@ class WSS_Frontend {
 	private function has_shortcode_or_widget(): bool {
 		global $post;
 
-		if ( $post && has_shortcode( $post->post_content, 'woo_smart_search' ) ) {
-			return true;
+		if ( $post ) {
+			if ( has_shortcode( $post->post_content, 'woo_smart_search' ) ) {
+				return true;
+			}
+
+			// Detect Gutenberg block.
+			if ( function_exists( 'has_block' ) && has_block( 'woo-smart-search/search-bar', $post ) ) {
+				return true;
+			}
 		}
 
 		if ( is_active_widget( false, false, 'wss_search_widget' ) ) {

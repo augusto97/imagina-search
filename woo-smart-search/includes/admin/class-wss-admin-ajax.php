@@ -89,13 +89,28 @@ class WSS_Admin_Ajax {
 			}
 		}
 
-		// Yes/no fields.
-		$bool_fields = array(
-			'index_out_of_stock', 'index_hidden', 'enable_facets',
-			'search_by_sku', 'show_out_of_stock_results',
+		// Yes/no fields — only process checkboxes when their form tab is submitted.
+		// Each form has a hidden _wss_tab field to identify it.
+		$submitted_tab = isset( $_POST['_wss_tab'] ) ? sanitize_text_field( wp_unslash( $_POST['_wss_tab'] ) ) : '';
+
+		$appearance_bools = array(
 			'show_image', 'show_price', 'show_category',
 			'show_sku', 'show_stock', 'show_rating',
+			'show_sale_badge', 'enable_analytics',
 		);
+
+		$search_bools = array(
+			'index_out_of_stock', 'index_hidden', 'enable_facets',
+			'search_by_sku', 'show_out_of_stock_results',
+		);
+
+		$bool_fields = array();
+		if ( 'appearance' === $submitted_tab ) {
+			$bool_fields = $appearance_bools;
+		} elseif ( 'search' === $submitted_tab ) {
+			$bool_fields = $search_bools;
+		}
+
 		foreach ( $bool_fields as $field ) {
 			$settings[ $field ] = isset( $_POST[ $field ] ) ? 'yes' : 'no';
 		}

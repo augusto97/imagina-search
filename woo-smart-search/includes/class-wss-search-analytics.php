@@ -75,6 +75,24 @@ class WSS_Search_Analytics {
 	}
 
 	/**
+	 * Ensure the search log table exists, creating it if needed.
+	 */
+	private static function maybe_create_table() {
+		static $checked = false;
+		if ( $checked ) {
+			return;
+		}
+		$checked = true;
+
+		global $wpdb;
+		$table = self::get_table_name();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ) !== $table ) {
+			self::create_table();
+		}
+	}
+
+	/**
 	 * Log a search query.
 	 *
 	 * @param string $query         The search query string.
@@ -86,6 +104,7 @@ class WSS_Search_Analytics {
 	public function log_search( $query, $results_count, $ip = '', $user_agent = '' ) {
 		global $wpdb;
 
+		self::maybe_create_table();
 		$table = self::get_table_name();
 
 		$inserted = $wpdb->insert(

@@ -11,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 ?>
 <form id="wss-appearance-form" class="wss-form">
+	<input type="hidden" name="_wss_tab" value="appearance" />
 	<table class="form-table">
 		<tr>
 			<th scope="row">
@@ -101,17 +102,23 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<td>
 				<?php
 				$elements = array(
-					'show_image'    => __( 'Product image', 'woo-smart-search' ),
-					'show_price'    => __( 'Price', 'woo-smart-search' ),
-					'show_category' => __( 'Category', 'woo-smart-search' ),
-					'show_sku'      => __( 'SKU', 'woo-smart-search' ),
-					'show_stock'    => __( 'Stock status', 'woo-smart-search' ),
-					'show_rating'   => __( 'Rating', 'woo-smart-search' ),
+					'show_image'      => __( 'Product image', 'woo-smart-search' ),
+					'show_price'      => __( 'Price', 'woo-smart-search' ),
+					'show_category'   => __( 'Category', 'woo-smart-search' ),
+					'show_sku'        => __( 'SKU', 'woo-smart-search' ),
+					'show_stock'      => __( 'Stock status', 'woo-smart-search' ),
+					'show_rating'     => __( 'Rating', 'woo-smart-search' ),
+					'show_sale_badge' => __( 'Sale badge', 'woo-smart-search' ),
+					'enable_analytics' => __( 'Enable search analytics', 'woo-smart-search' ),
 				);
 				foreach ( $elements as $key => $label ) :
 					?>
+					<?php
+					// Default to 'yes' for most display options, 'no' for show_sku and show_rating.
+					$default = in_array( $key, array( 'show_sku', 'show_rating' ), true ) ? 'no' : 'yes';
+					?>
 					<label style="display:block; margin-bottom:4px;">
-						<input type="checkbox" name="<?php echo esc_attr( $key ); ?>" value="yes" <?php checked( $settings[ $key ] ?? 'no', 'yes' ); ?> />
+						<input type="checkbox" name="<?php echo esc_attr( $key ); ?>" value="yes" <?php checked( $settings[ $key ] ?? $default, 'yes' ); ?> />
 						<?php echo esc_html( $label ); ?>
 					</label>
 				<?php endforeach; ?>

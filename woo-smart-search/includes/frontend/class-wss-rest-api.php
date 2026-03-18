@@ -264,7 +264,7 @@ class WSS_Rest_Api {
 		foreach ( $top as $row ) {
 			$items[] = array(
 				'query' => $row->query,
-				'count' => (int) $row->total,
+				'count' => (int) $row->count,
 			);
 		}
 
