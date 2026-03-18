@@ -99,11 +99,14 @@ class WSS_Meilisearch {
 	public function connect( array $config ): bool {
 		$protocol = isset( $config['protocol'] ) ? $config['protocol'] : 'http';
 		$host     = isset( $config['host'] ) ? rtrim( $config['host'], '/' ) : 'localhost';
-		$port     = isset( $config['port'] ) ? $config['port'] : '7700';
+		$port     = isset( $config['port'] ) && '' !== $config['port'] ? $config['port'] : '';
 
 		$host = preg_replace( '#^https?://#', '', $host );
 
-		$this->base_url  = $protocol . '://' . $host . ':' . $port;
+		$this->base_url = $protocol . '://' . $host;
+		if ( $port ) {
+			$this->base_url .= ':' . $port;
+		}
 		$this->api_key   = isset( $config['api_key'] ) ? $config['api_key'] : '';
 		$this->connected = true;
 
