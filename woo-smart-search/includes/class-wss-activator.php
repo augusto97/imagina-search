@@ -83,7 +83,7 @@ class WSS_Activator {
 	private static function set_default_options() {
 		$defaults = array(
 			'host'                      => 'localhost',
-			'port'                      => '7700',
+			'port'                      => '',
 			'protocol'                  => 'http',
 			'api_key'                   => '',
 			'search_api_key'            => '',

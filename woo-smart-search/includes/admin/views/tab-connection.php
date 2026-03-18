@@ -32,8 +32,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 				<label for="wss-port"><?php esc_html_e( 'Port', 'woo-smart-search' ); ?></label>
 			</th>
 			<td>
-				<input type="text" id="wss-port" name="port" value="<?php echo esc_attr( $settings['port'] ?? '7700' ); ?>" class="small-text" />
-				<p class="description"><?php esc_html_e( 'Default Meilisearch port is 7700.', 'woo-smart-search' ); ?></p>
+				<input type="text" id="wss-port" name="port" value="<?php echo esc_attr( $settings['port'] ?? '' ); ?>" class="small-text" placeholder="7700" />
+				<p class="description"><?php esc_html_e( 'Local: 7700. Meilisearch Cloud: leave empty (uses HTTPS/443).', 'woo-smart-search' ); ?></p>
 			</td>
 		</tr>
 		<tr>
