@@ -83,6 +83,7 @@ class WSS_Frontend {
 			'wssConfig',
 			array(
 				'apiUrl'         => esc_url_raw( rest_url( 'wss/v1/search' ) ),
+				'popularUrl'     => esc_url_raw( rest_url( 'wss/v1/popular' ) ),
 				'trackClickUrl'  => esc_url_raw( rest_url( 'wss/v1/track-click' ) ),
 				'nonce'          => wp_create_nonce( 'wp_rest' ),
 				'maxResults'     => (int) ( $settings['max_autocomplete_results'] ?? 8 ),
@@ -105,16 +106,20 @@ class WSS_Frontend {
 				'searchUrl'      => home_url( '/?s={query}&post_type=product' ),
 				'placeholderImg' => WSS_PLUGIN_URL . 'assets/images/placeholder.svg',
 				'i18n'           => array(
-					'placeholder'  => ! empty( $settings['placeholder_text'] ) ? $settings['placeholder_text'] : __( 'Search products...', 'woo-smart-search' ),
-					'noResults'    => __( 'No results found for', 'woo-smart-search' ),
-					'viewAll'      => __( 'View all %d results', 'woo-smart-search' ),
-					'error'        => __( 'Connection error, please try again', 'woo-smart-search' ),
-					'inStock'      => __( 'In stock', 'woo-smart-search' ),
-					'outOfStock'   => __( 'Out of stock', 'woo-smart-search' ),
-					'onBackorder'  => __( 'On backorder', 'woo-smart-search' ),
-					'clearSearch'  => __( 'Clear search', 'woo-smart-search' ),
-					'close'        => __( 'Close', 'woo-smart-search' ),
+					'placeholder'      => ! empty( $settings['placeholder_text'] ) ? $settings['placeholder_text'] : __( 'Search products...', 'woo-smart-search' ),
+					'noResults'        => __( 'No results found for', 'woo-smart-search' ),
+					'viewAll'          => __( 'View all %d results', 'woo-smart-search' ),
+					'viewAllResults'   => __( 'View all results', 'woo-smart-search' ),
+					'error'            => __( 'Connection error, please try again', 'woo-smart-search' ),
+					'inStock'          => __( 'In stock', 'woo-smart-search' ),
+					'outOfStock'       => __( 'Out of stock', 'woo-smart-search' ),
+					'onBackorder'      => __( 'On backorder', 'woo-smart-search' ),
+					'clearSearch'      => __( 'Clear search', 'woo-smart-search' ),
+					'close'            => __( 'Close', 'woo-smart-search' ),
+					'popularSearches'  => __( 'Popular searches', 'woo-smart-search' ),
+					'suggestions'      => __( 'Suggestions', 'woo-smart-search' ),
 				),
+				'widgetLayout'   => $settings['widget_layout'] ?? 'standard',
 			)
 		);
 

@@ -63,7 +63,7 @@ class WSS_Meilisearch {
 		self::$instance = new self();
 		self::$instance->connect( array(
 			'host'     => wss_get_option( 'host', 'localhost' ),
-			'port'     => wss_get_option( 'port', '7700' ),
+			'port'     => wss_get_option( 'port', '' ),
 			'protocol' => wss_get_option( 'protocol', 'http' ),
 			'api_key'  => self::decrypt_key( $api_key ),
 		) );
@@ -116,38 +116,48 @@ class WSS_Meilisearch {
 	/**
 	 * Test the connection.
 	 *
+	 * Uses /health (no auth required) to verify connectivity, then
+	 * tries /version (requires admin key) for version info.
+	 *
 	 * @return array { success: bool, message: string, version: string }
 	 */
 	public function test_connection(): array {
-		$response = $this->request( 'GET', '/version' );
+		// Step 1: Check /health — no auth required, works with any key.
+		$health = $this->request( 'GET', '/health' );
 
-		if ( is_wp_error( $response ) ) {
+		if ( is_wp_error( $health ) ) {
 			return array(
 				'success' => false,
-				'message' => $response->get_error_message(),
+				'message' => $health->get_error_message(),
 				'version' => '',
 			);
 		}
 
-		$body = json_decode( wp_remote_retrieve_body( $response ), true );
-		$code = wp_remote_retrieve_response_code( $response );
-
-		if ( 200 !== $code ) {
+		$health_code = wp_remote_retrieve_response_code( $health );
+		if ( 200 !== $health_code ) {
 			return array(
 				'success' => false,
 				'message' => sprintf(
 					/* translators: %d: HTTP status code */
 					__( 'Meilisearch returned HTTP %d', 'woo-smart-search' ),
-					$code
+					$health_code
 				),
 				'version' => '',
 			);
 		}
 
+		// Step 2: Try /version for version info (may fail with restricted keys).
+		$version_str = '';
+		$response    = $this->request( 'GET', '/version' );
+		if ( ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response ) ) {
+			$body        = json_decode( wp_remote_retrieve_body( $response ), true );
+			$version_str = isset( $body['pkgVersion'] ) ? $body['pkgVersion'] : '';
+		}
+
 		return array(
 			'success' => true,
 			'message' => __( 'Connected successfully to Meilisearch', 'woo-smart-search' ),
-			'version' => isset( $body['pkgVersion'] ) ? $body['pkgVersion'] : '',
+			'version' => $version_str,
 		);
 	}
 

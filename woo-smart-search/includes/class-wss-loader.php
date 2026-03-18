@@ -64,8 +64,8 @@ class WSS_Loader {
 		// Auto-fallback filter for when Meilisearch is down.
 		add_filter( 'wss_use_native_search', array( $this, 'maybe_fallback_to_native' ) );
 
-		// Admin bar connection status indicator.
-		add_action( 'admin_bar_menu', array( $this, 'add_connection_status_to_admin_bar' ), 100 );
+		// Dashboard widget for connection status.
+		add_action( 'wp_dashboard_setup', array( $this, 'add_dashboard_widget' ) );
 
 		// Add settings link to plugins page.
 		add_filter( 'plugin_action_links_' . WSS_PLUGIN_BASENAME, array( $this, 'add_settings_link' ) );
@@ -194,42 +194,101 @@ class WSS_Loader {
 	}
 
 	/**
-	 * Add connection status indicator to the WordPress admin bar.
-	 *
-	 * @param WP_Admin_Bar $admin_bar The admin bar instance.
+	 * Register the dashboard widget.
 	 */
-	public function add_connection_status_to_admin_bar( $admin_bar ) {
+	public function add_dashboard_widget() {
 		if ( ! current_user_can( 'manage_woocommerce' ) ) {
 			return;
 		}
 
+		wp_add_dashboard_widget(
+			'wss_dashboard_widget',
+			__( 'Woo Smart Search', 'woo-smart-search' ),
+			array( $this, 'render_dashboard_widget' )
+		);
+	}
+
+	/**
+	 * Render the dashboard widget content.
+	 */
+	public function render_dashboard_widget() {
 		$error     = get_transient( 'wss_connection_error' );
 		$available = get_option( 'wss_meilisearch_available', true );
+		$engine    = WSS_Meilisearch::get_instance();
 
+		// Connection status.
 		if ( $error || ! $available ) {
-			$status_icon  = '<span style="color:#dc3232;">&#9679;</span>';
-			$status_label = __( 'Meilisearch: Down', 'woo-smart-search' );
+			$status_color = '#dc3232';
+			$status_label = __( 'Down', 'woo-smart-search' );
+			$status_msg   = $error ? $error : __( 'Meilisearch is unreachable.', 'woo-smart-search' );
+		} elseif ( ! $engine ) {
+			$status_color = '#ffb900';
+			$status_label = __( 'Not Configured', 'woo-smart-search' );
+			$status_msg   = __( 'Please configure your Meilisearch connection.', 'woo-smart-search' );
 		} else {
-			$engine = WSS_Meilisearch::get_instance();
-			if ( ! $engine ) {
-				$status_icon  = '<span style="color:#ffb900;">&#9679;</span>';
-				$status_label = __( 'Meilisearch: Not Configured', 'woo-smart-search' );
-			} else {
-				$status_icon  = '<span style="color:#46b450;">&#9679;</span>';
-				$status_label = __( 'Meilisearch: Connected', 'woo-smart-search' );
+			$status_color = '#46b450';
+			$status_label = __( 'Connected', 'woo-smart-search' );
+			$status_msg   = '';
+		}
+
+		// Document count.
+		$doc_count = 0;
+		$last_sync = '';
+		if ( $engine && ! $error ) {
+			$index_name = wss_get_option( 'index_name', 'woo_products' );
+			$stats      = $engine->get_index_stats( $index_name );
+			$doc_count  = isset( $stats['numberOfDocuments'] ) ? (int) $stats['numberOfDocuments'] : 0;
+
+			$sync_ts = wss_get_option( 'last_sync', 0 );
+			if ( $sync_ts ) {
+				$last_sync = human_time_diff( $sync_ts ) . ' ' . __( 'ago', 'woo-smart-search' );
 			}
 		}
 
-		$admin_bar->add_node(
-			array(
-				'id'    => 'wss-connection-status',
-				'title' => $status_icon . ' ' . $status_label,
-				'href'  => admin_url( 'admin.php?page=woo-smart-search&tab=connection' ),
-				'meta'  => array(
-					'title' => $status_label,
-				),
-			)
-		);
+		// Search stats (today).
+		$searches_today = 0;
+		if ( class_exists( 'WSS_Search_Analytics' ) ) {
+			$analytics = new WSS_Search_Analytics();
+			$volume    = $analytics->get_search_volume( 'today' );
+			foreach ( $volume as $row ) {
+				$searches_today += (int) $row->count;
+			}
+		}
+		?>
+		<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+			<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:<?php echo esc_attr( $status_color ); ?>;"></span>
+			<strong><?php echo esc_html( $status_label ); ?></strong>
+			<?php if ( $status_msg ) : ?>
+				<span style="color:#666;font-size:12px;">&mdash; <?php echo esc_html( $status_msg ); ?></span>
+			<?php endif; ?>
+		</div>
+
+		<table style="width:100%;border-collapse:collapse;font-size:13px;">
+			<tr>
+				<td style="padding:4px 0;color:#666;"><?php esc_html_e( 'Indexed products', 'woo-smart-search' ); ?></td>
+				<td style="padding:4px 0;text-align:right;font-weight:600;"><?php echo esc_html( number_format_i18n( $doc_count ) ); ?></td>
+			</tr>
+			<?php if ( $last_sync ) : ?>
+			<tr>
+				<td style="padding:4px 0;color:#666;"><?php esc_html_e( 'Last sync', 'woo-smart-search' ); ?></td>
+				<td style="padding:4px 0;text-align:right;"><?php echo esc_html( $last_sync ); ?></td>
+			</tr>
+			<?php endif; ?>
+			<tr>
+				<td style="padding:4px 0;color:#666;"><?php esc_html_e( 'Searches today', 'woo-smart-search' ); ?></td>
+				<td style="padding:4px 0;text-align:right;font-weight:600;"><?php echo esc_html( number_format_i18n( $searches_today ) ); ?></td>
+			</tr>
+		</table>
+
+		<p style="margin:12px 0 0;text-align:right;">
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=woo-smart-search' ) ); ?>" class="button button-small">
+				<?php esc_html_e( 'Settings', 'woo-smart-search' ); ?>
+			</a>
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=woo-smart-search&tab=analytics' ) ); ?>" class="button button-small">
+				<?php esc_html_e( 'Analytics', 'woo-smart-search' ); ?>
+			</a>
+		</p>
+		<?php
 	}
 
 	/**

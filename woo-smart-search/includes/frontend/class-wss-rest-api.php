@@ -77,6 +77,24 @@ class WSS_Rest_Api {
 			)
 		);
 
+		// Popular searches endpoint.
+		register_rest_route(
+			self::NAMESPACE,
+			'/popular',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( $this, 'handle_popular' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'limit' => array(
+						'default'           => 6,
+						'type'              => 'integer',
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+
 		// Click tracking endpoint.
 		register_rest_route(
 			self::NAMESPACE,
@@ -220,6 +238,38 @@ class WSS_Rest_Api {
 		$this->log_search( $query, $response['total'] );
 
 		do_action( 'wss_search_performed', $query, $response['total'] );
+
+		return rest_ensure_response( $response );
+	}
+
+	/**
+	 * Handle popular searches request.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function handle_popular( $request ) {
+		$limit = min( $request->get_param( 'limit' ), 20 );
+
+		$cache_key = 'wss_popular_' . $limit;
+		$cached    = get_transient( $cache_key );
+		if ( false !== $cached ) {
+			return rest_ensure_response( $cached );
+		}
+
+		$analytics = new WSS_Search_Analytics();
+		$top       = $analytics->get_top_queries( $limit );
+
+		$items = array();
+		foreach ( $top as $row ) {
+			$items[] = array(
+				'query' => $row->query,
+				'count' => (int) $row->total,
+			);
+		}
+
+		$response = array( 'searches' => $items );
+		set_transient( $cache_key, $response, 300 );
 
 		return rest_ensure_response( $response );
 	}

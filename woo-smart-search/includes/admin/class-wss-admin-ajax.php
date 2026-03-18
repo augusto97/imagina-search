@@ -64,7 +64,7 @@ class WSS_Admin_Ajax {
 			'search_api_key', 'theme', 'primary_color', 'bg_color',
 			'text_color', 'border_color', 'font_size', 'border_radius',
 			'placeholder_text', 'custom_css', 'integration_mode',
-			'synonyms', 'stop_words',
+			'synonyms', 'stop_words', 'widget_layout',
 		);
 
 		foreach ( $text_fields as $field ) {
@@ -135,11 +135,19 @@ class WSS_Admin_Ajax {
 	public function test_connection() {
 		$this->verify_request();
 
+		// Use form values, but fall back to saved API key when field is empty
+		// (the password field is always rendered empty for security).
+		$api_key = isset( $_POST['api_key'] ) ? sanitize_text_field( wp_unslash( $_POST['api_key'] ) ) : '';
+		if ( empty( $api_key ) ) {
+			$saved_key = wss_get_option( 'api_key', '' );
+			$api_key   = ! empty( $saved_key ) ? WSS_Meilisearch::decrypt_key( $saved_key ) : '';
+		}
+
 		$config = array(
 			'host'     => isset( $_POST['host'] ) ? sanitize_text_field( wp_unslash( $_POST['host'] ) ) : '',
 			'port'     => isset( $_POST['port'] ) ? sanitize_text_field( wp_unslash( $_POST['port'] ) ) : '',
 			'protocol' => isset( $_POST['protocol'] ) ? sanitize_text_field( wp_unslash( $_POST['protocol'] ) ) : 'http',
-			'api_key'  => isset( $_POST['api_key'] ) ? sanitize_text_field( wp_unslash( $_POST['api_key'] ) ) : '',
+			'api_key'  => $api_key,
 		);
 
 		$engine = WSS_Meilisearch::create( $config );

@@ -25,6 +25,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 		</tr>
 		<tr>
 			<th scope="row">
+				<label for="wss-widget-layout"><?php esc_html_e( 'Widget Layout', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<select id="wss-widget-layout" name="widget_layout">
+					<option value="standard" <?php selected( $settings['widget_layout'] ?? 'standard', 'standard' ); ?>><?php esc_html_e( 'Standard — Vertical list', 'woo-smart-search' ); ?></option>
+					<option value="expanded" <?php selected( $settings['widget_layout'] ?? '', 'expanded' ); ?>><?php esc_html_e( 'Expanded — Two columns with suggestions & popular searches', 'woo-smart-search' ); ?></option>
+					<option value="compact" <?php selected( $settings['widget_layout'] ?? '', 'compact' ); ?>><?php esc_html_e( 'Compact — Minimal list, no images', 'woo-smart-search' ); ?></option>
+				</select>
+				<p class="description"><?php esc_html_e( 'Choose the dropdown autocomplete layout style.', 'woo-smart-search' ); ?></p>
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
 				<label for="wss-theme"><?php esc_html_e( 'Theme', 'woo-smart-search' ); ?></label>
 			</th>
 			<td>
