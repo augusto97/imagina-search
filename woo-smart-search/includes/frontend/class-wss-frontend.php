@@ -34,9 +34,10 @@ class WSS_Frontend {
 		// Enqueue search results page assets when on search.
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_results_page_assets' ) );
 
-		// Replace search results page content with faceted results.
+		// Redirect ?s= to ?q= on the results page, and redirect native
+		// WooCommerce search to the designated results page.
 		if ( 'replace' === $mode ) {
-			add_filter( 'template_include', array( $this, 'maybe_replace_search_template' ) );
+			add_action( 'template_redirect', array( $this, 'handle_search_redirects' ) );
 		}
 	}
 
@@ -231,40 +232,50 @@ class WSS_Frontend {
 	}
 
 	/**
-	 * Redirect WooCommerce product searches to the designated results page.
+	 * Handle search-related redirects.
 	 *
-	 * If a results page is configured, redirect ?s=query&post_type=product
-	 * to that page with the query parameter preserved.
-	 * Falls back to template override if no page is configured.
-	 *
-	 * @param string $template Current template path.
-	 * @return string
+	 * 1) Native WooCommerce search (?s=query&post_type=product) → redirect to results page with ?q=
+	 * 2) Results page with ?s= parameter → rewrite to ?q= to prevent WordPress search hijack
 	 */
-	public function maybe_replace_search_template( $template ) {
-		if ( ! is_search() || get_query_var( 'post_type' ) !== 'product' ) {
-			return $template;
-		}
-
+	public function handle_search_redirects() {
 		$results_page_id = (int) wss_get_option( 'results_page_id', 0 );
 
-		if ( $results_page_id && get_post_status( $results_page_id ) === 'publish' ) {
+		if ( ! $results_page_id || get_post_status( $results_page_id ) !== 'publish' ) {
+			return;
+		}
+
+		// Case 1: Native WooCommerce search → redirect to our results page.
+		if ( is_search() && get_query_var( 'post_type' ) === 'product' ) {
 			$query       = get_search_query();
 			$results_url = get_permalink( $results_page_id );
-			// Use 'q' instead of 's' — WordPress hijacks 's' as a search query
-			// and stops resolving the page, causing a 404.
 			$results_url = add_query_arg( 'q', rawurlencode( $query ), $results_url );
 
 			wp_safe_redirect( $results_url, 302 );
 			exit;
 		}
 
-		// Fallback: use custom template if no page is configured.
-		$custom_template = locate_template( 'woo-smart-search/search-results.php' );
-		if ( ! $custom_template ) {
-			$custom_template = WSS_PLUGIN_DIR . 'templates/search-results.php';
+		// Case 2: Someone lands on the results page with ?s= (from cache, bookmark,
+		// or direct link). WordPress treats ?s= as a search query which breaks page
+		// resolution. Rewrite to ?q= so the page loads normally.
+		if ( is_page( $results_page_id ) ) {
+			return; // Page resolved fine, nothing to do.
 		}
 
-		return $custom_template;
+		// WordPress may have failed to resolve the page because of ?s=.
+		// Check if the current URL path matches the results page.
+		$s_param = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( ! empty( $s_param ) ) {
+			$current_path = wp_parse_url( $_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+			$page_path    = wp_parse_url( get_permalink( $results_page_id ), PHP_URL_PATH );
+
+			if ( $current_path && $page_path && trailingslashit( $current_path ) === trailingslashit( $page_path ) ) {
+				$results_url = get_permalink( $results_page_id );
+				$results_url = add_query_arg( 'q', rawurlencode( $s_param ), $results_url );
+
+				wp_safe_redirect( $results_url, 302 );
+				exit;
+			}
+		}
 	}
 
 	/**
