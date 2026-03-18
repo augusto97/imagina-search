@@ -1,6 +1,6 @@
 {
 	"name": "imagina/woo-smart-search",
-	"description": "Smart search for WooCommerce with Meilisearch/Typesense",
+	"description": "Smart search for WooCommerce powered by Meilisearch",
 	"type": "wordpress-plugin",
 	"license": "GPL-2.0-or-later",
 	"require": {

@@ -35,12 +35,54 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<button class="wss-search-clear" style="display:none" aria-label="<?php esc_attr_e( 'Clear search', 'woo-smart-search' ); ?>" type="button">&times;</button>
 	</div>
 
-	<div class="wss-results-dropdown" style="display:none" role="listbox" id="wss-results-list">
+	<div class="wss-results-dropdown" role="listbox" id="wss-results-list" aria-label="<?php esc_attr_e( 'Search results', 'woo-smart-search' ); ?>">
+
+		<!-- Category Suggestions -->
+		<div class="wss-results-categories" role="group" aria-label="<?php esc_attr_e( 'Category suggestions', 'woo-smart-search' ); ?>"></div>
+
+		<!-- Skeleton Loading -->
+		<div class="wss-results-skeleton" aria-hidden="true">
+			<div class="wss-skeleton-item">
+				<div class="wss-skeleton-image"></div>
+				<div class="wss-skeleton-lines">
+					<div class="wss-skeleton-line wss-skeleton-line--short"></div>
+					<div class="wss-skeleton-line wss-skeleton-line--long"></div>
+					<div class="wss-skeleton-line wss-skeleton-line--medium"></div>
+				</div>
+			</div>
+			<div class="wss-skeleton-item">
+				<div class="wss-skeleton-image"></div>
+				<div class="wss-skeleton-lines">
+					<div class="wss-skeleton-line wss-skeleton-line--short"></div>
+					<div class="wss-skeleton-line wss-skeleton-line--long"></div>
+					<div class="wss-skeleton-line wss-skeleton-line--medium"></div>
+				</div>
+			</div>
+			<div class="wss-skeleton-item">
+				<div class="wss-skeleton-image"></div>
+				<div class="wss-skeleton-lines">
+					<div class="wss-skeleton-line wss-skeleton-line--short"></div>
+					<div class="wss-skeleton-line wss-skeleton-line--long"></div>
+					<div class="wss-skeleton-line wss-skeleton-line--medium"></div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Product Results -->
 		<div class="wss-results-products"></div>
-		<div class="wss-results-empty" style="display:none"></div>
-		<div class="wss-results-error" style="display:none"></div>
-		<div class="wss-results-footer" style="display:none">
+
+		<!-- Empty State -->
+		<div class="wss-results-empty" role="status"></div>
+
+		<!-- Error State -->
+		<div class="wss-results-error" role="alert"></div>
+
+		<!-- Footer -->
+		<div class="wss-results-footer">
 			<a href="#" class="wss-view-all"></a>
 		</div>
 	</div>
+
+	<!-- Mobile Overlay Backdrop -->
+	<div class="wss-mobile-backdrop" aria-hidden="true"></div>
 </div>

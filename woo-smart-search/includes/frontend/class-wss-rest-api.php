@@ -2,6 +2,9 @@
 /**
  * REST API proxy endpoint.
  *
+ * Proxies search requests to Meilisearch, handles rate limiting,
+ * caching, analytics logging, and click tracking.
+ *
  * @package WooSmartSearch
  */
 
@@ -73,6 +76,29 @@ class WSS_Rest_Api {
 				),
 			)
 		);
+
+		// Click tracking endpoint.
+		register_rest_route(
+			self::NAMESPACE,
+			'/track-click',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'handle_track_click' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'query'      => array(
+						'required'          => true,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'product_id' => array(
+						'required'          => true,
+						'type'              => 'integer',
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
 	}
 
 	/**
@@ -95,13 +121,11 @@ class WSS_Rest_Api {
 
 		// Minimum query length.
 		if ( mb_strlen( $query ) < 2 ) {
-			return rest_ensure_response(
-				array(
-					'hits'  => array(),
-					'total' => 0,
-					'query' => $query,
-				)
-			);
+			return rest_ensure_response( array(
+				'hits'  => array(),
+				'total' => 0,
+				'query' => $query,
+			) );
 		}
 
 		$limit   = min( $request->get_param( 'limit' ), 50 );
@@ -117,21 +141,24 @@ class WSS_Rest_Api {
 		if ( $cache_ttl > 0 ) {
 			$cached = get_transient( $cache_key );
 			if ( false !== $cached ) {
-				$cached_response = apply_filters( 'wss_proxy_response', $cached, $query );
-				return rest_ensure_response( $cached_response );
+				return rest_ensure_response( apply_filters( 'wss_proxy_response', $cached, $query ) );
 			}
 		}
 
-		// Get engine.
+		// Check if fallback is active.
+		$fallback_active = get_option( 'wss_fallback_active', false );
+
+		// Get Meilisearch instance.
 		$engine = wss_get_engine();
-		if ( ! $engine ) {
-			// Fallback to native WooCommerce search.
-			return rest_ensure_response( $this->fallback_search( $query, $limit, $page ) );
+		if ( ! $engine || $fallback_active ) {
+			$response = $this->fallback_search( $query, $limit, $page );
+			$this->log_search( $query, $response['total'] );
+			return rest_ensure_response( $response );
 		}
 
 		$index_name = wss_get_option( 'index_name', 'woo_products' );
 
-		// Build options.
+		// Build search options.
 		$options = array(
 			'limit'  => $limit,
 			'offset' => ( $page - 1 ) * $limit,
@@ -148,7 +175,7 @@ class WSS_Rest_Api {
 		if ( ! empty( $facets ) ) {
 			$options['facets'] = explode( ',', $facets );
 		} else {
-			$options['facets'] = array( 'categories', 'stock_status', 'on_sale', 'brand' );
+			$options['facets'] = array( 'categories', 'stock_status', 'on_sale', 'brand', 'rating' );
 		}
 
 		$options['highlight_fields'] = array( 'name', 'description', 'categories' );
@@ -165,13 +192,20 @@ class WSS_Rest_Api {
 
 		$results = $engine->search( $index_name, $query, $options );
 
+		// If search returned an error, try fallback.
+		if ( isset( $results['error'] ) ) {
+			$response = $this->fallback_search( $query, $limit, $page );
+			$this->log_search( $query, $response['total'] );
+			return rest_ensure_response( $response );
+		}
+
 		// Format response.
 		$response = array(
-			'hits'            => $this->format_hits( $results['hits'] ),
-			'total'           => $results['estimatedTotalHits'],
-			'query'           => $query,
+			'hits'             => $this->format_hits( $results['hits'] ),
+			'total'            => $results['estimatedTotalHits'],
+			'query'            => $query,
 			'processingTimeMs' => isset( $results['processingTimeMs'] ) ? $results['processingTimeMs'] : 0,
-			'facets'          => isset( $results['facetDistribution'] ) ? $results['facetDistribution'] : array(),
+			'facets'           => isset( $results['facetDistribution'] ) ? $results['facetDistribution'] : array(),
 		);
 
 		$response = apply_filters( 'wss_proxy_response', $response, $query );
@@ -182,15 +216,56 @@ class WSS_Rest_Api {
 			set_transient( $cache_key, $response, $cache_ttl );
 		}
 
+		// Log search for analytics.
+		$this->log_search( $query, $response['total'] );
+
 		do_action( 'wss_search_performed', $query, $response['total'] );
 
 		return rest_ensure_response( $response );
 	}
 
 	/**
+	 * Handle click tracking.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function handle_track_click( $request ) {
+		if ( wss_get_option( 'enable_analytics', 'yes' ) !== 'yes' ) {
+			return rest_ensure_response( array( 'tracked' => false ) );
+		}
+
+		$query      = $request->get_param( 'query' );
+		$product_id = $request->get_param( 'product_id' );
+
+		$analytics = new WSS_Search_Analytics();
+		$analytics->log_click( $query, $product_id );
+
+		return rest_ensure_response( array( 'tracked' => true ) );
+	}
+
+	/**
+	 * Log search for analytics.
+	 *
+	 * @param string $query         Search query.
+	 * @param int    $results_count Number of results.
+	 */
+	private function log_search( string $query, int $results_count ) {
+		if ( wss_get_option( 'enable_analytics', 'yes' ) !== 'yes' ) {
+			return;
+		}
+
+		$ip         = $this->get_client_ip();
+		$user_agent = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
+
+		$analytics = new WSS_Search_Analytics();
+		$analytics->log_search( $query, $results_count, $ip, $user_agent );
+	}
+
+	/**
 	 * Format hits for the response.
 	 *
-	 * @param array $hits Raw hits.
+	 * @param array $hits Raw hits from Meilisearch.
 	 * @return array
 	 */
 	private function format_hits( array $hits ): array {
@@ -204,7 +279,7 @@ class WSS_Rest_Api {
 				'permalink' => isset( $hit['permalink'] ) ? $hit['permalink'] : '',
 			);
 
-			// Add highlighted name if available.
+			// Highlighted name.
 			if ( isset( $hit['_formatted']['name'] ) ) {
 				$item['name_highlighted'] = $hit['_formatted']['name'];
 			}
@@ -239,6 +314,12 @@ class WSS_Rest_Api {
 				$item['rating']       = isset( $hit['rating'] ) ? (float) $hit['rating'] : 0;
 				$item['review_count'] = isset( $hit['review_count'] ) ? (int) $hit['review_count'] : 0;
 			}
+
+			if ( ( $settings['show_sale_badge'] ?? 'yes' ) === 'yes' ) {
+				$item['show_sale_badge'] = true;
+			}
+
+			$item['type'] = isset( $hit['type'] ) ? $hit['type'] : 'simple';
 
 			$item = apply_filters( 'wss_result_item_html', $item, $hit );
 
@@ -277,7 +358,6 @@ class WSS_Rest_Api {
 		foreach ( $ip_keys as $key ) {
 			if ( ! empty( $_SERVER[ $key ] ) ) {
 				$ip = sanitize_text_field( wp_unslash( $_SERVER[ $key ] ) );
-				// Handle comma-separated IPs.
 				if ( strpos( $ip, ',' ) !== false ) {
 					$ip = trim( explode( ',', $ip )[0] );
 				}
@@ -316,17 +396,26 @@ class WSS_Rest_Api {
 				continue;
 			}
 
-			$image_id = $product->get_image_id();
-			$hits[]   = array(
-				'id'           => $product->get_id(),
-				'name'         => $product->get_name(),
-				'permalink'    => get_permalink( $product->get_id() ),
-				'image'        => $image_id ? wp_get_attachment_image_url( $image_id, 'woocommerce_thumbnail' ) : '',
-				'price'        => (float) $product->get_price(),
+			$image_id  = $product->get_image_id();
+			$categories = array();
+			$terms      = get_the_terms( $product->get_id(), 'product_cat' );
+			if ( ! empty( $terms ) && ! is_wp_error( $terms ) ) {
+				$categories = wp_list_pluck( $terms, 'name' );
+			}
+
+			$hits[] = array(
+				'id'            => $product->get_id(),
+				'name'          => $product->get_name(),
+				'permalink'     => get_permalink( $product->get_id() ),
+				'image'         => $image_id ? wp_get_attachment_image_url( $image_id, 'woocommerce_thumbnail' ) : '',
+				'price'         => (float) $product->get_price(),
 				'regular_price' => (float) $product->get_regular_price(),
-				'on_sale'      => $product->is_on_sale(),
-				'stock_status' => $product->get_stock_status(),
-				'currency'     => get_woocommerce_currency(),
+				'sale_price'    => $product->get_sale_price() ? (float) $product->get_sale_price() : 0,
+				'on_sale'       => $product->is_on_sale(),
+				'stock_status'  => $product->get_stock_status(),
+				'categories'    => $categories,
+				'currency'      => get_woocommerce_currency(),
+				'type'          => $product->get_type(),
 			);
 		}
 		wp_reset_postdata();

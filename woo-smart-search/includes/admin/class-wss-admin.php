@@ -82,6 +82,9 @@ class WSS_Admin {
 					'saving'             => __( 'Saving...', 'woo-smart-search' ),
 					'saved'              => __( 'Settings saved.', 'woo-smart-search' ),
 					'error'              => __( 'An error occurred.', 'woo-smart-search' ),
+					'connected'          => __( 'Connected', 'woo-smart-search' ),
+					'disconnected'       => __( 'Disconnected', 'woo-smart-search' ),
+					'loadingAnalytics'   => __( 'Loading analytics...', 'woo-smart-search' ),
 				),
 			)
 		);

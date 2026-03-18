@@ -21,10 +21,7 @@ class WSS_Activator {
 		self::create_tables();
 		self::set_default_options();
 
-		// Flush rewrite rules for REST API.
 		flush_rewrite_rules();
-
-		// Set activation flag for redirect.
 		set_transient( 'wss_activation_redirect', true, 30 );
 	}
 
@@ -59,6 +56,19 @@ class WSS_Activator {
 			KEY product_id (product_id),
 			KEY status (status),
 			KEY scheduled_at (scheduled_at)
+		) {$charset_collate};
+
+		CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wss_search_log (
+			id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+			query varchar(255) NOT NULL,
+			results_count int(10) UNSIGNED DEFAULT 0,
+			clicked_product_id bigint(20) UNSIGNED DEFAULT NULL,
+			user_ip varchar(45) DEFAULT NULL,
+			user_agent varchar(255) DEFAULT NULL,
+			created_at datetime DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (id),
+			KEY idx_query (query),
+			KEY idx_created (created_at)
 		) {$charset_collate};";
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -72,8 +82,7 @@ class WSS_Activator {
 	 */
 	private static function set_default_options() {
 		$defaults = array(
-			'engine'                    => 'meilisearch',
-			'host'                      => 'http://localhost',
+			'host'                      => 'localhost',
 			'port'                      => '7700',
 			'protocol'                  => 'http',
 			'api_key'                   => '',
@@ -92,24 +101,28 @@ class WSS_Activator {
 			'show_out_of_stock_results' => 'yes',
 			'integration_mode'          => 'replace',
 			'theme'                     => 'light',
-			'primary_color'             => '#2271b1',
+			'primary_color'             => '#2563eb',
 			'bg_color'                  => '#ffffff',
-			'text_color'                => '#1d2327',
-			'border_color'              => '#c3c4c7',
+			'text_color'                => '#1f2937',
+			'border_color'              => '#e5e7eb',
+			'highlight_bg'              => '#fef3c7',
+			'highlight_text'            => '#92400e',
 			'font_size'                 => '14',
-			'border_radius'             => '4',
+			'border_radius'             => '8',
 			'show_image'                => 'yes',
 			'show_price'                => 'yes',
 			'show_category'             => 'yes',
 			'show_sku'                  => 'no',
 			'show_stock'                => 'yes',
 			'show_rating'               => 'no',
+			'show_sale_badge'           => 'yes',
 			'placeholder_text'          => '',
 			'custom_css'                => '',
 			'cache_ttl'                 => 300,
 			'rate_limit'                => 30,
 			'synonyms'                  => '',
 			'stop_words'                => '',
+			'enable_analytics'          => 'yes',
 		);
 
 		$existing = get_option( 'wss_settings', array() );
