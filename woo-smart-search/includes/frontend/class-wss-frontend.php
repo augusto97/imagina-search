@@ -210,6 +210,11 @@ class WSS_Frontend {
 		$width = isset( $atts['width'] ) ? $atts['width'] : '100%';
 		$theme = $settings['theme'] ?? 'light';
 
+		// Allow layout override from shortcode/block attributes.
+		if ( ! empty( $atts['layout'] ) ) {
+			$settings['widget_layout'] = sanitize_text_field( $atts['layout'] );
+		}
+
 		$template = locate_template( 'woo-smart-search/search-widget.php' );
 		if ( ! $template ) {
 			$template = WSS_PLUGIN_DIR . 'templates/search-widget.php';

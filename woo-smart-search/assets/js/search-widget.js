@@ -19,9 +19,10 @@
 	}
 
 	function initWidget(wrapper) {
-		var layout = config.widgetLayout || 'standard';
-		var isExpanded = layout === 'expanded';
-		var isCompact = layout === 'compact';
+		// Detect layout from wrapper class (supports per-instance override).
+		var isExpanded = wrapper.classList.contains('wss-layout-expanded');
+		var isCompact = wrapper.classList.contains('wss-layout-compact');
+		var layout = isExpanded ? 'expanded' : ( isCompact ? 'compact' : 'standard' );
 
 		var input = wrapper.querySelector('.wss-search-input');
 		var dropdown = wrapper.querySelector('.wss-results-dropdown');

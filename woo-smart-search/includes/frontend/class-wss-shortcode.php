@@ -45,6 +45,7 @@ class WSS_Shortcode {
 				'show_stock'         => '',
 				'show_rating'        => '',
 				'theme'              => '',
+				'layout'             => '',
 				'width'              => '100%',
 				'categories'         => '',
 				'exclude_categories' => '',
@@ -81,13 +82,37 @@ class WSS_Shortcode {
 				'editor_script'   => 'wss-block-editor',
 				'render_callback' => array( $this, 'render_block' ),
 				'attributes'      => array(
-					'placeholder' => array(
+					'placeholder'  => array(
 						'type'    => 'string',
 						'default' => '',
 					),
-					'width'       => array(
+					'width'        => array(
 						'type'    => 'string',
 						'default' => '100%',
+					),
+					'layout'       => array(
+						'type'    => 'string',
+						'default' => '',
+					),
+					'showImage'    => array(
+						'type'    => 'string',
+						'default' => '',
+					),
+					'showPrice'    => array(
+						'type'    => 'string',
+						'default' => '',
+					),
+					'showCategory' => array(
+						'type'    => 'string',
+						'default' => '',
+					),
+					'maxResults'   => array(
+						'type'    => 'string',
+						'default' => '',
+					),
+					'theme'        => array(
+						'type'    => 'string',
+						'default' => '',
 					),
 				),
 			)
@@ -110,6 +135,19 @@ class WSS_Shortcode {
 	 * @return string
 	 */
 	public function render_block( $attributes ) {
+		// Map camelCase block attributes to shortcode snake_case.
+		$map = array(
+			'showImage'    => 'show_image',
+			'showPrice'    => 'show_price',
+			'showCategory' => 'show_category',
+			'maxResults'   => 'max_results',
+		);
+		foreach ( $map as $camel => $snake ) {
+			if ( ! empty( $attributes[ $camel ] ) ) {
+				$attributes[ $snake ] = $attributes[ $camel ];
+			}
+			unset( $attributes[ $camel ] );
+		}
 		return $this->render( $attributes );
 	}
 }
