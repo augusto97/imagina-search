@@ -207,7 +207,8 @@
 			params.set( 'sort', state.sort );
 		}
 
-		params.set( 'facets', 'categories,stock_status,on_sale,brand,rating' );
+		var facetsList = cfg.visibleFacets || 'categories,stock_status,on_sale,brand,rating';
+		params.set( 'facets', facetsList );
 
 		var url = cfg.apiUrl + '?' + params.toString();
 
@@ -271,8 +272,8 @@
 
 	function buildProductCard( hit ) {
 		var imgSrc    = hit.image || cfg.placeholderImg || '';
-		var name      = hit.name_highlighted || escapeHtml( hit.name || '' );
-		var category  = ( hit.categories && hit.categories.length ) ? escapeHtml( hit.categories[0] ) : '';
+		var name      = hit.name_highlighted ? decodeHtml( hit.name_highlighted ) : escapeHtml( decodeHtml( hit.name || '' ) );
+		var category  = ( hit.categories && hit.categories.length ) ? escapeHtml( decodeHtml( hit.categories[0] ) ) : '';
 		var permalink = hit.permalink || '#';
 		var saleBadge = '';
 
@@ -338,26 +339,34 @@
 		var closeHtml = '<div class="wss-filter-panel-close"><button type="button" aria-label="Close">&times;</button></div>';
 		var html = closeHtml;
 
+		// Determine which facets are visible from config.
+		var visibleList = ( cfg.visibleFacets || 'categories,stock_status,on_sale,brand,rating' ).split( ',' );
+		function isFacetVisible( key ) {
+			return visibleList.indexOf( key ) !== -1;
+		}
+
 		// Categories.
-		if ( facets.categories ) {
+		if ( isFacetVisible( 'categories' ) && facets.categories ) {
 			html += buildCheckboxFilter( 'categories', cfg.i18n ? 'Categories' : 'Categories', facets.categories );
 		}
 
 		// Price slider.
-		html += buildPriceFilter();
+		if ( isFacetVisible( 'price' ) ) {
+			html += buildPriceFilter();
+		}
 
 		// Stock status.
-		if ( facets.stock_status ) {
+		if ( isFacetVisible( 'stock' ) && facets.stock_status ) {
 			html += buildCheckboxFilter( 'stock_status', 'Stock', facets.stock_status );
 		}
 
 		// Brand.
-		if ( facets.brand && Object.keys( facets.brand ).length ) {
+		if ( isFacetVisible( 'brands' ) && facets.brand && Object.keys( facets.brand ).length ) {
 			html += buildCheckboxFilter( 'brand', 'Brand', facets.brand );
 		}
 
 		// Rating.
-		if ( facets.rating ) {
+		if ( isFacetVisible( 'rating' ) && facets.rating ) {
 			html += buildRatingFilter( facets.rating );
 		}
 
@@ -387,11 +396,12 @@
 
 		entries.forEach( function ( entry ) {
 			var val   = entry[0];
+			var decoded = decodeHtml( val );
 			var count = entry[1];
 			var checked = selected.indexOf( val ) !== -1 ? ' checked' : '';
 			html += '<label class="wss-filter-option">' +
 				'<input type="checkbox" value="' + escapeHtml( val ) + '"' + checked + ' />' +
-				'<span class="wss-filter-label">' + escapeHtml( val ) + '</span>' +
+				'<span class="wss-filter-label">' + escapeHtml( decoded ) + '</span>' +
 				'<span class="wss-filter-count">(' + count + ')</span>' +
 				'</label>';
 		} );
@@ -685,6 +695,12 @@
 		var div       = document.createElement( 'div' );
 		div.textContent = str;
 		return div.innerHTML;
+	}
+
+	function decodeHtml( str ) {
+		var txt = document.createElement( 'textarea' );
+		txt.innerHTML = str;
+		return txt.value;
 	}
 
 	function trackClick( query, productId ) {

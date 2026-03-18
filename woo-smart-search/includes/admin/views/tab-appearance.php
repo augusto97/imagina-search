@@ -1,6 +1,9 @@
 <?php
 /**
- * Appearance tab template.
+ * Widget tab template.
+ *
+ * Controls the search widget appearance and behavior:
+ * layout, theme, colors, visible elements, placeholder, and custom CSS.
  *
  * @package WooSmartSearch
  * @var array $settings Plugin settings.
@@ -35,6 +38,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 					<option value="compact" <?php selected( $settings['widget_layout'] ?? '', 'compact' ); ?>><?php esc_html_e( 'Compact — Minimal list, no images', 'woo-smart-search' ); ?></option>
 				</select>
 				<p class="description"><?php esc_html_e( 'Choose the dropdown autocomplete layout style.', 'woo-smart-search' ); ?></p>
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
+				<label for="wss-max-results"><?php esc_html_e( 'Autocomplete Results', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<input type="number" id="wss-max-results" name="max_autocomplete_results" value="<?php echo esc_attr( $settings['max_autocomplete_results'] ?? 8 ); ?>" class="small-text" min="1" max="20" />
+				<p class="description"><?php esc_html_e( 'Maximum results shown in the autocomplete dropdown.', 'woo-smart-search' ); ?></p>
 			</td>
 		</tr>
 		<tr>

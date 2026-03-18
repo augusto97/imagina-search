@@ -215,7 +215,7 @@
 			var entries = Object.entries(cats).sort(function (a, b) { return b[1] - a[1]; });
 			var max = Math.min(entries.length, 8);
 			for (var i = 0; i < max; i++) {
-				var catName = entries[i][0];
+				var catName = decodeHtml(entries[i][0]);
 				var catCount = entries[i][1];
 				var li = document.createElement('li');
 				var a = document.createElement('a');
@@ -401,7 +401,7 @@
 
 			var max = Math.min(catEntries.length, 5);
 			for (var i = 0; i < max; i++) {
-				var catName = catEntries[i][0];
+				var catName = decodeHtml(catEntries[i][0]);
 				var catCount = catEntries[i][1];
 				var pill = document.createElement('a');
 				pill.className = 'wss-category-pill';
@@ -435,11 +435,11 @@
 
 			// Category.
 			if (!isCompact && config.showCategory !== false && hit.categories && hit.categories.length) {
-				html += '<span class="wss-result-category">' + escHtml(hit.categories[0]) + '</span>';
+				html += '<span class="wss-result-category">' + escHtml(decodeHtml(hit.categories[0])) + '</span>';
 			}
 
 			// Title with highlighting.
-			var title = hit.name_highlighted || escHtml(hit.name || '');
+			var title = hit.name_highlighted ? decodeHtml(hit.name_highlighted) : escHtml(decodeHtml(hit.name || ''));
 			html += '<h4 class="wss-result-title">' + title + '</h4>';
 
 			// SKU.
@@ -663,6 +663,12 @@
 		var div = document.createElement('div');
 		div.appendChild(document.createTextNode(str));
 		return div.innerHTML;
+	}
+
+	function decodeHtml(str) {
+		var txt = document.createElement('textarea');
+		txt.innerHTML = str;
+		return txt.value;
 	}
 
 	// Initialize when DOM is ready.

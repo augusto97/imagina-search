@@ -130,7 +130,8 @@ class WSS_Admin_Ajax {
 
 		if ( isset( $_POST['visible_facets'] ) && is_array( $_POST['visible_facets'] ) ) {
 			$settings['visible_facets'] = array_map( 'sanitize_text_field', wp_unslash( $_POST['visible_facets'] ) );
-		} else {
+		} elseif ( 'search' === $submitted_tab ) {
+			// Only reset visible_facets when the Results Page tab is submitted with none checked.
 			$settings['visible_facets'] = array();
 		}
 

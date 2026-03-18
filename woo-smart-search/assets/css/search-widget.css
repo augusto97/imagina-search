@@ -630,7 +630,7 @@
    ============================================ */
 
 .wss-layout-expanded {
-	position: static;
+	position: relative;
 }
 
 .wss-layout-expanded .wss-results-dropdown {

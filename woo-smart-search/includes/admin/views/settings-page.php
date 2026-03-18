@@ -13,8 +13,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 $tabs = array(
 	'connection' => __( 'Connection', 'woo-smart-search' ),
 	'indexing'   => __( 'Indexing', 'woo-smart-search' ),
-	'search'     => __( 'Search', 'woo-smart-search' ),
-	'appearance' => __( 'Appearance', 'woo-smart-search' ),
+	'appearance' => __( 'Widget', 'woo-smart-search' ),
+	'search'     => __( 'Results Page', 'woo-smart-search' ),
 	'analytics'  => __( 'Analytics', 'woo-smart-search' ),
 	'logs'       => __( 'Logs', 'woo-smart-search' ),
 );
