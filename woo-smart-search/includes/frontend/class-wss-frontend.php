@@ -250,8 +250,9 @@ class WSS_Frontend {
 		if ( $results_page_id && get_post_status( $results_page_id ) === 'publish' ) {
 			$query       = get_search_query();
 			$results_url = get_permalink( $results_page_id );
-			$results_url = add_query_arg( 's', rawurlencode( $query ), $results_url );
-			$results_url = add_query_arg( 'post_type', 'product', $results_url );
+			// Use 'q' instead of 's' — WordPress hijacks 's' as a search query
+			// and stops resolving the page, causing a 404.
+			$results_url = add_query_arg( 'q', rawurlencode( $query ), $results_url );
 
 			wp_safe_redirect( $results_url, 302 );
 			exit;
@@ -304,13 +305,8 @@ class WSS_Frontend {
 		$results_page_id = (int) wss_get_option( 'results_page_id', 0 );
 		if ( $results_page_id && get_post_status( $results_page_id ) === 'publish' ) {
 			$base = get_permalink( $results_page_id );
-			return add_query_arg(
-				array(
-					's'         => '{query}',
-					'post_type' => 'product',
-				),
-				$base
-			);
+			// Use 'q' instead of 's' to avoid WordPress search hijack.
+			return add_query_arg( 'q', '{query}', $base );
 		}
 		return home_url( '/?s={query}&post_type=product' );
 	}
