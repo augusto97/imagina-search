@@ -210,6 +210,11 @@ class WSS_Frontend {
 		$width = isset( $atts['width'] ) ? $atts['width'] : '100%';
 		$theme = $settings['theme'] ?? 'light';
 
+		// Allow layout override from shortcode/block attributes.
+		if ( ! empty( $atts['layout'] ) ) {
+			$settings['widget_layout'] = sanitize_text_field( $atts['layout'] );
+		}
+
 		$template = locate_template( 'woo-smart-search/search-widget.php' );
 		if ( ! $template ) {
 			$template = WSS_PLUGIN_DIR . 'templates/search-widget.php';
@@ -236,32 +241,12 @@ class WSS_Frontend {
 			return $template;
 		}
 
-		add_filter( 'the_content', array( $this, 'inject_results_page' ), 0 );
-		add_filter( 'woocommerce_before_main_content', '__return_empty_string' );
-
-		return $template;
-	}
-
-	/**
-	 * Inject the faceted results page HTML.
-	 *
-	 * @param string $content Original content.
-	 * @return string
-	 */
-	public function inject_results_page( $content ) {
-		// Only run once.
-		remove_filter( 'the_content', array( $this, 'inject_results_page' ), 0 );
-
-		$query = get_search_query();
-
-		$template = locate_template( 'woo-smart-search/results-page.php' );
-		if ( ! $template ) {
-			$template = WSS_PLUGIN_DIR . 'templates/results-page.php';
+		$custom_template = locate_template( 'woo-smart-search/search-results.php' );
+		if ( ! $custom_template ) {
+			$custom_template = WSS_PLUGIN_DIR . 'templates/search-results.php';
 		}
 
-		ob_start();
-		include $template;
-		return ob_get_clean();
+		return $custom_template;
 	}
 
 	/**

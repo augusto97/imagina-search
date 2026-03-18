@@ -59,6 +59,7 @@ $widget_layout = $settings['widget_layout'] ?? 'standard';
 			</div>
 			<!-- Right: product results -->
 			<div class="wss-expanded-main">
+				<h4 class="wss-expanded-main-heading" style="display:none"></h4>
 				<div class="wss-results-categories" role="group" aria-label="<?php esc_attr_e( 'Category suggestions', 'woo-smart-search' ); ?>"></div>
 				<div class="wss-results-skeleton" aria-hidden="true">
 					<div class="wss-skeleton-item"><div class="wss-skeleton-image"></div><div class="wss-skeleton-lines"><div class="wss-skeleton-line wss-skeleton-line--short"></div><div class="wss-skeleton-line wss-skeleton-line--long"></div><div class="wss-skeleton-line wss-skeleton-line--medium"></div></div></div>

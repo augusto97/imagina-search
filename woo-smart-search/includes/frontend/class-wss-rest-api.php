@@ -159,6 +159,7 @@ class WSS_Rest_Api {
 		if ( $cache_ttl > 0 ) {
 			$cached = get_transient( $cache_key );
 			if ( false !== $cached ) {
+				$this->log_search( $query, $cached['total'] ?? 0 );
 				return rest_ensure_response( apply_filters( 'wss_proxy_response', $cached, $query ) );
 			}
 		}

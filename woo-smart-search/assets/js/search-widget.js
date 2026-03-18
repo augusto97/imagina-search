@@ -19,9 +19,10 @@
 	}
 
 	function initWidget(wrapper) {
-		var layout = config.widgetLayout || 'standard';
-		var isExpanded = layout === 'expanded';
-		var isCompact = layout === 'compact';
+		// Detect layout from wrapper class (supports per-instance override).
+		var isExpanded = wrapper.classList.contains('wss-layout-expanded');
+		var isCompact = wrapper.classList.contains('wss-layout-compact');
+		var layout = isExpanded ? 'expanded' : ( isCompact ? 'compact' : 'standard' );
 
 		var input = wrapper.querySelector('.wss-search-input');
 		var dropdown = wrapper.querySelector('.wss-results-dropdown');
@@ -46,8 +47,11 @@
 		var popularList = isExpanded ? wrapper.querySelector('.wss-popular-list') : null;
 		var sidebarCatContainer = isExpanded ? wrapper.querySelector('.wss-sidebar-categories') : null;
 		var sidebarCatList = isExpanded ? wrapper.querySelector('.wss-sidebar-categories-list') : null;
+		var sidebarPagesContainer = isExpanded ? wrapper.querySelector('.wss-sidebar-pages') : null;
+		var sidebarPagesList = isExpanded ? wrapper.querySelector('.wss-sidebar-pages-list') : null;
 		var suggestionsContainer = isExpanded ? wrapper.querySelector('.wss-suggestions') : null;
 		var suggestionsList = isExpanded ? wrapper.querySelector('.wss-suggestions-list') : null;
+		var mainHeading = isExpanded ? wrapper.querySelector('.wss-expanded-main-heading') : null;
 
 		if (!input) return;
 
@@ -170,7 +174,7 @@
 			}
 
 			var heading = popularContainer.querySelector('.wss-sidebar-heading');
-			if (heading) heading.textContent = config.i18n.popularSearches || 'Popular searches';
+			if (heading) heading.textContent = config.i18n.popularSearches || 'POPULAR';
 
 			popularList.innerHTML = '';
 			searches.forEach(function (item) {
@@ -178,7 +182,7 @@
 				var a = document.createElement('a');
 				a.href = getSearchPageUrl(item.query);
 				a.className = 'wss-popular-item';
-				a.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> ' + escHtml(item.query);
+				a.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> ' + escHtml(item.query);
 				a.addEventListener('click', function (e) {
 					e.preventDefault();
 					input.value = item.query;
@@ -200,7 +204,7 @@
 			}
 
 			var heading = sidebarCatContainer.querySelector('.wss-sidebar-heading');
-			if (heading) heading.textContent = config.i18n.categories || 'Categories';
+			if (heading) heading.textContent = config.i18n.categories || 'CATEGOR\u00cdAS';
 
 			sidebarCatList.innerHTML = '';
 			var entries = Object.entries(cats).sort(function (a, b) { return b[1] - a[1]; });
@@ -212,7 +216,7 @@
 				var a = document.createElement('a');
 				a.href = getSearchPageUrl(lastQuery + '&filter_categories=' + encodeURIComponent(catName));
 				a.className = 'wss-sidebar-cat-item';
-				a.innerHTML = escHtml(catName) + ' <span class="wss-sidebar-count">(' + catCount + ')</span>';
+				a.textContent = catName;
 				li.appendChild(a);
 				sidebarCatList.appendChild(li);
 			}
@@ -338,6 +342,10 @@
 				renderSuggestions(query);
 				// Hide popular during results.
 				hideState(popularContainer);
+				// Show PRODUCTOS heading above products grid.
+				if (mainHeading) {
+					mainHeading.textContent = config.i18n.products || 'PRODUCTOS';
+				}
 			}
 
 			// Render category pills (standard layout only).
@@ -351,9 +359,13 @@
 			if (hits.length === 0) {
 				showState(emptyContainer);
 				emptyContainer.textContent = (config.i18n.noResults || 'No results found for') + ' \u201c' + query + '\u201d';
+				if (isExpanded && mainHeading) hideState(mainHeading);
 				showDropdown();
 				return;
 			}
+
+			// Show the PRODUCTOS heading in expanded layout.
+			if (isExpanded && mainHeading) showState(mainHeading);
 
 			hits.forEach(function (hit, index) {
 				var item = createResultItem(hit, index, query);

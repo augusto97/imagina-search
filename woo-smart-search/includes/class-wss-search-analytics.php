@@ -86,9 +86,19 @@ class WSS_Search_Analytics {
 
 		global $wpdb;
 		$table = self::get_table_name();
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		if ( $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ) !== $table ) {
+
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) {
 			self::create_table();
+			return;
+		}
+
+		// Table exists — verify columns are correct.
+		$columns = $wpdb->get_col( "DESCRIBE {$table}", 0 ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( in_array( 'user_ip', $columns, true ) && ! in_array( 'ip_address', $columns, true ) ) {
+			$wpdb->query( "ALTER TABLE {$table} CHANGE `user_ip` `ip_address` varchar(45) NOT NULL DEFAULT ''" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
+		if ( ! in_array( 'ip_address', $columns, true ) && ! in_array( 'user_ip', $columns, true ) ) {
+			$wpdb->query( "ALTER TABLE {$table} ADD `ip_address` varchar(45) NOT NULL DEFAULT '' AFTER `clicked_product_id`" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
 	}
 
