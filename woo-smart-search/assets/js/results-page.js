@@ -69,7 +69,7 @@
 	function readUrlParams() {
 		var params = new URLSearchParams( window.location.search );
 
-		state.query    = params.get( 's' ) || params.get( 'q' ) || '';
+		state.query    = params.get( 'q' ) || params.get( 's' ) || '';
 		state.page     = parseInt( params.get( 'paged' ) || '1', 10 );
 		state.sort     = params.get( 'sort' ) || '';
 		state.view     = params.get( 'view' ) || 'grid';
@@ -90,8 +90,7 @@
 
 	function updateUrl() {
 		var params = new URLSearchParams();
-		params.set( 's', state.query );
-		params.set( 'post_type', 'product' );
+		params.set( 'q', state.query );
 
 		if ( state.page > 1 ) params.set( 'paged', state.page );
 		if ( state.sort )     params.set( 'sort', state.sort );
