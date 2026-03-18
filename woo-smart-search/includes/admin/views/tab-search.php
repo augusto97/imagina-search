@@ -15,6 +15,48 @@ if ( ! defined( 'ABSPATH' ) ) {
 	<table class="form-table">
 		<tr>
 			<th scope="row">
+				<label for="wss-results-page"><?php esc_html_e( 'Search Results Page', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<?php
+				$results_page_id = $settings['results_page_id'] ?? 0;
+				wp_dropdown_pages(
+					array(
+						'name'             => 'results_page_id',
+						'id'               => 'wss-results-page',
+						'sort_column'      => 'menu_order',
+						'sort_order'       => 'ASC',
+						'show_option_none' => __( '— Select a page —', 'woo-smart-search' ),
+						'option_none_value' => '0',
+						'selected'         => $results_page_id,
+						'echo'             => true,
+						'post_status'      => 'publish,draft,private',
+					)
+				);
+				?>
+				<p class="description">
+					<?php
+					printf(
+						/* translators: %s: shortcode */
+						esc_html__( 'Select the page that contains the %s shortcode. This page will display the faceted search results.', 'woo-smart-search' ),
+						'<code>[woo_smart_search_results]</code>'
+					);
+					?>
+				</p>
+				<?php if ( $results_page_id ) : ?>
+					<p>
+						<a href="<?php echo esc_url( get_edit_post_link( $results_page_id ) ); ?>" class="button button-small">
+							<?php esc_html_e( 'Edit Page', 'woo-smart-search' ); ?>
+						</a>
+						<a href="<?php echo esc_url( get_permalink( $results_page_id ) ); ?>" class="button button-small" target="_blank">
+							<?php esc_html_e( 'View Page', 'woo-smart-search' ); ?>
+						</a>
+					</p>
+				<?php endif; ?>
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
 				<label for="wss-max-results"><?php esc_html_e( 'Autocomplete Results', 'woo-smart-search' ); ?></label>
 			</th>
 			<td>
