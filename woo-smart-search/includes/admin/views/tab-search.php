@@ -1,6 +1,9 @@
 <?php
 /**
- * Search tab template.
+ * Results Page tab template.
+ *
+ * Controls the search results page settings: page selector, results per page,
+ * facets configuration, search behavior, cache, rate limits, and synonyms.
  *
  * @package WooSmartSearch
  * @var array $settings Plugin settings.
@@ -57,15 +60,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 		</tr>
 		<tr>
 			<th scope="row">
-				<label for="wss-max-results"><?php esc_html_e( 'Autocomplete Results', 'woo-smart-search' ); ?></label>
-			</th>
-			<td>
-				<input type="number" id="wss-max-results" name="max_autocomplete_results" value="<?php echo esc_attr( $settings['max_autocomplete_results'] ?? 8 ); ?>" class="small-text" min="1" max="20" />
-				<p class="description"><?php esc_html_e( 'Maximum results shown in the autocomplete dropdown.', 'woo-smart-search' ); ?></p>
-			</td>
-		</tr>
-		<tr>
-			<th scope="row">
 				<label for="wss-per-page"><?php esc_html_e( 'Results Per Page', 'woo-smart-search' ); ?></label>
 			</th>
 			<td>
@@ -101,6 +95,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 						<?php echo esc_html( $label ); ?>
 					</label>
 				<?php endforeach; ?>
+				<p class="description"><?php esc_html_e( 'Select which filter facets to show in the results page sidebar.', 'woo-smart-search' ); ?></p>
 			</td>
 		</tr>
 		<tr>

@@ -124,6 +124,7 @@ class WSS_Frontend {
 					'startTyping'      => __( 'Start typing to search products...', 'woo-smart-search' ),
 				),
 				'widgetLayout'   => $settings['widget_layout'] ?? 'standard',
+				'visibleFacets'  => implode( ',', $settings['visible_facets'] ?? array( 'categories', 'price', 'stock', 'attributes' ) ),
 			)
 		);
 
