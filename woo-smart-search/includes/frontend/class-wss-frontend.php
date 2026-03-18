@@ -117,8 +117,11 @@ class WSS_Frontend {
 					'onBackorder'      => __( 'On backorder', 'woo-smart-search' ),
 					'clearSearch'      => __( 'Clear search', 'woo-smart-search' ),
 					'close'            => __( 'Close', 'woo-smart-search' ),
-					'popularSearches'  => __( 'Popular searches', 'woo-smart-search' ),
+					'popularSearches'  => __( 'Popular', 'woo-smart-search' ),
 					'suggestions'      => __( 'Suggestions', 'woo-smart-search' ),
+					'products'         => __( 'Products', 'woo-smart-search' ),
+					'categories'       => __( 'Categories', 'woo-smart-search' ),
+					'startTyping'      => __( 'Start typing to search products...', 'woo-smart-search' ),
 				),
 				'widgetLayout'   => $settings['widget_layout'] ?? 'standard',
 			)

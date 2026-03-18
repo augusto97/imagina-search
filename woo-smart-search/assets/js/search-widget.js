@@ -140,6 +140,11 @@
 				showDropdown();
 			} else if (isExpanded && input.value.trim().length < (config.minQueryLength || 2)) {
 				loadPopularSearches();
+				// Show start-typing hint in main area when no results yet.
+				if (mainHeading && !productsContainer.children.length) {
+					mainHeading.textContent = config.i18n.startTyping || 'Start typing to search products...';
+					showState(mainHeading);
+				}
 				showDropdown();
 			}
 		});
