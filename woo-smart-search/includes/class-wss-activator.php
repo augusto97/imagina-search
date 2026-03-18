@@ -60,15 +60,16 @@ class WSS_Activator {
 
 		CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wss_search_log (
 			id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-			query varchar(255) NOT NULL,
-			results_count int(10) UNSIGNED DEFAULT 0,
+			query varchar(255) NOT NULL DEFAULT '',
+			results_count int(11) NOT NULL DEFAULT 0,
 			clicked_product_id bigint(20) UNSIGNED DEFAULT NULL,
-			user_ip varchar(45) DEFAULT NULL,
-			user_agent varchar(255) DEFAULT NULL,
-			created_at datetime DEFAULT CURRENT_TIMESTAMP,
+			ip_address varchar(45) NOT NULL DEFAULT '',
+			user_agent varchar(255) NOT NULL DEFAULT '',
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (id),
-			KEY idx_query (query),
-			KEY idx_created (created_at)
+			KEY idx_query (query(191)),
+			KEY idx_created_at (created_at),
+			KEY idx_results_count (results_count)
 		) {$charset_collate};";
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';

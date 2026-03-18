@@ -25,6 +25,9 @@ class WSS_Loader {
 	 * Run the loader to initialize all plugin components.
 	 */
 	public function run() {
+		// One-time fix: restore defaults for display settings that were incorrectly reset.
+		$this->maybe_fix_display_settings();
+
 		// Initialize admin.
 		if ( is_admin() ) {
 			$admin = new WSS_Admin();
@@ -289,6 +292,49 @@ class WSS_Loader {
 			</a>
 		</p>
 		<?php
+	}
+
+	/**
+	 * One-time migration to restore display settings that were
+	 * incorrectly reset to 'no' by the cross-tab save bug.
+	 */
+	private function maybe_fix_display_settings() {
+		if ( get_option( 'wss_display_fix_v1' ) ) {
+			return;
+		}
+
+		$settings = get_option( 'wss_settings', array() );
+
+		// If show_image was set to 'no' but the user never explicitly disabled it,
+		// restore defaults. We detect this by checking if ALL display bools are 'no'
+		// (which would only happen from the cross-tab save bug).
+		$display_fields = array( 'show_image', 'show_price', 'show_category', 'show_stock' );
+		$all_no         = true;
+		foreach ( $display_fields as $field ) {
+			if ( isset( $settings[ $field ] ) && 'yes' === $settings[ $field ] ) {
+				$all_no = false;
+				break;
+			}
+		}
+
+		if ( $all_no && ! empty( $settings ) ) {
+			$defaults = array(
+				'show_image'       => 'yes',
+				'show_price'       => 'yes',
+				'show_category'    => 'yes',
+				'show_stock'       => 'yes',
+				'show_sale_badge'  => 'yes',
+				'enable_analytics' => 'yes',
+			);
+			foreach ( $defaults as $key => $value ) {
+				if ( ! isset( $settings[ $key ] ) || 'no' === $settings[ $key ] ) {
+					$settings[ $key ] = $value;
+				}
+			}
+			update_option( 'wss_settings', $settings );
+		}
+
+		update_option( 'wss_display_fix_v1', true );
 	}
 
 	/**

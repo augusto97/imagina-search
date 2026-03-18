@@ -17,6 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 </div>
 
 <form id="wss-connection-form" class="wss-form">
+	<input type="hidden" name="_wss_tab" value="connection" />
 	<table class="form-table">
 		<tr>
 			<th scope="row">
