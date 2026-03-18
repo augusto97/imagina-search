@@ -207,8 +207,9 @@
 			params.set( 'sort', state.sort );
 		}
 
-		var facetsList = cfg.visibleFacets || 'categories,stock_status,on_sale,brand,rating';
-		params.set( 'facets', facetsList );
+		// Always request all valid Meilisearch facet fields; visibility is
+		// controlled at render time via cfg.visibleFacets.
+		params.set( 'facets', 'categories,stock_status,on_sale,brand,rating' );
 
 		var url = cfg.apiUrl + '?' + params.toString();
 
@@ -339,8 +340,8 @@
 		var closeHtml = '<div class="wss-filter-panel-close"><button type="button" aria-label="Close">&times;</button></div>';
 		var html = closeHtml;
 
-		// Determine which facets are visible from config.
-		var visibleList = ( cfg.visibleFacets || 'categories,stock_status,on_sale,brand,rating' ).split( ',' );
+		// Determine which facets are visible from config (admin-friendly keys).
+		var visibleList = ( cfg.visibleFacets || 'categories,price,stock,attributes,brands,rating' ).split( ',' );
 		function isFacetVisible( key ) {
 			return visibleList.indexOf( key ) !== -1;
 		}
