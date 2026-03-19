@@ -1,6 +1,6 @@
 /**
  * Woo Smart Search - Frontend Search Widget (vanilla JS)
- * Supports standard, expanded (two-column), and compact layouts.
+ * Supports: standard, expanded, compact, amazon, falabella, fullscreen layouts.
  * @package WooSmartSearch
  */
 (function () {
@@ -19,10 +19,20 @@
 	}
 
 	function initWidget(wrapper) {
-		// Detect layout from wrapper class (supports per-instance override).
-		var isExpanded = wrapper.classList.contains('wss-layout-expanded');
-		var isCompact = wrapper.classList.contains('wss-layout-compact');
-		var layout = isExpanded ? 'expanded' : ( isCompact ? 'compact' : 'standard' );
+		// Detect layout.
+		var layout = 'standard';
+		if (wrapper.classList.contains('wss-layout-expanded')) layout = 'expanded';
+		else if (wrapper.classList.contains('wss-layout-compact')) layout = 'compact';
+		else if (wrapper.classList.contains('wss-layout-amazon')) layout = 'amazon';
+		else if (wrapper.classList.contains('wss-layout-falabella')) layout = 'falabella';
+		else if (wrapper.classList.contains('wss-layout-fullscreen')) layout = 'fullscreen';
+
+		var isExpanded = layout === 'expanded';
+		var isCompact = layout === 'compact';
+		var isAmazon = layout === 'amazon';
+		var isFalabella = layout === 'falabella';
+		var isFullscreen = layout === 'fullscreen';
+		var needsFacets = isExpanded || isFalabella || isFullscreen;
 
 		var input = wrapper.querySelector('.wss-search-input');
 		var dropdown = wrapper.querySelector('.wss-results-dropdown');
@@ -37,6 +47,7 @@
 		var icon = wrapper.querySelector('.wss-search-icon');
 		var clearBtn = wrapper.querySelector('.wss-search-clear');
 		var backdrop = wrapper.querySelector('.wss-mobile-backdrop');
+		var mobileCloseBtn = wrapper.querySelector('.wss-mobile-close-btn');
 		var selectedIndex = -1;
 		var debounceTimer = null;
 		var isMobileOverlay = false;
@@ -47,116 +58,178 @@
 		var popularList = isExpanded ? wrapper.querySelector('.wss-popular-list') : null;
 		var sidebarCatContainer = isExpanded ? wrapper.querySelector('.wss-sidebar-categories') : null;
 		var sidebarCatList = isExpanded ? wrapper.querySelector('.wss-sidebar-categories-list') : null;
-		var sidebarPagesContainer = isExpanded ? wrapper.querySelector('.wss-sidebar-pages') : null;
-		var sidebarPagesList = isExpanded ? wrapper.querySelector('.wss-sidebar-pages-list') : null;
 		var suggestionsContainer = isExpanded ? wrapper.querySelector('.wss-suggestions') : null;
 		var suggestionsList = isExpanded ? wrapper.querySelector('.wss-suggestions-list') : null;
 		var mainHeading = isExpanded ? wrapper.querySelector('.wss-expanded-main-heading') : null;
 
+		// Falabella layout DOM refs.
+		var falabellaBrandsList = isFalabella ? wrapper.querySelector('.wss-falabella-brands-list') : null;
+		var falabellaCategoriesList = isFalabella ? wrapper.querySelector('.wss-falabella-categories-list') : null;
+
+		// Fullscreen layout DOM refs.
+		var fullscreenOverlay = isFullscreen ? wrapper.querySelector('.wss-fullscreen-overlay') : null;
+		var fullscreenInput = isFullscreen ? wrapper.querySelector('.wss-fullscreen-input') : null;
+		var fullscreenClose = isFullscreen ? wrapper.querySelector('.wss-fullscreen-close') : null;
+		var fullscreenClear = isFullscreen ? wrapper.querySelector('.wss-fullscreen-clear') : null;
+		var fullscreenViewAll = isFullscreen ? wrapper.querySelector('.wss-fullscreen-view-all') : null;
+		var fullscreenCatList = isFullscreen ? wrapper.querySelector('.wss-fullscreen-categories-list') : null;
+		var fullscreenBrandsList = isFullscreen ? wrapper.querySelector('.wss-fullscreen-brands-list') : null;
+
 		if (!input) return;
 
-		// Input event with debounce.
-		input.addEventListener('input', function () {
-			var query = input.value.trim();
-
-			clearTimeout(debounceTimer);
-
-			if (query.length < (config.minQueryLength || 2)) {
-				hideDropdown();
-				toggleClear(false);
-				return;
-			}
-
-			toggleClear(true);
-
-			debounceTimer = setTimeout(function () {
-				performSearch(query);
-			}, config.debounceTime || 200);
-		});
-
-		// Clear button.
-		if (clearBtn) {
-			clearBtn.addEventListener('click', function () {
-				input.value = '';
-				hideDropdown();
-				toggleClear(false);
-				input.focus();
+		// Fullscreen: the main input triggers the overlay.
+		if (isFullscreen) {
+			input.addEventListener('focus', function () {
+				openFullscreen();
 			});
-		}
+			input.addEventListener('click', function () {
+				openFullscreen();
+			});
 
-		// Keyboard navigation.
-		input.addEventListener('keydown', function (e) {
-			var items = dropdown.querySelectorAll('.wss-result-item');
-
-			switch (e.key) {
-				case 'ArrowDown':
-					e.preventDefault();
-					if (!dropdown.classList.contains('wss-visible')) return;
-					selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
-					updateSelection(items);
-					break;
-				case 'ArrowUp':
-					e.preventDefault();
-					if (!dropdown.classList.contains('wss-visible')) return;
-					selectedIndex = Math.max(selectedIndex - 1, -1);
-					updateSelection(items);
-					break;
-				case 'Enter':
-					e.preventDefault();
-					if (selectedIndex >= 0 && items[selectedIndex]) {
-						var href = items[selectedIndex].getAttribute('href');
-						if (href) window.location.href = href;
-					} else if (input.value.trim().length >= (config.minQueryLength || 2)) {
-						window.location.href = getSearchPageUrl(input.value.trim());
+			if (fullscreenInput) {
+				fullscreenInput.addEventListener('input', function () {
+					var query = fullscreenInput.value.trim();
+					clearTimeout(debounceTimer);
+					if (query.length < (config.minQueryLength || 2)) {
+						clearFullscreenResults();
+						toggleFullscreenClear(false);
+						return;
 					}
-					break;
-				case 'Escape':
-					hideDropdown();
-					input.blur();
-					break;
-				case 'Tab':
-					hideDropdown();
-					break;
-			}
-		});
+					toggleFullscreenClear(true);
+					debounceTimer = setTimeout(function () {
+						performSearch(query);
+					}, config.debounceTime || 200);
+				});
 
-		// Close dropdown on click outside.
-		document.addEventListener('click', function (e) {
-			if (!wrapper.contains(e.target)) {
-				hideDropdown();
+				fullscreenInput.addEventListener('keydown', function (e) {
+					if (e.key === 'Escape') {
+						closeFullscreen();
+					} else if (e.key === 'Enter') {
+						e.preventDefault();
+						if (fullscreenInput.value.trim().length >= (config.minQueryLength || 2)) {
+							window.location.href = getSearchPageUrl(fullscreenInput.value.trim());
+						}
+					}
+				});
 			}
-		});
 
-		// Mobile backdrop close.
-		if (backdrop) {
-			backdrop.addEventListener('click', function () {
-				hideDropdown();
-			});
+			if (fullscreenClose) {
+				fullscreenClose.addEventListener('click', closeFullscreen);
+			}
+
+			if (fullscreenClear) {
+				fullscreenClear.addEventListener('click', function () {
+					if (fullscreenInput) {
+						fullscreenInput.value = '';
+						clearFullscreenResults();
+						toggleFullscreenClear(false);
+						fullscreenInput.focus();
+					}
+				});
+			}
+
+			// No further event binding needed for fullscreen — skip the rest.
 		}
 
-		// Focus - only re-show dropdown if there are already results from a previous search.
-		input.addEventListener('focus', function () {
-			if (input.value.trim().length >= (config.minQueryLength || 2) &&
-				(productsContainer.children.length > 0 || (emptyContainer && emptyContainer.classList.contains('wss-visible')))) {
-				showDropdown();
+		// Non-fullscreen: input events.
+		if (!isFullscreen) {
+			input.addEventListener('input', function () {
+				var query = input.value.trim();
+				clearTimeout(debounceTimer);
+				if (query.length < (config.minQueryLength || 2)) {
+					hideDropdown();
+					toggleClear(false);
+					return;
+				}
+				toggleClear(true);
+				debounceTimer = setTimeout(function () {
+					performSearch(query);
+				}, config.debounceTime || 200);
+			});
+
+			// Clear button.
+			if (clearBtn) {
+				clearBtn.addEventListener('click', function () {
+					input.value = '';
+					hideDropdown();
+					toggleClear(false);
+					input.focus();
+				});
 			}
-		});
+
+			// Keyboard navigation.
+			input.addEventListener('keydown', function (e) {
+				if (!dropdown) return;
+				var items = dropdown.querySelectorAll('.wss-result-item');
+				switch (e.key) {
+					case 'ArrowDown':
+						e.preventDefault();
+						if (!dropdown.classList.contains('wss-visible')) return;
+						selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+						updateSelection(items);
+						break;
+					case 'ArrowUp':
+						e.preventDefault();
+						if (!dropdown.classList.contains('wss-visible')) return;
+						selectedIndex = Math.max(selectedIndex - 1, -1);
+						updateSelection(items);
+						break;
+					case 'Enter':
+						e.preventDefault();
+						if (selectedIndex >= 0 && items[selectedIndex]) {
+							var href = items[selectedIndex].getAttribute('href');
+							if (href) window.location.href = href;
+						} else if (input.value.trim().length >= (config.minQueryLength || 2)) {
+							window.location.href = getSearchPageUrl(input.value.trim());
+						}
+						break;
+					case 'Escape':
+						hideDropdown();
+						input.blur();
+						break;
+					case 'Tab':
+						hideDropdown();
+						break;
+				}
+			});
+
+			// Close dropdown on click outside.
+			document.addEventListener('click', function (e) {
+				if (!wrapper.contains(e.target)) {
+					hideDropdown();
+				}
+			});
+
+			// Mobile backdrop close.
+			if (backdrop) {
+				backdrop.addEventListener('click', function () {
+					hideDropdown();
+				});
+			}
+
+			// Mobile close button.
+			if (mobileCloseBtn) {
+				mobileCloseBtn.addEventListener('click', function () {
+					hideDropdown();
+				});
+			}
+
+			// Focus - only re-show dropdown if there are already results from a previous search.
+			input.addEventListener('focus', function () {
+				if (input.value.trim().length >= (config.minQueryLength || 2) &&
+					(productsContainer.children.length > 0 || (emptyContainer && emptyContainer.classList.contains('wss-visible')))) {
+					showDropdown();
+				}
+			});
+		}
 
 		/* ---- Expanded Layout: Popular Searches ---- */
 
 		function loadPopularSearches() {
 			if (!isExpanded || !popularContainer) return;
-
-			if (popularCache) {
-				renderPopularSearches(popularCache);
-				return;
-			}
-
+			if (popularCache) { renderPopularSearches(popularCache); return; }
 			if (!config.popularUrl) return;
-
-			fetch(config.popularUrl + '?limit=8', {
-				headers: { 'X-WP-Nonce': config.nonce }
-			})
+			fetch(config.popularUrl + '?limit=8', { headers: { 'X-WP-Nonce': config.nonce } })
 				.then(function (r) { return r.json(); })
 				.then(function (data) {
 					popularCache = data.searches || [];
@@ -166,14 +239,9 @@
 		}
 
 		function renderPopularSearches(searches) {
-			if (!popularList || !searches.length) {
-				hideState(popularContainer);
-				return;
-			}
-
+			if (!popularList || !searches.length) { hideState(popularContainer); return; }
 			var heading = popularContainer.querySelector('.wss-sidebar-heading');
 			if (heading) heading.textContent = config.i18n.popularSearches || 'POPULAR';
-
 			popularList.innerHTML = '';
 			searches.forEach(function (item) {
 				var li = document.createElement('li');
@@ -194,22 +262,15 @@
 
 		function renderSidebarCategories(facets) {
 			if (!isExpanded || !sidebarCatContainer || !sidebarCatList) return;
-
 			var cats = facets.categories;
-			if (!cats || typeof cats !== 'object') {
-				hideState(sidebarCatContainer);
-				return;
-			}
-
+			if (!cats || typeof cats !== 'object') { hideState(sidebarCatContainer); return; }
 			var heading = sidebarCatContainer.querySelector('.wss-sidebar-heading');
-			if (heading) heading.textContent = config.i18n.categories || 'CATEGOR\u00cdAS';
-
+			if (heading) heading.textContent = config.i18n.categories || 'CATEGORIES';
 			sidebarCatList.innerHTML = '';
 			var entries = Object.entries(cats).sort(function (a, b) { return b[1] - a[1]; });
 			var max = Math.min(entries.length, 8);
 			for (var i = 0; i < max; i++) {
 				var catName = decodeHtml(entries[i][0]);
-				var catCount = entries[i][1];
 				var li = document.createElement('li');
 				var a = document.createElement('a');
 				a.href = getSearchPageUrl(lastQuery + '&filter_categories=' + encodeURIComponent(catName));
@@ -223,26 +284,15 @@
 
 		function renderSuggestions(query) {
 			if (!isExpanded || !suggestionsContainer || !suggestionsList) return;
-
 			var heading = suggestionsContainer.querySelector('.wss-sidebar-heading');
 			if (heading) heading.textContent = config.i18n.suggestions || 'Suggestions';
-
-			// Generate simple word suggestions from query.
 			var words = query.split(/\s+/).filter(function (w) { return w.length > 1; });
-			if (words.length < 1) {
-				hideState(suggestionsContainer);
-				return;
-			}
-
+			if (words.length < 1) { hideState(suggestionsContainer); return; }
 			suggestionsList.innerHTML = '';
-			// Show the original query plus truncated variations.
 			var suggestions = [query];
 			words.forEach(function (word) {
-				if (word !== query && word.length > 2) {
-					suggestions.push(word);
-				}
+				if (word !== query && word.length > 2) suggestions.push(word);
 			});
-
 			suggestions = suggestions.slice(0, 5);
 			suggestions.forEach(function (s) {
 				var li = document.createElement('li');
@@ -261,54 +311,164 @@
 			showState(suggestionsContainer);
 		}
 
+		/* ---- Falabella: Render columns ---- */
+
+		function renderFalabellaColumns(facets) {
+			if (!isFalabella) return;
+
+			// Brands column.
+			if (falabellaBrandsList) {
+				falabellaBrandsList.innerHTML = '';
+				var brands = facets.brand;
+				if (brands && typeof brands === 'object') {
+					var entries = Object.entries(brands).sort(function (a, b) { return b[1] - a[1]; });
+					entries.slice(0, 10).forEach(function (entry) {
+						var li = document.createElement('li');
+						var a = document.createElement('a');
+						a.href = getSearchPageUrl(lastQuery + '&filter_brand=' + encodeURIComponent(entry[0]));
+						a.textContent = decodeHtml(entry[0]);
+						li.appendChild(a);
+						falabellaBrandsList.appendChild(li);
+					});
+				}
+			}
+
+			// Categories column.
+			if (falabellaCategoriesList) {
+				falabellaCategoriesList.innerHTML = '';
+				var cats = facets.categories;
+				if (cats && typeof cats === 'object') {
+					var catEntries = Object.entries(cats).sort(function (a, b) { return b[1] - a[1]; });
+					catEntries.slice(0, 10).forEach(function (entry) {
+						var li = document.createElement('li');
+						var a = document.createElement('a');
+						a.href = getSearchPageUrl(lastQuery + '&filter_categories=' + encodeURIComponent(entry[0]));
+						a.textContent = decodeHtml(entry[0]);
+						li.appendChild(a);
+						falabellaCategoriesList.appendChild(li);
+					});
+				}
+			}
+		}
+
+		/* ---- Fullscreen: Render columns ---- */
+
+		function renderFullscreenColumns(facets, query) {
+			if (!isFullscreen) return;
+
+			// Categories column.
+			if (fullscreenCatList) {
+				fullscreenCatList.innerHTML = '';
+				var cats = facets.categories;
+				if (cats && typeof cats === 'object') {
+					var catEntries = Object.entries(cats).sort(function (a, b) { return b[1] - a[1]; });
+					catEntries.slice(0, 8).forEach(function (entry) {
+						var catName = decodeHtml(entry[0]);
+						var count = entry[1];
+						var li = document.createElement('li');
+						var a = document.createElement('a');
+						a.href = getSearchPageUrl(query + '&filter_categories=' + encodeURIComponent(catName));
+						a.innerHTML = '<span class="wss-fullscreen-cat-name">' + escHtml(catName) + '</span>' +
+							'<span class="wss-fullscreen-cat-count">' + count + ' articles</span>';
+						li.appendChild(a);
+						fullscreenCatList.appendChild(li);
+					});
+				}
+			}
+
+			// Brands column.
+			if (fullscreenBrandsList) {
+				fullscreenBrandsList.innerHTML = '';
+				var brands = facets.brand;
+				if (brands && typeof brands === 'object') {
+					var brandEntries = Object.entries(brands).sort(function (a, b) { return b[1] - a[1]; });
+					brandEntries.slice(0, 8).forEach(function (entry) {
+						var li = document.createElement('li');
+						var a = document.createElement('a');
+						a.href = getSearchPageUrl(lastQuery + '&filter_brand=' + encodeURIComponent(entry[0]));
+						a.textContent = decodeHtml(entry[0]);
+						li.appendChild(a);
+						fullscreenBrandsList.appendChild(li);
+					});
+				}
+			}
+
+			// View all link.
+			if (fullscreenViewAll) {
+				fullscreenViewAll.href = getSearchPageUrl(query);
+			}
+		}
+
+		function openFullscreen() {
+			if (fullscreenOverlay) {
+				fullscreenOverlay.classList.add('wss-visible');
+				document.body.classList.add('wss-body-locked');
+				if (fullscreenInput) {
+					fullscreenInput.value = input.value;
+					setTimeout(function () { fullscreenInput.focus(); }, 100);
+				}
+			}
+		}
+
+		function closeFullscreen() {
+			if (fullscreenOverlay) {
+				fullscreenOverlay.classList.remove('wss-visible');
+				document.body.classList.remove('wss-body-locked');
+				if (fullscreenInput) input.value = fullscreenInput.value;
+			}
+		}
+
+		function clearFullscreenResults() {
+			if (productsContainer) productsContainer.innerHTML = '';
+			if (fullscreenCatList) fullscreenCatList.innerHTML = '';
+			if (fullscreenBrandsList) fullscreenBrandsList.innerHTML = '';
+			hideState(emptyContainer);
+			hideState(errorContainer);
+		}
+
+		function toggleFullscreenClear(show) {
+			if (fullscreenClear) fullscreenClear.style.display = show ? '' : 'none';
+		}
+
 		/* ---- Search ---- */
 
 		function performSearch(query) {
 			lastQuery = query;
 
-			// Check local cache.
 			if (cache[query]) {
 				renderResults(cache[query], query);
 				return;
 			}
 
-			showSkeleton();
-			showDropdown();
+			if (!isFullscreen) {
+				showSkeleton();
+				showDropdown();
+			}
 			showLoading();
 
-			// Cancel previous request.
-			if (activeController) {
-				activeController.abort();
-			}
+			if (activeController) activeController.abort();
 			activeController = new AbortController();
 
 			var limit = config.maxResults || 8;
-			var facetsParam = isExpanded ? '&facets=categories,stock_status,on_sale,brand,rating' : '';
+			var facetsParam = needsFacets ? '&facets=categories,stock_status,on_sale,brand,rating' : '';
 			var url = config.apiUrl + '?q=' + encodeURIComponent(query) + '&limit=' + limit + facetsParam;
 
 			fetch(url, {
 				method: 'GET',
-				headers: {
-					'X-WP-Nonce': config.nonce
-				},
+				headers: { 'X-WP-Nonce': config.nonce },
 				signal: activeController.signal
 			})
 				.then(function (response) {
-					if (!response.ok) {
-						throw new Error('HTTP ' + response.status);
-					}
+					if (!response.ok) throw new Error('HTTP ' + response.status);
 					return response.json();
 				})
 				.then(function (data) {
 					cache[query] = data;
 					renderResults(data, query);
-
-					// Dispatch analytics event.
 					try {
-						var event = new CustomEvent('wss_search', {
+						document.dispatchEvent(new CustomEvent('wss_search', {
 							detail: { query: query, results: data.total || 0 }
-						});
-						document.dispatchEvent(event);
+						}));
 					} catch (err) { /* ignore */ }
 				})
 				.catch(function (err) {
@@ -317,52 +477,58 @@
 				})
 				.finally(function () {
 					hideLoading();
-					hideSkeleton();
+					if (!isFullscreen) hideSkeleton();
 				});
 		}
 
 		function renderResults(data, query) {
 			selectedIndex = -1;
 			productsContainer.innerHTML = '';
-			hideSkeleton();
-			hideState(emptyContainer);
-			hideState(errorContainer);
-			hideState(footer);
-			hideState(categoriesContainer);
+			if (!isFullscreen) {
+				hideSkeleton();
+				hideState(emptyContainer);
+				hideState(errorContainer);
+				hideState(footer);
+				hideState(categoriesContainer);
+			} else {
+				hideState(emptyContainer);
+				hideState(errorContainer);
+			}
 
 			var hits = data.hits || [];
 			var total = data.total || 0;
 			var facets = data.facets || {};
 
-			// Expanded sidebar sections.
+			// Layout-specific sidebar/column rendering.
 			if (isExpanded) {
 				renderSidebarCategories(facets);
 				renderSuggestions(query);
-				// Hide popular during results.
 				hideState(popularContainer);
-				// Show PRODUCTOS heading above products grid.
-				if (mainHeading) {
-					mainHeading.textContent = config.i18n.products || 'PRODUCTOS';
-				}
+				if (mainHeading) mainHeading.textContent = config.i18n.products || 'PRODUCTS';
 			}
 
-			// Render category pills (standard layout only).
-			if (!isExpanded && facets.categories && typeof facets.categories === 'object') {
+			if (isFalabella) {
+				renderFalabellaColumns(facets);
+			}
+
+			if (isFullscreen) {
+				renderFullscreenColumns(facets, query);
+			}
+
+			// Standard layout: category pills.
+			if (!isExpanded && !isFalabella && !isFullscreen && !isAmazon && facets.categories && typeof facets.categories === 'object') {
 				var catEntries = Object.entries(facets.categories);
-				if (catEntries.length > 0) {
-					renderCategories(catEntries, query);
-				}
+				if (catEntries.length > 0) renderCategories(catEntries, query);
 			}
 
 			if (hits.length === 0) {
 				showState(emptyContainer);
 				emptyContainer.textContent = (config.i18n.noResults || 'No results found for') + ' \u201c' + query + '\u201d';
 				if (isExpanded && mainHeading) hideState(mainHeading);
-				showDropdown();
+				if (!isFullscreen) showDropdown();
 				return;
 			}
 
-			// Show the PRODUCTOS heading in expanded layout.
 			if (isExpanded && mainHeading) showState(mainHeading);
 
 			hits.forEach(function (hit, index) {
@@ -370,19 +536,22 @@
 				productsContainer.appendChild(item);
 			});
 
-			// Always show "View all" footer when there are results.
-			showState(footer);
-			viewAllLink.href = getSearchPageUrl(query);
-			if (total > hits.length) {
-				viewAllLink.textContent = (config.i18n.viewAll || 'View all %d results').replace('%d', total) + ' \u2192';
-			} else {
-				viewAllLink.textContent = (config.i18n.viewAllResults || 'View all results') + ' \u2192';
+			// Footer (non-fullscreen).
+			if (!isFullscreen && footer) {
+				showState(footer);
+				viewAllLink.href = getSearchPageUrl(query);
+				if (total > hits.length) {
+					viewAllLink.textContent = (config.i18n.viewAll || 'View all %d results').replace('%d', total) + ' \u2192';
+				} else {
+					viewAllLink.textContent = (config.i18n.viewAllResults || 'View all results') + ' \u2192';
+				}
 			}
 
-			showDropdown();
+			if (!isFullscreen) showDropdown();
 		}
 
 		function renderCategories(catEntries, query) {
+			if (!categoriesContainer) return;
 			categoriesContainer.innerHTML = '';
 			var label = document.createElement('span');
 			label.className = 'wss-categories-label';
@@ -391,7 +560,6 @@
 
 			var pills = document.createElement('div');
 			pills.className = 'wss-categories-pills';
-
 			var max = Math.min(catEntries.length, 5);
 			for (var i = 0; i < max; i++) {
 				var catName = decodeHtml(catEntries[i][0]);
@@ -402,7 +570,6 @@
 				pill.textContent = catName + (catCount ? ' (' + catCount + ')' : '');
 				pills.appendChild(pill);
 			}
-
 			categoriesContainer.appendChild(pills);
 			showState(categoriesContainer);
 		}
@@ -415,6 +582,31 @@
 			a.setAttribute('aria-selected', 'false');
 
 			var html = '';
+
+			// Amazon layout: search icon + text only.
+			if (isAmazon) {
+				html += '<span class="wss-amazon-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>';
+				html += '<div class="wss-result-info">';
+				var amazonTitle = hit.name_highlighted ? decodeHtml(hit.name_highlighted) : escHtml(decodeHtml(hit.name || ''));
+				html += '<h4 class="wss-result-title">' + amazonTitle + '</h4>';
+				html += '</div>';
+				a.innerHTML = html;
+				a.addEventListener('mouseenter', function () { selectedIndex = index; updateSelection(dropdown.querySelectorAll('.wss-result-item')); });
+				a.addEventListener('click', function () { trackClick(query, hit.id); });
+				return a;
+			}
+
+			// Falabella layout: text only (no icon since it's in a suggestions column).
+			if (isFalabella) {
+				html += '<div class="wss-result-info">';
+				var falTitle = hit.name_highlighted ? decodeHtml(hit.name_highlighted) : escHtml(decodeHtml(hit.name || ''));
+				html += '<h4 class="wss-result-title">' + falTitle + '</h4>';
+				html += '</div>';
+				a.innerHTML = html;
+				a.addEventListener('mouseenter', function () { selectedIndex = index; updateSelection(dropdown.querySelectorAll('.wss-result-item')); });
+				a.addEventListener('click', function () { trackClick(query, hit.id); });
+				return a;
+			}
 
 			// Image (hidden in compact layout).
 			if (!isCompact && config.showImage !== false) {
@@ -442,7 +634,6 @@
 
 			// Price row.
 			html += '<div class="wss-result-meta">';
-
 			if (config.showPrice !== false && hit.price !== undefined) {
 				html += '<div class="wss-result-price">';
 				if (hit.on_sale && hit.regular_price) {
@@ -450,9 +641,7 @@
 					html += '<span class="wss-price-current wss-price-sale">' + formatPrice(hit.price) + '</span>';
 					if (!isCompact) {
 						var discount = Math.round((1 - hit.price / hit.regular_price) * 100);
-						if (discount > 0) {
-							html += ' <span class="wss-sale-badge">-' + discount + '%</span>';
-						}
+						if (discount > 0) html += ' <span class="wss-sale-badge">-' + discount + '%</span>';
 					}
 				} else if (hit.price_min && hit.price_max && hit.price_min !== hit.price_max) {
 					html += '<span class="wss-price-current">' + formatPrice(hit.price_min) + ' &ndash; ' + formatPrice(hit.price_max) + '</span>';
@@ -462,61 +651,41 @@
 				html += '</div>';
 			}
 
-			// Stock indicator dot (not in compact).
+			// Stock indicator dot.
 			if (!isCompact && config.showStock !== false && hit.stock_status) {
 				var stockClass = 'wss-stock-dot wss-stock-' + hit.stock_status;
 				var stockText = config.i18n[hit.stock_status === 'instock' ? 'inStock' : (hit.stock_status === 'outofstock' ? 'outOfStock' : 'onBackorder')] || hit.stock_status;
 				html += '<span class="' + stockClass + '" title="' + escHtml(stockText) + '"><span class="wss-stock-circle"></span>' + escHtml(stockText) + '</span>';
 			}
-
 			html += '</div>'; // .wss-result-meta
 
-			// Rating (not in compact).
+			// Rating.
 			if (!isCompact && config.showRating && hit.rating) {
 				html += '<span class="wss-result-rating">';
 				var fullStars = Math.floor(hit.rating);
-				for (var i = 0; i < 5; i++) {
-					html += i < fullStars ? '\u2605' : '\u2606';
-				}
-				if (hit.review_count) {
-					html += ' <span class="wss-review-count">(' + hit.review_count + ')</span>';
-				}
+				for (var i = 0; i < 5; i++) html += i < fullStars ? '\u2605' : '\u2606';
+				if (hit.review_count) html += ' <span class="wss-review-count">(' + hit.review_count + ')</span>';
 				html += '</span>';
 			}
-
 			html += '</div>'; // .wss-result-info
 
 			a.innerHTML = html;
-
-			// Hover handling.
 			a.addEventListener('mouseenter', function () {
 				selectedIndex = index;
-				var items = dropdown.querySelectorAll('.wss-result-item');
+				var items = (dropdown || productsContainer.parentElement).querySelectorAll('.wss-result-item');
 				updateSelection(items);
 			});
-
-			// Click tracking.
-			a.addEventListener('click', function () {
-				trackClick(query, hit.id);
-			});
-
+			a.addEventListener('click', function () { trackClick(query, hit.id); });
 			return a;
 		}
 
 		function trackClick(query, productId) {
 			if (!config.trackClickUrl || !productId) return;
-
 			try {
 				fetch(config.trackClickUrl, {
 					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-WP-Nonce': config.nonce
-					},
-					body: JSON.stringify({
-						query: query,
-						product_id: productId
-					}),
+					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': config.nonce },
+					body: JSON.stringify({ query: query, product_id: productId }),
 					keepalive: true
 				});
 			} catch (err) { /* silent fail */ }
@@ -536,10 +705,9 @@
 		}
 
 		function showDropdown() {
+			if (!dropdown) return;
 			dropdown.classList.add('wss-visible');
 			input.setAttribute('aria-expanded', 'true');
-
-			// Mobile fullscreen overlay.
 			if (window.innerWidth < 768) {
 				isMobileOverlay = true;
 				wrapper.classList.add('wss-mobile-open');
@@ -549,10 +717,10 @@
 		}
 
 		function hideDropdown() {
+			if (!dropdown) return;
 			dropdown.classList.remove('wss-visible');
 			input.setAttribute('aria-expanded', 'false');
 			selectedIndex = -1;
-
 			if (isMobileOverlay) {
 				isMobileOverlay = false;
 				wrapper.classList.remove('wss-mobile-open');
@@ -562,10 +730,8 @@
 		}
 
 		function showSkeleton() {
-			if (skeletonContainer) {
-				skeletonContainer.classList.add('wss-visible');
-			}
-			productsContainer.innerHTML = '';
+			if (skeletonContainer) skeletonContainer.classList.add('wss-visible');
+			if (productsContainer) productsContainer.innerHTML = '';
 			hideState(emptyContainer);
 			hideState(errorContainer);
 			hideState(footer);
@@ -573,9 +739,7 @@
 		}
 
 		function hideSkeleton() {
-			if (skeletonContainer) {
-				skeletonContainer.classList.remove('wss-visible');
-			}
+			if (skeletonContainer) skeletonContainer.classList.remove('wss-visible');
 		}
 
 		function showLoading() {
@@ -585,9 +749,8 @@
 
 		function hideLoading() {
 			if (spinner) spinner.style.display = 'none';
-			if (!input.value.trim() && icon) {
-				icon.style.display = '';
-			}
+			var activeInput = isFullscreen ? fullscreenInput : input;
+			if (!activeInput.value.trim() && icon) icon.style.display = '';
 		}
 
 		function toggleClear(show) {
@@ -600,50 +763,37 @@
 			}
 		}
 
-		function showState(el) {
-			if (el) el.classList.add('wss-visible');
-		}
-
-		function hideState(el) {
-			if (el) el.classList.remove('wss-visible');
-		}
+		function showState(el) { if (el) el.classList.add('wss-visible'); }
+		function hideState(el) { if (el) el.classList.remove('wss-visible'); }
 
 		function showError() {
-			productsContainer.innerHTML = '';
-			hideSkeleton();
+			if (productsContainer) productsContainer.innerHTML = '';
+			if (!isFullscreen) hideSkeleton();
 			hideState(emptyContainer);
 			showState(errorContainer);
-			errorContainer.textContent = config.i18n.error || 'Connection error, please try again';
+			if (errorContainer) errorContainer.textContent = config.i18n.error || 'Connection error, please try again';
 			hideState(footer);
-			showDropdown();
+			if (!isFullscreen) showDropdown();
 		}
 	}
 
 	function formatPrice(price) {
 		if (price === undefined || price === null) return '';
-
 		var decimals = config.decimals !== undefined ? config.decimals : 2;
 		var decSep = config.decimalSep || '.';
 		var thousandSep = config.thousandSep || ',';
 		var symbol = config.currencySymbol || '$';
 		var pos = config.currencyPos || 'left';
-
 		var number = parseFloat(price).toFixed(decimals);
 		var parts = number.split('.');
 		parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, thousandSep);
 		var formatted = parts.join(decSep);
-
 		switch (pos) {
-			case 'left':
-				return symbol + formatted;
-			case 'right':
-				return formatted + symbol;
-			case 'left_space':
-				return symbol + '\u00a0' + formatted;
-			case 'right_space':
-				return formatted + '\u00a0' + symbol;
-			default:
-				return symbol + formatted;
+			case 'left': return symbol + formatted;
+			case 'right': return formatted + symbol;
+			case 'left_space': return symbol + '\u00a0' + formatted;
+			case 'right_space': return formatted + '\u00a0' + symbol;
+			default: return symbol + formatted;
 		}
 	}
 
@@ -664,7 +814,6 @@
 		return txt.value;
 	}
 
-	// Initialize when DOM is ready.
 	if (document.readyState === 'loading') {
 		document.addEventListener('DOMContentLoaded', init);
 	} else {
