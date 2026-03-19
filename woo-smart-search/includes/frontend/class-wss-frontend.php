@@ -18,6 +18,25 @@ if ( ! defined( 'ABSPATH' ) ) {
 class WSS_Frontend {
 
 	/**
+	 * Cached settings array to avoid multiple get_option() calls.
+	 *
+	 * @var array|null
+	 */
+	private $settings = null;
+
+	/**
+	 * Get plugin settings (cached per request).
+	 *
+	 * @return array
+	 */
+	private function get_settings(): array {
+		if ( null === $this->settings ) {
+			$this->settings = get_option( 'wss_settings', array() );
+		}
+		return $this->settings;
+	}
+
+	/**
 	 * Initialize frontend hooks.
 	 */
 	public function init() {
@@ -30,6 +49,13 @@ class WSS_Frontend {
 
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'wp_head', array( $this, 'output_css_variables' ) );
+
+		// Make CSS non-render-blocking and add defer to scripts.
+		add_filter( 'style_loader_tag', array( $this, 'optimize_style_loading' ), 10, 4 );
+		add_filter( 'script_loader_tag', array( $this, 'add_defer_attribute' ), 10, 3 );
+
+		// Add DNS prefetch for REST API (same origin, but helps browsers prioritize).
+		add_action( 'wp_head', array( $this, 'output_preconnect_hints' ), 1 );
 
 		// Enqueue search results page assets when on search.
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_results_page_assets' ) );
@@ -77,7 +103,7 @@ class WSS_Frontend {
 			true
 		);
 
-		$settings = get_option( 'wss_settings', array() );
+		$settings = $this->get_settings();
 
 		wp_localize_script(
 			'wss-search-widget',
@@ -171,34 +197,44 @@ class WSS_Frontend {
 	 * Output CSS custom properties.
 	 */
 	public function output_css_variables() {
-		$settings = get_option( 'wss_settings', array() );
-		$theme    = $settings['theme'] ?? 'light';
+		// Cache generated CSS variables to avoid recomputing every page load.
+		$cache_key = 'wss_css_vars_' . WSS_VERSION;
+		$css       = get_transient( $cache_key );
 
-		$vars = array(
-			'--wss-primary-color'   => $settings['primary_color'] ?? '#2563eb',
-			'--wss-primary-hover'   => self::darken_color( $settings['primary_color'] ?? '#2563eb', 15 ),
-			'--wss-bg-color'        => $settings['bg_color'] ?? '#ffffff',
-			'--wss-text-color'      => $settings['text_color'] ?? '#1f2937',
-			'--wss-text-secondary'  => '#6b7280',
-			'--wss-border-color'    => $settings['border_color'] ?? '#e5e7eb',
-			'--wss-highlight-bg'    => $settings['highlight_bg'] ?? '#fef3c7',
-			'--wss-highlight-text'  => $settings['highlight_text'] ?? '#92400e',
-			'--wss-font-size-base'  => ( $settings['font_size'] ?? '14' ) . 'px',
-			'--wss-border-radius'   => ( $settings['border_radius'] ?? '8' ) . 'px',
-		);
+		if ( false === $css ) {
+			$settings = $this->get_settings();
+			$theme    = $settings['theme'] ?? 'light';
 
-		if ( 'dark' === $theme ) {
-			$vars['--wss-bg-color']       = '#1f2937';
-			$vars['--wss-text-color']     = '#f9fafb';
-			$vars['--wss-text-secondary'] = '#9ca3af';
-			$vars['--wss-border-color']   = '#374151';
+			$vars = array(
+				'--wss-primary-color'   => $settings['primary_color'] ?? '#2563eb',
+				'--wss-primary-hover'   => self::darken_color( $settings['primary_color'] ?? '#2563eb', 15 ),
+				'--wss-bg-color'        => $settings['bg_color'] ?? '#ffffff',
+				'--wss-text-color'      => $settings['text_color'] ?? '#1f2937',
+				'--wss-text-secondary'  => '#6b7280',
+				'--wss-border-color'    => $settings['border_color'] ?? '#e5e7eb',
+				'--wss-highlight-bg'    => $settings['highlight_bg'] ?? '#fef3c7',
+				'--wss-highlight-text'  => $settings['highlight_text'] ?? '#92400e',
+				'--wss-font-size-base'  => ( $settings['font_size'] ?? '14' ) . 'px',
+				'--wss-border-radius'   => ( $settings['border_radius'] ?? '8' ) . 'px',
+			);
+
+			if ( 'dark' === $theme ) {
+				$vars['--wss-bg-color']       = '#1f2937';
+				$vars['--wss-text-color']     = '#f9fafb';
+				$vars['--wss-text-secondary'] = '#9ca3af';
+				$vars['--wss-border-color']   = '#374151';
+			}
+
+			$css = ':root {';
+			foreach ( $vars as $prop => $value ) {
+				// Strip any characters that could break out of CSS context.
+				$safe_value = preg_replace( '/[^a-zA-Z0-9#%,.\-()_ ]/', '', $value );
+				$css .= esc_attr( $prop ) . ':' . $safe_value . ';';
+			}
+			$css .= '}';
+
+			set_transient( $cache_key, $css, DAY_IN_SECONDS );
 		}
-
-		$css = ':root {';
-		foreach ( $vars as $prop => $value ) {
-			$css .= $prop . ':' . $value . ';';
-		}
-		$css .= '}';
 
 		echo '<style id="wss-css-vars">' . $css . '</style>' . "\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
@@ -210,7 +246,7 @@ class WSS_Frontend {
 	 * @return string
 	 */
 	public function get_search_widget_html( $atts = array() ) {
-		$settings    = get_option( 'wss_settings', array() );
+		$settings    = $this->get_settings();
 		$placeholder = ! empty( $atts['placeholder'] )
 			? $atts['placeholder']
 			: ( ! empty( $settings['placeholder_text'] ) ? $settings['placeholder_text'] : __( 'Search products...', 'woo-smart-search' ) );
@@ -333,6 +369,65 @@ class WSS_Frontend {
 	 * @param int    $percent Percentage to darken.
 	 * @return string
 	 */
+	/**
+	 * Output preconnect/prefetch hints for the REST API endpoint.
+	 */
+	public function output_preconnect_hints() {
+		// Preload the REST API discovery for faster first search.
+		echo '<link rel="preconnect" href="' . esc_url( rest_url() ) . '" crossorigin />' . "\n";
+	}
+
+	/**
+	 * Make plugin CSS non-render-blocking using media="print" swap technique.
+	 *
+	 * This prevents the CSS from blocking initial page render.
+	 * The onload handler swaps media to "all" once the stylesheet is loaded.
+	 *
+	 * @param string $html   Link tag HTML.
+	 * @param string $handle Style handle.
+	 * @param string $href   Stylesheet URL.
+	 * @param string $media  Media attribute value.
+	 * @return string
+	 */
+	public function optimize_style_loading( $html, $handle, $href, $media ) {
+		if ( ! in_array( $handle, array( 'wss-search-widget', 'wss-results-page' ), true ) ) {
+			return $html;
+		}
+
+		// Use media="print" + onload swap for non-blocking CSS.
+		$html = str_replace(
+			"media='all'",
+			"media='print' onload=\"this.media='all'\"",
+			$html
+		);
+
+		// Add noscript fallback.
+		$html .= '<noscript><link rel="stylesheet" href="' . esc_url( $href ) . '" media="all" /></noscript>' . "\n";
+
+		return $html;
+	}
+
+	/**
+	 * Add defer attribute to plugin scripts.
+	 *
+	 * @param string $tag    Script tag HTML.
+	 * @param string $handle Script handle.
+	 * @param string $src    Script URL.
+	 * @return string
+	 */
+	public function add_defer_attribute( $tag, $handle, $src ) {
+		if ( ! in_array( $handle, array( 'wss-search-widget', 'wss-results-page' ), true ) ) {
+			return $tag;
+		}
+
+		// Skip if already has defer or async.
+		if ( strpos( $tag, 'defer' ) !== false || strpos( $tag, 'async' ) !== false ) {
+			return $tag;
+		}
+
+		return str_replace( ' src=', ' defer src=', $tag );
+	}
+
 	private static function darken_color( string $hex, int $percent ): string {
 		$hex = ltrim( $hex, '#' );
 		if ( strlen( $hex ) !== 6 ) {

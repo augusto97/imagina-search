@@ -282,7 +282,7 @@
 
 	function buildProductCard( hit ) {
 		var imgSrc    = hit.image || cfg.placeholderImg || '';
-		var name      = hit.name_highlighted ? decodeHtml( hit.name_highlighted ) : escapeHtml( decodeHtml( hit.name || '' ) );
+		var name      = hit.name_highlighted ? sanitizeHighlight( hit.name_highlighted ) : escapeHtml( decodeHtml( hit.name || '' ) );
 		var category  = ( hit.categories && hit.categories.length ) ? escapeHtml( decodeHtml( hit.categories[0] ) ) : '';
 		var permalink = hit.permalink || '#';
 		var saleBadge = '';
@@ -711,6 +711,27 @@
 		var txt = document.createElement( 'textarea' );
 		txt.innerHTML = str;
 		return txt.value;
+	}
+
+	/**
+	 * Sanitize highlighted text from Meilisearch.
+	 *
+	 * Only allows <mark> tags; all other HTML is escaped.
+	 */
+	function sanitizeHighlight( str ) {
+		if ( ! str ) return '';
+		var decoded = decodeHtml( str );
+		var parts   = decoded.split( /(<mark>[\s\S]*?<\/mark>)/gi );
+		var result  = '';
+		for ( var i = 0; i < parts.length; i++ ) {
+			if ( /^<mark>/i.test( parts[ i ] ) ) {
+				var inner = parts[ i ].replace( /<\/?mark>/gi, '' );
+				result += '<mark>' + escapeHtml( inner ) + '</mark>';
+			} else {
+				result += escapeHtml( parts[ i ] );
+			}
+		}
+		return result;
 	}
 
 	function trackClick( query, productId ) {

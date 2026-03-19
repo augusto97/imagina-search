@@ -76,6 +76,8 @@ class WSS_Search_Analytics {
 
 	/**
 	 * Ensure the search log table exists, creating it if needed.
+	 *
+	 * Uses a persistent transient to avoid SHOW TABLES queries on every request.
 	 */
 	private static function maybe_create_table() {
 		static $checked = false;
@@ -84,11 +86,18 @@ class WSS_Search_Analytics {
 		}
 		$checked = true;
 
+		// Use a persistent flag to avoid SHOW TABLES on every page load.
+		$table_version = get_option( 'wss_search_log_version', '' );
+		if ( WSS_VERSION === $table_version ) {
+			return;
+		}
+
 		global $wpdb;
 		$table = self::get_table_name();
 
 		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) {
 			self::create_table();
+			update_option( 'wss_search_log_version', WSS_VERSION, true );
 			return;
 		}
 
@@ -100,6 +109,8 @@ class WSS_Search_Analytics {
 		if ( ! in_array( 'ip_address', $columns, true ) && ! in_array( 'user_ip', $columns, true ) ) {
 			$wpdb->query( "ALTER TABLE {$table} ADD `ip_address` varchar(45) NOT NULL DEFAULT '' AFTER `clicked_product_id`" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
+
+		update_option( 'wss_search_log_version', WSS_VERSION, true );
 	}
 
 	/**

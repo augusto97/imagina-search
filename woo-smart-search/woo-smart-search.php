@@ -3,7 +3,7 @@
  * Plugin Name:       Woo Smart Search
  * Plugin URI:        https://example.com/woo-smart-search
  * Description:       Replace WooCommerce native search with an instant, ultra-fast search experience powered by Meilisearch.
- * Version:           2.3.0
+ * Version:           2.4.0
  * Author:            Imagina
  * Author URI:        https://example.com
  * License:           GPL-2.0+
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Plugin constants.
-define( 'WSS_VERSION', '2.3.0' );
+define( 'WSS_VERSION', '2.4.0' );
 define( 'WSS_PLUGIN_FILE', __FILE__ );
 define( 'WSS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WSS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -141,7 +141,10 @@ function wss_get_engine() {
  * @return mixed
  */
 function wss_get_option( $key, $default = '' ) {
-	$options = get_option( 'wss_settings', array() );
+	static $options = null;
+	if ( null === $options ) {
+		$options = get_option( 'wss_settings', array() );
+	}
 	return isset( $options[ $key ] ) ? $options[ $key ] : $default;
 }
 
@@ -180,9 +183,11 @@ function wss_log( $message, $type = 'info', $context = array() ) {
 		array( '%s', '%s', '%s', '%s' )
 	);
 
-	// Keep only last 10000 entries.
-	$count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table_name}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-	if ( $count > 10000 ) {
-		$wpdb->query( "DELETE FROM {$table_name} ORDER BY id ASC LIMIT 1000" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	// Periodically trim old logs (every ~100 inserts, not every call).
+	if ( wp_rand( 1, 100 ) === 1 ) {
+		$count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table_name}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ( $count > 10000 ) {
+			$wpdb->query( "DELETE FROM {$table_name} ORDER BY id ASC LIMIT 1000" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
 	}
 }

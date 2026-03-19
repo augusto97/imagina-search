@@ -69,7 +69,19 @@ class WSS_Admin_Ajax {
 
 		foreach ( $text_fields as $field ) {
 			if ( isset( $_POST[ $field ] ) ) {
-				$settings[ $field ] = sanitize_text_field( wp_unslash( $_POST[ $field ] ) );
+				if ( 'custom_css' === $field ) {
+					// Preserve newlines but strip HTML tags and potential injections.
+					$settings[ $field ] = wp_strip_all_tags( wp_unslash( $_POST[ $field ] ) );
+				} elseif ( 'protocol' === $field ) {
+					// Only allow http or https.
+					$val = sanitize_text_field( wp_unslash( $_POST[ $field ] ) );
+					$settings[ $field ] = in_array( $val, array( 'http', 'https' ), true ) ? $val : 'https';
+				} elseif ( 'index_name' === $field ) {
+					// Alphanumeric, dashes, and underscores only.
+					$settings[ $field ] = preg_replace( '/[^a-zA-Z0-9_\-]/', '', sanitize_text_field( wp_unslash( $_POST[ $field ] ) ) );
+				} else {
+					$settings[ $field ] = sanitize_text_field( wp_unslash( $_POST[ $field ] ) );
+				}
 			}
 		}
 
@@ -136,6 +148,9 @@ class WSS_Admin_Ajax {
 		}
 
 		update_option( 'wss_settings', $settings );
+
+		// Invalidate cached CSS variables.
+		delete_transient( 'wss_css_vars_' . WSS_VERSION );
 
 		// Reset Meilisearch singleton so it picks up new config.
 		WSS_Meilisearch::reset();
