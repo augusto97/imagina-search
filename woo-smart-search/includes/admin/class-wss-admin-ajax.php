@@ -149,6 +149,9 @@ class WSS_Admin_Ajax {
 
 		update_option( 'wss_settings', $settings );
 
+		// Invalidate cached CSS variables.
+		delete_transient( 'wss_css_vars_' . WSS_VERSION );
+
 		// Reset Meilisearch singleton so it picks up new config.
 		WSS_Meilisearch::reset();
 
