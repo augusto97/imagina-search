@@ -134,17 +134,10 @@
 			});
 		}
 
-		// Focus - show dropdown if has content, or load popular for expanded.
+		// Focus - only re-show dropdown if there are already results from a previous search.
 		input.addEventListener('focus', function () {
-			if (productsContainer.children.length > 0 || (emptyContainer && emptyContainer.classList.contains('wss-visible'))) {
-				showDropdown();
-			} else if (isExpanded && input.value.trim().length < (config.minQueryLength || 2)) {
-				loadPopularSearches();
-				// Show start-typing hint in main area when no results yet.
-				if (mainHeading && !productsContainer.children.length) {
-					mainHeading.textContent = config.i18n.startTyping || 'Start typing to search products...';
-					showState(mainHeading);
-				}
+			if (input.value.trim().length >= (config.minQueryLength || 2) &&
+				(productsContainer.children.length > 0 || (emptyContainer && emptyContainer.classList.contains('wss-visible')))) {
 				showDropdown();
 			}
 		});
