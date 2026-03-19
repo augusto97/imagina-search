@@ -184,7 +184,7 @@ class WSS_Rest_Api {
 		);
 
 		if ( ! empty( $filters ) ) {
-			$options['filters'] = $filters;
+			$options['filters'] = $this->sanitize_filter_string( $filters );
 		}
 
 		if ( ! empty( $sort ) ) {
@@ -306,11 +306,15 @@ class WSS_Rest_Api {
 			return;
 		}
 
-		$ip         = $this->get_client_ip();
+		// Anonymize IP: store only a hash for GDPR compliance.
+		$ip              = $this->get_client_ip();
+		$anonymized_ip   = wp_hash( $ip );
+		// Truncate user agent to reduce PII exposure.
 		$user_agent = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
+		$user_agent = substr( $user_agent, 0, 100 );
 
 		$analytics = new WSS_Search_Analytics();
-		$analytics->log_search( $query, $results_count, $ip, $user_agent );
+		$analytics->log_search( $query, $results_count, $anonymized_ip, $user_agent );
 	}
 
 	/**
@@ -383,6 +387,8 @@ class WSS_Rest_Api {
 	/**
 	 * Check rate limiting.
 	 *
+	 * Uses REMOTE_ADDR only to prevent IP spoofing via headers.
+	 *
 	 * @return bool
 	 */
 	private function check_rate_limit(): bool {
@@ -402,22 +408,57 @@ class WSS_Rest_Api {
 	/**
 	 * Get client IP address.
 	 *
+	 * Only uses REMOTE_ADDR to prevent IP spoofing via
+	 * X-Forwarded-For or X-Real-IP headers.
+	 *
 	 * @return string
 	 */
 	private function get_client_ip(): string {
-		$ip_keys = array( 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'REMOTE_ADDR' );
-		foreach ( $ip_keys as $key ) {
-			if ( ! empty( $_SERVER[ $key ] ) ) {
-				$ip = sanitize_text_field( wp_unslash( $_SERVER[ $key ] ) );
-				if ( strpos( $ip, ',' ) !== false ) {
-					$ip = trim( explode( ',', $ip )[0] );
-				}
-				if ( filter_var( $ip, FILTER_VALIDATE_IP ) ) {
-					return $ip;
+		$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+		if ( filter_var( $ip, FILTER_VALIDATE_IP ) ) {
+			return $ip;
+		}
+		return '127.0.0.1';
+	}
+
+	/**
+	 * Sanitize the filter string passed from the frontend.
+	 *
+	 * Only allows known filterable attributes and safe operators.
+	 *
+	 * @param string $filter Raw filter string.
+	 * @return string Sanitized filter string.
+	 */
+	private function sanitize_filter_string( string $filter ): string {
+		// Allowed filterable attribute names.
+		$allowed_attrs = array(
+			'categories', 'stock_status', 'on_sale', 'brand', 'rating',
+			'price', 'price_min', 'price_max', 'type',
+		);
+		$allowed_pattern = implode( '|', array_map( 'preg_quote', $allowed_attrs ) );
+
+		// Strip anything that is not: attribute names, operators, values, AND/OR/NOT, parentheses, quotes, numbers.
+		// This prevents injection of arbitrary Meilisearch filter syntax.
+		$safe = preg_replace(
+			'/[^\w\s=<>!"\'\-.,()]/u',
+			'',
+			$filter
+		);
+
+		// Verify all attribute references are in the allowlist.
+		// Extract all word tokens that appear before operators.
+		preg_match_all( '/\b([a-zA-Z_][a-zA-Z0-9_]*)\b\s*(?:=|!=|>|<|>=|<=|TO|IN|NOT)/', $safe, $matches );
+		if ( ! empty( $matches[1] ) ) {
+			foreach ( $matches[1] as $attr ) {
+				$attr_lower = strtolower( $attr );
+				if ( ! in_array( $attr_lower, array_merge( $allowed_attrs, array( 'and', 'or', 'not' ) ), true ) ) {
+					// Unknown attribute found — reject the entire filter.
+					return '';
 				}
 			}
 		}
-		return '127.0.0.1';
+
+		return $safe;
 	}
 
 	/**

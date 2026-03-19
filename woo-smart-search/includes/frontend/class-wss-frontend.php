@@ -196,7 +196,9 @@ class WSS_Frontend {
 
 		$css = ':root {';
 		foreach ( $vars as $prop => $value ) {
-			$css .= $prop . ':' . $value . ';';
+			// Strip any characters that could break out of CSS context.
+			$safe_value = preg_replace( '/[^a-zA-Z0-9#%,.\-()_ ]/', '', $value );
+			$css .= esc_attr( $prop ) . ':' . $safe_value . ';';
 		}
 		$css .= '}';
 

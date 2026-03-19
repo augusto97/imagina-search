@@ -397,13 +397,16 @@ class WSS_Meilisearch {
 		if ( empty( $key ) ) {
 			return '';
 		}
+		if ( ! function_exists( 'openssl_encrypt' ) ) {
+			wss_log( __( 'OpenSSL extension is required for API key encryption. Keys will be stored with basic obfuscation only.', 'woo-smart-search' ), 'warning' );
+			// Use HMAC-based obfuscation as a minimal fallback (NOT encryption).
+			$salt = defined( 'AUTH_SALT' ) ? AUTH_SALT : 'wss-default-salt';
+			return 'obf_' . base64_encode( $key ^ str_repeat( substr( hash( 'sha256', $salt ), 0, 32 ), ( strlen( $key ) / 32 ) + 1 ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+		}
 		$salt = defined( 'AUTH_SALT' ) ? AUTH_SALT : 'wss-default-salt';
 		$iv   = substr( hash( 'sha256', $salt ), 0, 16 );
-		if ( function_exists( 'openssl_encrypt' ) ) {
-			$encrypted = openssl_encrypt( $key, 'AES-256-CBC', $salt, 0, $iv );
-			return base64_encode( $encrypted ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
-		}
-		return base64_encode( $key ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+		$encrypted = openssl_encrypt( $key, 'AES-256-CBC', $salt, 0, $iv );
+		return base64_encode( $encrypted ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
 	}
 
 	/**
@@ -417,13 +420,23 @@ class WSS_Meilisearch {
 			return '';
 		}
 		$salt = defined( 'AUTH_SALT' ) ? AUTH_SALT : 'wss-default-salt';
-		$iv   = substr( hash( 'sha256', $salt ), 0, 16 );
+
+		// Handle obfuscated fallback format.
+		if ( strpos( $encrypted, 'obf_' ) === 0 ) {
+			$data = base64_decode( substr( $encrypted, 4 ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
+			return $data ^ str_repeat( substr( hash( 'sha256', $salt ), 0, 32 ), ( strlen( $data ) / 32 ) + 1 );
+		}
+
+		$iv = substr( hash( 'sha256', $salt ), 0, 16 );
 		if ( function_exists( 'openssl_encrypt' ) ) {
 			$decoded   = base64_decode( $encrypted ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
 			$decrypted = openssl_decrypt( $decoded, 'AES-256-CBC', $salt, 0, $iv );
 			return false !== $decrypted ? $decrypted : $encrypted;
 		}
-		return base64_decode( $encrypted ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
+
+		// Cannot decrypt without openssl — return as-is and log warning.
+		wss_log( __( 'Cannot decrypt API key: OpenSSL extension is not available.', 'woo-smart-search' ), 'warning' );
+		return $encrypted;
 	}
 
 	/**

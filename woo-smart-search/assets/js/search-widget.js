@@ -587,7 +587,7 @@
 			if (isAmazon) {
 				html += '<span class="wss-amazon-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>';
 				html += '<div class="wss-result-info">';
-				var amazonTitle = hit.name_highlighted ? decodeHtml(hit.name_highlighted) : escHtml(decodeHtml(hit.name || ''));
+				var amazonTitle = hit.name_highlighted ? sanitizeHighlight(hit.name_highlighted) : escHtml(decodeHtml(hit.name || ''));
 				html += '<h4 class="wss-result-title">' + amazonTitle + '</h4>';
 				html += '</div>';
 				a.innerHTML = html;
@@ -599,7 +599,7 @@
 			// Falabella layout: text only (no icon since it's in a suggestions column).
 			if (isFalabella) {
 				html += '<div class="wss-result-info">';
-				var falTitle = hit.name_highlighted ? decodeHtml(hit.name_highlighted) : escHtml(decodeHtml(hit.name || ''));
+				var falTitle = hit.name_highlighted ? sanitizeHighlight(hit.name_highlighted) : escHtml(decodeHtml(hit.name || ''));
 				html += '<h4 class="wss-result-title">' + falTitle + '</h4>';
 				html += '</div>';
 				a.innerHTML = html;
@@ -624,7 +624,7 @@
 			}
 
 			// Title with highlighting.
-			var title = hit.name_highlighted ? decodeHtml(hit.name_highlighted) : escHtml(decodeHtml(hit.name || ''));
+			var title = hit.name_highlighted ? sanitizeHighlight(hit.name_highlighted) : escHtml(decodeHtml(hit.name || ''));
 			html += '<h4 class="wss-result-title">' + title + '</h4>';
 
 			// SKU.
@@ -812,6 +812,29 @@
 		var txt = document.createElement('textarea');
 		txt.innerHTML = str;
 		return txt.value;
+	}
+
+	/**
+	 * Sanitize highlighted HTML from Meilisearch.
+	 * Only allows <mark> tags; all other HTML is escaped.
+	 */
+	function sanitizeHighlight(str) {
+		if (!str) return '';
+		// Decode HTML entities first.
+		var decoded = decodeHtml(str);
+		// Extract <mark>...</mark> segments, escape everything else.
+		var parts = decoded.split(/(<mark>[\s\S]*?<\/mark>)/gi);
+		var result = '';
+		for (var i = 0; i < parts.length; i++) {
+			if (/^<mark>/i.test(parts[i])) {
+				// Extract inner content, escape it, then re-wrap in <mark>.
+				var inner = parts[i].replace(/<\/?mark>/gi, '');
+				result += '<mark>' + escHtml(inner) + '</mark>';
+			} else {
+				result += escHtml(parts[i]);
+			}
+		}
+		return result;
 	}
 
 	if (document.readyState === 'loading') {
