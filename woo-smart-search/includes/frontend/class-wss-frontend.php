@@ -237,6 +237,12 @@ class WSS_Frontend {
 		}
 
 		echo '<style id="wss-css-vars">' . $css . '</style>' . "\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+
+		// Critical inline CSS: hide interactive elements immediately to prevent
+		// FOUC (flash of unstyled content) while the main stylesheet loads async.
+		echo '<style id="wss-critical">'
+			. '.wss-results-dropdown,.wss-fullscreen-overlay,.wss-mobile-backdrop,.wss-results-skeleton,.wss-results-empty,.wss-results-error,.wss-search-clear,.wss-search-spinner,.wss-mobile-close-btn,.wss-results-footer,.wss-results-categories,.wss-popular-searches,.wss-sidebar-categories,.wss-suggestions,.wss-expanded-main-heading{display:none}'
+			. '</style>' . "\n";
 	}
 
 	/**
