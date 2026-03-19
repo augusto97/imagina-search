@@ -217,7 +217,12 @@
 			signal: state.controller.signal,
 			headers: { 'X-WP-Nonce': cfg.nonce }
 		} )
-		.then( function ( res ) { return res.json(); } )
+		.then( function ( res ) {
+			if ( ! res.ok ) {
+				throw new Error( 'HTTP ' + res.status );
+			}
+			return res.json();
+		} )
 		.then( function ( data ) {
 			state.loading = false;
 			state.total   = data.total || 0;
@@ -234,6 +239,10 @@
 			if ( err.name === 'AbortError' ) return;
 			state.loading = false;
 			showLoading( false );
+			if ( dom.noResults ) {
+				dom.noResults.style.display = 'block';
+				dom.noResults.innerHTML = '<p>Error loading results. Please try again.</p>';
+			}
 			console.error( 'WSS Results:', err );
 		} );
 	}
