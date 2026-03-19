@@ -37,6 +37,46 @@ $widget_layout = $settings['widget_layout'] ?? 'standard';
 		<button class="wss-search-clear" style="display:none" aria-label="<?php esc_attr_e( 'Clear search', 'woo-smart-search' ); ?>" type="button">&times;</button>
 	</div>
 
+	<?php if ( 'fullscreen' === $widget_layout ) : ?>
+	<!-- Fullscreen overlay (Shopify-style) -->
+	<div class="wss-fullscreen-overlay" aria-label="<?php esc_attr_e( 'Search', 'woo-smart-search' ); ?>">
+		<div class="wss-fullscreen-header">
+			<h3 class="wss-fullscreen-title"><?php esc_html_e( 'Search our store', 'woo-smart-search' ); ?></h3>
+			<button class="wss-fullscreen-close" type="button" aria-label="<?php esc_attr_e( 'Close', 'woo-smart-search' ); ?>">
+				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+			</button>
+		</div>
+		<div class="wss-fullscreen-search">
+			<span class="wss-search-icon">
+				<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+			</span>
+			<input type="search" class="wss-fullscreen-input" placeholder="<?php echo esc_attr( $placeholder ); ?>" autocomplete="off" />
+			<button class="wss-search-clear wss-fullscreen-clear" style="display:none" type="button" aria-label="<?php esc_attr_e( 'Clear', 'woo-smart-search' ); ?>">&times;</button>
+		</div>
+		<div class="wss-fullscreen-body">
+			<div class="wss-fullscreen-columns">
+				<div class="wss-fullscreen-col wss-fullscreen-products-col">
+					<div class="wss-fullscreen-col-header">
+						<h4><?php esc_html_e( 'Products', 'woo-smart-search' ); ?></h4>
+						<a href="#" class="wss-view-all wss-fullscreen-view-all"><?php esc_html_e( 'View all', 'woo-smart-search' ); ?> &nearr;</a>
+					</div>
+					<div class="wss-results-products"></div>
+				</div>
+				<div class="wss-fullscreen-col wss-fullscreen-categories-col">
+					<h4><?php esc_html_e( 'Collections', 'woo-smart-search' ); ?></h4>
+					<ul class="wss-fullscreen-categories-list"></ul>
+				</div>
+				<div class="wss-fullscreen-col wss-fullscreen-brands-col">
+					<h4><?php esc_html_e( 'Brands', 'woo-smart-search' ); ?></h4>
+					<ul class="wss-fullscreen-brands-list"></ul>
+				</div>
+			</div>
+			<div class="wss-results-empty" role="status"></div>
+			<div class="wss-results-error" role="alert"></div>
+		</div>
+	</div>
+	<?php else : ?>
+
 	<div class="wss-results-dropdown" role="listbox" id="wss-results-list" aria-label="<?php esc_attr_e( 'Search results', 'woo-smart-search' ); ?>">
 
 		<?php if ( 'expanded' === $widget_layout ) : ?>
@@ -71,8 +111,27 @@ $widget_layout = $settings['widget_layout'] ?? 'standard';
 				<div class="wss-results-error" role="alert"></div>
 			</div>
 		</div>
+
+		<?php elseif ( 'falabella' === $widget_layout ) : ?>
+		<!-- Falabella layout: three text columns -->
+		<div class="wss-falabella-columns">
+			<div class="wss-falabella-col wss-falabella-suggestions-col">
+				<div class="wss-results-products"></div>
+			</div>
+			<div class="wss-falabella-col wss-falabella-brands-col">
+				<h5 class="wss-column-heading"><?php esc_html_e( 'Related Brands', 'woo-smart-search' ); ?></h5>
+				<ul class="wss-falabella-brands-list"></ul>
+			</div>
+			<div class="wss-falabella-col wss-falabella-categories-col">
+				<h5 class="wss-column-heading"><?php esc_html_e( 'Related Categories', 'woo-smart-search' ); ?></h5>
+				<ul class="wss-falabella-categories-list"></ul>
+			</div>
+		</div>
+		<div class="wss-results-empty" role="status"></div>
+		<div class="wss-results-error" role="alert"></div>
+
 		<?php else : ?>
-		<!-- Standard / Compact layout -->
+		<!-- Standard / Compact / Amazon layout -->
 		<div class="wss-results-categories" role="group" aria-label="<?php esc_attr_e( 'Category suggestions', 'woo-smart-search' ); ?>"></div>
 		<div class="wss-results-skeleton" aria-hidden="true">
 			<div class="wss-skeleton-item"><div class="wss-skeleton-image"></div><div class="wss-skeleton-lines"><div class="wss-skeleton-line wss-skeleton-line--short"></div><div class="wss-skeleton-line wss-skeleton-line--long"></div><div class="wss-skeleton-line wss-skeleton-line--medium"></div></div></div>
@@ -89,6 +148,14 @@ $widget_layout = $settings['widget_layout'] ?? 'standard';
 			<a href="#" class="wss-view-all"></a>
 		</div>
 	</div>
+
+	<?php endif; ?>
+
+	<!-- Mobile Close Button (improved for touch) -->
+	<button class="wss-mobile-close-btn" type="button" aria-label="<?php esc_attr_e( 'Close', 'woo-smart-search' ); ?>">
+		<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+		<?php esc_html_e( 'Close', 'woo-smart-search' ); ?>
+	</button>
 
 	<!-- Mobile Overlay Backdrop -->
 	<div class="wss-mobile-backdrop" aria-hidden="true"></div>

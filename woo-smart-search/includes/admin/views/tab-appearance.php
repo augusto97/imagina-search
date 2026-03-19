@@ -33,9 +33,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 			</th>
 			<td>
 				<select id="wss-widget-layout" name="widget_layout">
-					<option value="standard" <?php selected( $settings['widget_layout'] ?? 'standard', 'standard' ); ?>><?php esc_html_e( 'Standard — Vertical list', 'woo-smart-search' ); ?></option>
-					<option value="expanded" <?php selected( $settings['widget_layout'] ?? '', 'expanded' ); ?>><?php esc_html_e( 'Expanded — Two columns with suggestions & popular searches', 'woo-smart-search' ); ?></option>
+					<option value="standard" <?php selected( $settings['widget_layout'] ?? 'standard', 'standard' ); ?>><?php esc_html_e( 'Standard — Vertical list with images', 'woo-smart-search' ); ?></option>
+					<option value="expanded" <?php selected( $settings['widget_layout'] ?? '', 'expanded' ); ?>><?php esc_html_e( 'Expanded — Two columns with product grid', 'woo-smart-search' ); ?></option>
 					<option value="compact" <?php selected( $settings['widget_layout'] ?? '', 'compact' ); ?>><?php esc_html_e( 'Compact — Minimal list, no images', 'woo-smart-search' ); ?></option>
+					<option value="amazon" <?php selected( $settings['widget_layout'] ?? '', 'amazon' ); ?>><?php esc_html_e( 'Amazon — Text-only suggestion list', 'woo-smart-search' ); ?></option>
+					<option value="falabella" <?php selected( $settings['widget_layout'] ?? '', 'falabella' ); ?>><?php esc_html_e( 'Multi-column — Suggestions, brands & categories in columns', 'woo-smart-search' ); ?></option>
+					<option value="fullscreen" <?php selected( $settings['widget_layout'] ?? '', 'fullscreen' ); ?>><?php esc_html_e( 'Fullscreen — Overlay with products, collections & brands', 'woo-smart-search' ); ?></option>
 				</select>
 				<p class="description"><?php esc_html_e( 'Choose the dropdown autocomplete layout style.', 'woo-smart-search' ); ?></p>
 			</td>
