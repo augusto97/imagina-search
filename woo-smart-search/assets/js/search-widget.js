@@ -98,7 +98,7 @@
 					toggleFullscreenClear(true);
 					debounceTimer = setTimeout(function () {
 						performSearch(query);
-					}, config.debounceTime || 200);
+					}, config.debounceTime || 150);
 				});
 
 				fullscreenInput.addEventListener('keydown', function (e) {
@@ -144,7 +144,7 @@
 				toggleClear(true);
 				debounceTimer = setTimeout(function () {
 					performSearch(query);
-				}, config.debounceTime || 200);
+				}, config.debounceTime || 150);
 			});
 
 			// Clear button.
@@ -441,7 +441,6 @@
 			}
 
 			if (!isFullscreen) {
-				showSkeleton();
 				showDropdown();
 			}
 			showLoading();
@@ -464,6 +463,8 @@
 				})
 				.then(function (data) {
 					cache[query] = data;
+					// Prefetch images in background so they display instantly.
+					prefetchImages(data.hits || []);
 					renderResults(data, query);
 					try {
 						document.dispatchEvent(new CustomEvent('wss_search', {
@@ -612,7 +613,7 @@
 			if (!isCompact && config.showImage !== false) {
 				var imgSrc = hit.image || config.placeholderImg || '';
 				html += '<div class="wss-result-image">';
-				html += '<img src="' + escHtml(imgSrc) + '" alt="' + escHtml(hit.name || '') + '" width="60" height="60" loading="lazy" />';
+				html += '<img src="' + escHtml(imgSrc) + '" alt="' + escHtml(hit.name || '') + '" width="60" height="60" />';
 				html += '</div>';
 			}
 
@@ -794,6 +795,19 @@
 			case 'left_space': return symbol + '\u00a0' + formatted;
 			case 'right_space': return formatted + '\u00a0' + symbol;
 			default: return symbol + formatted;
+		}
+	}
+
+	/**
+	 * Prefetch product images so they appear instantly when results render.
+	 */
+	function prefetchImages(hits) {
+		for (var i = 0; i < hits.length; i++) {
+			var src = hits[i].image;
+			if (src) {
+				var img = new Image();
+				img.src = src;
+			}
 		}
 	}
 
