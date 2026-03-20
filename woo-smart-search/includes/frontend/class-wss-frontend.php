@@ -237,12 +237,6 @@ class WSS_Frontend {
 		}
 
 		echo '<style id="wss-css-vars">' . $css . '</style>' . "\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-
-		// Critical inline CSS: hide interactive elements immediately to prevent
-		// FOUC (flash of unstyled content) while the main stylesheet loads async.
-		echo '<style id="wss-critical">'
-			. '.wss-results-dropdown,.wss-fullscreen-overlay,.wss-mobile-backdrop,.wss-results-skeleton,.wss-results-empty,.wss-results-error,.wss-search-clear,.wss-search-spinner,.wss-mobile-close-btn,.wss-results-footer,.wss-results-categories,.wss-popular-searches,.wss-sidebar-categories,.wss-suggestions,.wss-expanded-main-heading{display:none}'
-			. '</style>' . "\n";
 	}
 
 	/**
@@ -396,7 +390,9 @@ class WSS_Frontend {
 	 * @return string
 	 */
 	public function optimize_style_loading( $html, $handle, $href, $media ) {
-		if ( ! in_array( $handle, array( 'wss-search-widget', 'wss-results-page' ), true ) ) {
+		// Only defer results-page CSS (not needed until user navigates to results).
+		// Keep search-widget CSS render-blocking since the widget is visible immediately.
+		if ( 'wss-results-page' !== $handle ) {
 			return $html;
 		}
 
