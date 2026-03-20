@@ -390,7 +390,9 @@ class WSS_Frontend {
 	 * @return string
 	 */
 	public function optimize_style_loading( $html, $handle, $href, $media ) {
-		if ( ! in_array( $handle, array( 'wss-search-widget', 'wss-results-page' ), true ) ) {
+		// Only defer results-page CSS (not needed until user navigates to results).
+		// Keep search-widget CSS render-blocking since the widget is visible immediately.
+		if ( 'wss-results-page' !== $handle ) {
 			return $html;
 		}
 
