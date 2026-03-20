@@ -114,7 +114,7 @@ class WSS_Frontend {
 				'trackClickUrl'  => esc_url_raw( rest_url( 'wss/v1/track-click' ) ),
 				'nonce'          => wp_create_nonce( 'wp_rest' ),
 				'maxResults'     => (int) ( $settings['max_autocomplete_results'] ?? 8 ),
-				'debounceTime'   => (int) apply_filters( 'wss_debounce_time', 200 ),
+				'debounceTime'   => (int) apply_filters( 'wss_debounce_time', 150 ),
 				'minQueryLength' => 2,
 				'showImage'      => ( $settings['show_image'] ?? 'yes' ) === 'yes',
 				'showPrice'      => ( $settings['show_price'] ?? 'yes' ) === 'yes',
