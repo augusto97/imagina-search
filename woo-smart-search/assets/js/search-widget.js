@@ -24,7 +24,7 @@
 	function meiliSearch(query, limit, facets, signal) {
 		var body = {
 			q: query,
-			limit: limit,
+			limit: parseInt(limit, 10) || 8,
 			attributesToHighlight: ['name'],
 			highlightPreTag: '<mark>',
 			highlightPostTag: '</mark>'
