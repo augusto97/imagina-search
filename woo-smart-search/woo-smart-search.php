@@ -3,7 +3,7 @@
  * Plugin Name:       Woo Smart Search
  * Plugin URI:        https://example.com/woo-smart-search
  * Description:       Replace WooCommerce native search with an instant, ultra-fast search experience powered by Meilisearch.
- * Version:           2.5.0
+ * Version:           2.5.1
  * Author:            Imagina
  * Author URI:        https://example.com
  * License:           GPL-2.0+
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Plugin constants.
-define( 'WSS_VERSION', '2.5.0' );
+define( 'WSS_VERSION', '2.5.1' );
 define( 'WSS_PLUGIN_FILE', __FILE__ );
 define( 'WSS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WSS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
