@@ -207,9 +207,8 @@
 			params.set( 'sort', state.sort );
 		}
 
-		// Always request all valid Meilisearch facet fields; visibility is
-		// controlled at render time via cfg.visibleFacets.
-		params.set( 'facets', 'categories,stock_status,on_sale,brand,rating' );
+		// Do NOT pass explicit facets — let the backend build the full list
+		// including dynamic product attributes (attributes.Color, etc.).
 
 		var url = cfg.apiUrl + '?' + params.toString();
 
@@ -419,9 +418,10 @@
 			var val   = entry[0];
 			var decoded = decodeHtml( val );
 			var count = entry[1];
-			var checked = selected.indexOf( val ) !== -1 ? ' checked' : '';
+			// Compare against both raw and decoded forms for robust matching.
+			var checked = ( selected.indexOf( val ) !== -1 || selected.indexOf( decoded ) !== -1 ) ? ' checked' : '';
 			html += '<label class="wss-filter-option">' +
-				'<input type="checkbox" value="' + escapeHtml( val ) + '"' + checked + ' />' +
+				'<input type="checkbox" value="' + escapeHtml( decoded ) + '"' + checked + ' />' +
 				'<span class="wss-filter-label">' + escapeHtml( decoded ) + '</span>' +
 				'<span class="wss-filter-count">(' + count + ')</span>' +
 				'</label>';

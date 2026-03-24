@@ -61,7 +61,8 @@ class WSS_Rest_Api {
 					'filters' => array(
 						'default'           => '',
 						'type'              => 'string',
-						'sanitize_callback' => 'sanitize_text_field',
+						// No sanitize_callback: sanitize_text_field converts & to &amp;
+						// breaking filter values. Security handled by sanitize_filter_string().
 					),
 					'sort'    => array(
 						'default'           => '',
@@ -476,8 +477,9 @@ class WSS_Rest_Api {
 
 		// Strip anything that is not: attribute names, operators, values, AND/OR/NOT, parentheses, quotes, numbers.
 		// This prevents injection of arbitrary Meilisearch filter syntax.
+		// Note: & is allowed because filter values can contain it (e.g., "Baseball & Softball").
 		$safe = preg_replace(
-			'/[^\w\s=<>!"\'\-.,()]/u',
+			'/[^\w\s=<>!"\'\-.,()&\/]/u',
 			'',
 			$filter
 		);
