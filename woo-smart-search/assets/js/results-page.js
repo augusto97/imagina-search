@@ -232,10 +232,11 @@
 
 		if ( useDirect ) {
 			// Ultra-fast: direct Meilisearch POST, with automatic WP fallback on failure.
+			var numLimit = parseInt( state.limit, 10 ) || 12;
 			var body = {
 				q: state.query,
-				limit: state.limit,
-				offset: ( state.page - 1 ) * state.limit,
+				limit: numLimit,
+				offset: ( state.page - 1 ) * numLimit,
 				attributesToHighlight: [ 'name' ],
 				highlightPreTag: '<mark>',
 				highlightPostTag: '</mark>',
