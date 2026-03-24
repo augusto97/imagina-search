@@ -529,12 +529,31 @@ class WSS_Product_Sync {
 			'menu_order',
 		);
 
+		// Displayed attributes — only expose safe fields to frontend direct search.
+		// Sensitive fields (stock_quantity, total_sales, custom_fields, etc.) are excluded.
+		$displayed = apply_filters(
+			'wss_displayed_attributes',
+			array(
+				'id', 'name', 'slug', 'description', 'sku', 'permalink',
+				'image', 'gallery',
+				'price', 'regular_price', 'sale_price', 'price_min', 'price_max',
+				'on_sale', 'currency',
+				'stock_status',
+				'categories', 'category_slugs',
+				'tags', 'brand',
+				'attributes',
+				'rating', 'review_count',
+				'type',
+			)
+		);
+
 		$settings = apply_filters(
 			'wss_index_settings',
 			array(
-				'searchableAttributes' => $searchable,
-				'filterableAttributes' => $filterable,
-				'sortableAttributes'   => $sortable,
+				'searchableAttributes'  => $searchable,
+				'filterableAttributes'  => $filterable,
+				'sortableAttributes'    => $sortable,
+				'displayedAttributes'   => $displayed,
 			)
 		);
 
@@ -542,6 +561,7 @@ class WSS_Product_Sync {
 		$engine->set_searchable_attributes( $index_name, $searchable );
 		$engine->set_filterable_attributes( $index_name, $filterable );
 		$engine->set_sortable_attributes( $index_name, $sortable );
+		$engine->set_displayed_attributes( $index_name, $displayed );
 
 		// Configure synonyms if set.
 		$synonyms = wss_get_option( 'synonyms', '' );
@@ -609,7 +629,27 @@ class WSS_Product_Sync {
 			}
 		}
 
-		return $engine->set_filterable_attributes( $index_name, $filterable );
+		$result = $engine->set_filterable_attributes( $index_name, $filterable );
+
+		// Also ensure displayed attributes are set for safe direct frontend search.
+		$displayed = apply_filters(
+			'wss_displayed_attributes',
+			array(
+				'id', 'name', 'slug', 'description', 'sku', 'permalink',
+				'image', 'gallery',
+				'price', 'regular_price', 'sale_price', 'price_min', 'price_max',
+				'on_sale', 'currency',
+				'stock_status',
+				'categories', 'category_slugs',
+				'tags', 'brand',
+				'attributes',
+				'rating', 'review_count',
+				'type',
+			)
+		);
+		$engine->set_displayed_attributes( $index_name, $displayed );
+
+		return $result;
 	}
 
 	/**

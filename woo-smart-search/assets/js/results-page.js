@@ -13,6 +13,12 @@
 	/* ---- Globals from wp_localize_script ---- */
 	var cfg = window.wssConfig || {};
 
+	/* ---- Direct Meilisearch (ultra-fast mode) ---- */
+	var useDirect = !!( cfg.meiliUrl && cfg.meiliKey && cfg.meiliIndex );
+	var meiliSearchUrl = useDirect
+		? cfg.meiliUrl + '/indexes/' + encodeURIComponent( cfg.meiliIndex ) + '/search'
+		: '';
+
 	/* ---- State ---- */
 	var state = {
 		query:   '',
@@ -164,18 +170,7 @@
 
 	/* ---- Search ---- */
 
-	function performSearch() {
-		if ( state.loading && state.controller ) {
-			state.controller.abort();
-		}
-
-		state.loading = true;
-		showLoading( true );
-		updateUrl();
-
-		state.controller = new AbortController();
-
-		// Build filter string for Meilisearch.
+	function buildFilterString() {
 		var filterParts = [];
 
 		Object.keys( state.filters ).forEach( function ( key ) {
@@ -194,34 +189,96 @@
 			filterParts.push( 'price <= ' + state.priceMax );
 		}
 
-		var params = new URLSearchParams();
-		params.set( 'q', state.query );
-		params.set( 'limit', state.limit );
-		params.set( 'page', state.page );
+		return filterParts.length ? filterParts.join( ' AND ' ) : '';
+	}
 
-		if ( filterParts.length ) {
-			params.set( 'filters', filterParts.join( ' AND ' ) );
+	function performSearch() {
+		if ( state.loading && state.controller ) {
+			state.controller.abort();
 		}
 
-		if ( state.sort ) {
-			params.set( 'sort', state.sort );
-		}
+		state.loading = true;
+		showLoading( true );
+		updateUrl();
 
-		// Do NOT pass explicit facets — let the backend build the full list
-		// including dynamic product attributes (attributes.Color, etc.).
+		state.controller = new AbortController();
 
-		var url = cfg.apiUrl + '?' + params.toString();
+		var filterStr = buildFilterString();
+		var searchPromise;
 
-		fetch( url, {
-			signal: state.controller.signal,
-			headers: { 'X-WP-Nonce': cfg.nonce }
-		} )
-		.then( function ( res ) {
-			if ( ! res.ok ) {
-				throw new Error( 'HTTP ' + res.status );
+		if ( useDirect ) {
+			// Ultra-fast: direct Meilisearch POST (no WordPress overhead).
+			var body = {
+				q: state.query,
+				limit: state.limit,
+				offset: ( state.page - 1 ) * state.limit,
+				attributesToHighlight: [ 'name' ],
+				highlightPreTag: '<mark>',
+				highlightPostTag: '</mark>',
+				facets: cfg.meilieFacets || [ 'categories', 'stock_status', 'on_sale', 'brand', 'rating' ]
+			};
+
+			if ( filterStr ) {
+				body.filter = filterStr;
 			}
-			return res.json();
-		} )
+
+			if ( state.sort ) {
+				body.sort = [ state.sort ];
+			}
+
+			searchPromise = fetch( meiliSearchUrl, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Authorization': 'Bearer ' + cfg.meiliKey
+				},
+				body: JSON.stringify( body ),
+				signal: state.controller.signal
+			} )
+			.then( function ( res ) {
+				if ( ! res.ok ) throw new Error( 'Meili HTTP ' + res.status );
+				return res.json();
+			} )
+			.then( function ( data ) {
+				// Normalize hits — add name_highlighted from _formatted.
+				var hits = ( data.hits || [] ).map( function ( hit ) {
+					var formatted = hit._formatted || {};
+					hit.name_highlighted = formatted.name || hit.name || '';
+					return hit;
+				} );
+				return {
+					hits: hits,
+					total: data.estimatedTotalHits || hits.length,
+					facets: data.facetDistribution || {},
+					processingTimeMs: data.processingTimeMs || 0
+				};
+			} );
+		} else {
+			// Fallback: WordPress REST API proxy.
+			var params = new URLSearchParams();
+			params.set( 'q', state.query );
+			params.set( 'limit', state.limit );
+			params.set( 'page', state.page );
+
+			if ( filterStr ) {
+				params.set( 'filters', filterStr );
+			}
+
+			if ( state.sort ) {
+				params.set( 'sort', state.sort );
+			}
+
+			searchPromise = fetch( cfg.apiUrl + '?' + params.toString(), {
+				signal: state.controller.signal,
+				headers: { 'X-WP-Nonce': cfg.nonce }
+			} )
+			.then( function ( res ) {
+				if ( ! res.ok ) throw new Error( 'HTTP ' + res.status );
+				return res.json();
+			} );
+		}
+
+		searchPromise
 		.then( function ( data ) {
 			state.loading = false;
 			state.total   = data.total || 0;
