@@ -380,6 +380,17 @@
 			html += buildRatingFilter( facets.rating );
 		}
 
+		// Dynamic product attributes (attributes.Color, attributes.Size, etc.).
+		if ( isFacetVisible( 'attributes' ) ) {
+			var attrPrefix = 'attributes.';
+			Object.keys( facets ).forEach( function ( facetKey ) {
+				if ( facetKey.indexOf( attrPrefix ) === 0 && facets[ facetKey ] && Object.keys( facets[ facetKey ] ).length ) {
+					var attrLabel = facetKey.substring( attrPrefix.length );
+					html += buildCheckboxFilter( facetKey, attrLabel, facets[ facetKey ] );
+				}
+			} );
+		}
+
 		dom.sidebar.innerHTML = html;
 
 		// Re-bind close button.
@@ -523,9 +534,14 @@
 		Object.keys( state.filters ).forEach( function ( key ) {
 			state.filters[ key ].forEach( function ( val ) {
 				hasFilters = true;
+				// For attribute filters, show label prefix (e.g., "Color: Rojo").
+				var displayLabel = escapeHtml( val );
+				if ( key.indexOf( 'attributes.' ) === 0 ) {
+					displayLabel = escapeHtml( key.replace( 'attributes.', '' ) ) + ': ' + displayLabel;
+				}
 				tags.push(
 					'<span class="wss-active-filter-tag" data-filter="' + escapeHtml( key ) + '" data-value="' + escapeHtml( val ) + '">' +
-					escapeHtml( val ) + ' <span class="wss-remove">&times;</span></span>'
+					displayLabel + ' <span class="wss-remove">&times;</span></span>'
 				);
 			} );
 		} );
