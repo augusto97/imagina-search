@@ -113,7 +113,7 @@ class WSS_Product_Transformer {
 
 		$document = array(
 			'id'               => (int) $product_id,
-			'name'             => $product->get_name(),
+			'name'             => html_entity_decode( $product->get_name(), ENT_QUOTES | ENT_HTML5, 'UTF-8' ),
 			'slug'             => $product->get_slug(),
 			'description'      => self::truncate_text( $short_description, 500 ),
 			'full_description' => self::truncate_text( $full_description, 2000 ),
@@ -231,7 +231,9 @@ class WSS_Product_Transformer {
 		}
 
 		foreach ( $terms as $term ) {
-			$names[] = $term->name;
+			// Decode HTML entities so Meilisearch stores clean values
+			// (WordPress stores "Chairs &amp; Sofas" but we need "Chairs & Sofas").
+			$names[] = html_entity_decode( $term->name, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
 			$ids[]   = (int) $term->term_id;
 			$slugs[] = $term->slug;
 		}
@@ -261,6 +263,11 @@ class WSS_Product_Transformer {
 				$values = array();
 			}
 
+			// Decode HTML entities in attribute values (WordPress stores &amp; etc.).
+			$values = array_map( function ( $v ) {
+				return html_entity_decode( (string) $v, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+			}, $values );
+
 			$attributes[ $attr_name ] = $values;
 			$attributes_text         .= $attr_name . ': ' . implode( ', ', $values ) . '. ';
 		}
@@ -281,7 +288,7 @@ class WSS_Product_Transformer {
 			$brand_terms = get_the_terms( $product_id, $taxonomy );
 
 			if ( ! empty( $brand_terms ) && ! is_wp_error( $brand_terms ) ) {
-				return $brand_terms[0]->name;
+				return html_entity_decode( $brand_terms[0]->name, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
 			}
 		}
 
