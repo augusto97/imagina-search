@@ -61,6 +61,10 @@ class WSS_Loader {
 		$analytics = new WSS_Search_Analytics();
 		$analytics->init();
 
+		// Ensure Meilisearch filterable attributes include product attributes.
+		// Runs lazily on admin_init to avoid slowing down frontend page loads.
+		add_action( 'admin_init', array( 'WSS_Product_Sync', 'maybe_update_filterable_attributes' ) );
+
 		// Schedule health check every 5 minutes.
 		$this->schedule_health_check();
 

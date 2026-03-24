@@ -196,7 +196,7 @@ class WSS_Rest_Api {
 		} else {
 			$default_facets = array( 'categories', 'stock_status', 'on_sale', 'brand', 'rating' );
 			// Include product attribute facets (e.g., attributes.Color, attributes.Size).
-			$attr_names = get_option( 'wss_product_attribute_names', array() );
+			$attr_names = self::get_product_attribute_names();
 			foreach ( $attr_names as $attr_name ) {
 				$default_facets[] = 'attributes.' . $attr_name;
 			}
@@ -428,6 +428,32 @@ class WSS_Rest_Api {
 	}
 
 	/**
+	 * Get all WooCommerce product attribute names (labels).
+	 *
+	 * Reads directly from WooCommerce attribute taxonomies.
+	 * Cached in a static variable per request.
+	 *
+	 * @return array List of attribute label strings.
+	 */
+	public static function get_product_attribute_names(): array {
+		static $names = null;
+		if ( null !== $names ) {
+			return $names;
+		}
+		$names = array();
+		if ( ! function_exists( 'wc_get_attribute_taxonomies' ) ) {
+			return $names;
+		}
+		$taxonomies = wc_get_attribute_taxonomies();
+		if ( ! empty( $taxonomies ) ) {
+			foreach ( $taxonomies as $tax ) {
+				$names[] = $tax->attribute_label ? $tax->attribute_label : $tax->attribute_name;
+			}
+		}
+		return $names;
+	}
+
+	/**
 	 * Sanitize the filter string passed from the frontend.
 	 *
 	 * Only allows known filterable attributes and safe operators.
@@ -442,7 +468,7 @@ class WSS_Rest_Api {
 			'price', 'price_min', 'price_max', 'type',
 		);
 		// Also allow dynamic product attributes (attributes.Color, etc.).
-		$attr_names = get_option( 'wss_product_attribute_names', array() );
+		$attr_names = self::get_product_attribute_names();
 		foreach ( $attr_names as $attr_name ) {
 			$allowed_attrs[] = 'attributes.' . $attr_name;
 		}
