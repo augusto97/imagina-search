@@ -564,6 +564,72 @@ class WSS_Product_Sync {
 	}
 
 	/**
+	 * Update only the filterable attributes on Meilisearch.
+	 *
+	 * This can be called without a full re-sync to register new
+	 * product attributes as filterable facets.
+	 *
+	 * @return bool True on success.
+	 */
+	public static function update_filterable_attributes(): bool {
+		$engine = wss_get_engine();
+		if ( ! $engine ) {
+			return false;
+		}
+
+		$index_name = wss_get_option( 'index_name', 'woo_products' );
+
+		$filterable = apply_filters(
+			'wss_filterable_attributes',
+			array(
+				'categories',
+				'category_ids',
+				'category_slugs',
+				'tags',
+				'price',
+				'price_min',
+				'price_max',
+				'stock_status',
+				'on_sale',
+				'featured',
+				'rating',
+				'brand',
+				'type',
+			)
+		);
+
+		// Add product attributes.
+		if ( function_exists( 'wc_get_attribute_taxonomies' ) ) {
+			$taxonomies = wc_get_attribute_taxonomies();
+			if ( ! empty( $taxonomies ) ) {
+				foreach ( $taxonomies as $tax ) {
+					$label        = $tax->attribute_label ? $tax->attribute_label : $tax->attribute_name;
+					$filterable[] = 'attributes.' . $label;
+				}
+			}
+		}
+
+		return $engine->set_filterable_attributes( $index_name, $filterable );
+	}
+
+	/**
+	 * Ensure Meilisearch filterable attributes include product attributes.
+	 *
+	 * Runs once per plugin version to keep the index settings in sync
+	 * without requiring a full re-sync.
+	 */
+	public static function maybe_update_filterable_attributes() {
+		$version_key = 'wss_filterable_attrs_version';
+		if ( get_option( $version_key, '' ) === WSS_VERSION ) {
+			return;
+		}
+
+		if ( self::update_filterable_attributes() ) {
+			update_option( $version_key, WSS_VERSION, true );
+		}
+	}
+
+	/**
 	 * Get the WC_Product_Query arguments for syncing.
 	 *
 	 * @return array

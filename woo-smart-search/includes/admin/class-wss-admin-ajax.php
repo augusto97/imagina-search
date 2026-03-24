@@ -155,6 +155,9 @@ class WSS_Admin_Ajax {
 		// Reset Meilisearch singleton so it picks up new config.
 		WSS_Meilisearch::reset();
 
+		// Update Meilisearch filterable attributes (includes product attributes).
+		WSS_Product_Sync::update_filterable_attributes();
+
 		wss_log( __( 'Settings updated', 'woo-smart-search' ), 'info' );
 
 		wp_send_json_success( array( 'message' => __( 'Settings saved successfully.', 'woo-smart-search' ) ) );
