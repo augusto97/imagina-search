@@ -504,6 +504,19 @@ class WSS_Product_Sync {
 			)
 		);
 
+		// Dynamically add product attributes as filterable (attributes.Color, attributes.Size, etc.).
+		$attribute_taxonomies = wc_get_attribute_taxonomies();
+		$attribute_names      = array();
+		if ( ! empty( $attribute_taxonomies ) ) {
+			foreach ( $attribute_taxonomies as $tax ) {
+				$label             = $tax->attribute_label ? $tax->attribute_label : $tax->attribute_name;
+				$filterable[]      = 'attributes.' . $label;
+				$attribute_names[] = $label;
+			}
+		}
+		// Store the attribute names for frontend facet requests.
+		update_option( 'wss_product_attribute_names', $attribute_names, true );
+
 		$sortable = array(
 			'price',
 			'price_min',

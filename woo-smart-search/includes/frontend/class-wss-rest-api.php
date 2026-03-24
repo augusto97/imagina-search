@@ -194,7 +194,13 @@ class WSS_Rest_Api {
 		if ( ! empty( $facets ) ) {
 			$options['facets'] = explode( ',', $facets );
 		} else {
-			$options['facets'] = array( 'categories', 'stock_status', 'on_sale', 'brand', 'rating' );
+			$default_facets = array( 'categories', 'stock_status', 'on_sale', 'brand', 'rating' );
+			// Include product attribute facets (e.g., attributes.Color, attributes.Size).
+			$attr_names = get_option( 'wss_product_attribute_names', array() );
+			foreach ( $attr_names as $attr_name ) {
+				$default_facets[] = 'attributes.' . $attr_name;
+			}
+			$options['facets'] = $default_facets;
 		}
 
 		$options['highlight_fields'] = array( 'name', 'description', 'categories' );
@@ -435,6 +441,11 @@ class WSS_Rest_Api {
 			'categories', 'stock_status', 'on_sale', 'brand', 'rating',
 			'price', 'price_min', 'price_max', 'type',
 		);
+		// Also allow dynamic product attributes (attributes.Color, etc.).
+		$attr_names = get_option( 'wss_product_attribute_names', array() );
+		foreach ( $attr_names as $attr_name ) {
+			$allowed_attrs[] = 'attributes.' . $attr_name;
+		}
 		$allowed_pattern = implode( '|', array_map( 'preg_quote', $allowed_attrs ) );
 
 		// Strip anything that is not: attribute names, operators, values, AND/OR/NOT, parentheses, quotes, numbers.
@@ -446,12 +457,13 @@ class WSS_Rest_Api {
 		);
 
 		// Verify all attribute references are in the allowlist.
-		// Extract all word tokens that appear before operators.
-		preg_match_all( '/\b([a-zA-Z_][a-zA-Z0-9_]*)\b\s*(?:=|!=|>|<|>=|<=|TO|IN|NOT)/', $safe, $matches );
+		// Extract tokens before operators (supports dotted names like attributes.Color).
+		preg_match_all( '/\b([a-zA-Z_][a-zA-Z0-9_.]*)\b\s*(?:=|!=|>|<|>=|<=|TO|IN|NOT)/', $safe, $matches );
 		if ( ! empty( $matches[1] ) ) {
+			// Build lowercase lookup list.
+			$allowed_lower = array_map( 'strtolower', array_merge( $allowed_attrs, array( 'and', 'or', 'not' ) ) );
 			foreach ( $matches[1] as $attr ) {
-				$attr_lower = strtolower( $attr );
-				if ( ! in_array( $attr_lower, array_merge( $allowed_attrs, array( 'and', 'or', 'not' ) ), true ) ) {
+				if ( ! in_array( strtolower( $attr ), $allowed_lower, true ) ) {
 					// Unknown attribute found — reject the entire filter.
 					return '';
 				}
