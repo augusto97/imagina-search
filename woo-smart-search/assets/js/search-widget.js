@@ -43,7 +43,12 @@
 			signal: signal
 		})
 		.then(function (res) {
-			if (!res.ok) throw new Error('Meili HTTP ' + res.status);
+			if (!res.ok) {
+				return res.json().catch(function () { return {}; }).then(function (errBody) {
+					console.error('WSS Meilisearch error:', errBody);
+					throw new Error('Meili HTTP ' + res.status + ': ' + (errBody.message || ''));
+				});
+			}
 			return res.json();
 		})
 		.then(function (data) {
