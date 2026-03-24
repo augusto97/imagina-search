@@ -105,10 +105,37 @@ class WSS_Frontend {
 
 		$settings = $this->get_settings();
 
+		// Direct Meilisearch connection for ultra-fast frontend search.
+		$search_api_key = $settings['search_api_key'] ?? '';
+		$meili_url      = '';
+		$meili_index    = wss_get_option( 'index_name', 'woo_products' );
+
+		if ( ! empty( $search_api_key ) ) {
+			$engine = wss_get_engine();
+			if ( $engine ) {
+				$meili_url = $engine->get_base_url();
+			}
+		}
+
+		// Build default facets list including dynamic product attributes.
+		$default_facets = array( 'categories', 'stock_status', 'on_sale', 'brand', 'rating' );
+		if ( class_exists( 'WSS_REST_API' ) ) {
+			$attr_names = WSS_REST_API::get_product_attribute_names();
+			foreach ( $attr_names as $attr_name ) {
+				$default_facets[] = 'attributes.' . $attr_name;
+			}
+		}
+
 		wp_localize_script(
 			'wss-search-widget',
 			'wssConfig',
 			array(
+				// Direct Meilisearch (ultra-fast mode) — used when search_api_key is set.
+				'meiliUrl'       => esc_url_raw( $meili_url ),
+				'meiliKey'       => $search_api_key,
+				'meiliIndex'     => $meili_index,
+				'meilieFacets'   => $default_facets,
+				// WordPress REST API fallback.
 				'apiUrl'         => esc_url_raw( rest_url( 'wss/v1/search' ) ),
 				'popularUrl'     => esc_url_raw( rest_url( 'wss/v1/popular' ) ),
 				'trackClickUrl'  => esc_url_raw( rest_url( 'wss/v1/track-click' ) ),
@@ -373,7 +400,15 @@ class WSS_Frontend {
 	 * Output preconnect/prefetch hints for the REST API endpoint.
 	 */
 	public function output_preconnect_hints() {
-		// Preload the REST API discovery for faster first search.
+		// Preconnect to Meilisearch directly if search API key is configured (ultra-fast mode).
+		$search_api_key = wss_get_option( 'search_api_key', '' );
+		if ( ! empty( $search_api_key ) ) {
+			$engine = wss_get_engine();
+			if ( $engine ) {
+				echo '<link rel="preconnect" href="' . esc_url( $engine->get_base_url() ) . '" crossorigin />' . "\n";
+			}
+		}
+		// Also preconnect to REST API (for analytics, popular searches, fallback).
 		echo '<link rel="preconnect" href="' . esc_url( rest_url() ) . '" crossorigin />' . "\n";
 	}
 

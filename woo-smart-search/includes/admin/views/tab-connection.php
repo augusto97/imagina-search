@@ -64,7 +64,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 			</th>
 			<td>
 				<input type="text" id="wss-search-api-key" name="search_api_key" value="<?php echo esc_attr( $settings['search_api_key'] ?? '' ); ?>" class="regular-text" />
-				<p class="description"><?php esc_html_e( 'Read-only search key (optional). Not exposed to the frontend.', 'woo-smart-search' ); ?></p>
+				<p class="description">
+					<?php esc_html_e( 'Read-only search key for ultra-fast direct search. When set, the browser queries Meilisearch directly (bypassing WordPress) for maximum speed. Leave empty to use the WordPress proxy mode.', 'woo-smart-search' ); ?>
+				</p>
+				<p class="description" style="margin-top: 4px;">
+					<strong><?php esc_html_e( 'How to get it:', 'woo-smart-search' ); ?></strong>
+					<?php esc_html_e( 'In Meilisearch Cloud, go to Settings > API Keys and copy the "Default Search API Key". For self-hosted, use the key with only "search" action permission.', 'woo-smart-search' ); ?>
+				</p>
 			</td>
 		</tr>
 		<tr>

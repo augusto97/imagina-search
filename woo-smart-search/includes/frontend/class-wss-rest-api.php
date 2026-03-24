@@ -118,6 +118,29 @@ class WSS_Rest_Api {
 				),
 			)
 		);
+
+		// Lightweight search tracking for direct Meilisearch mode.
+		register_rest_route(
+			self::NAMESPACE,
+			'/track-search',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'handle_track_search' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'query' => array(
+						'required'          => true,
+						'type'              => 'string',
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+					'total' => array(
+						'default'           => 0,
+						'type'              => 'integer',
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
 	}
 
 	/**
@@ -298,6 +321,21 @@ class WSS_Rest_Api {
 
 		$analytics = new WSS_Search_Analytics();
 		$analytics->log_click( $query, $product_id );
+
+		return rest_ensure_response( array( 'tracked' => true ) );
+	}
+
+	/**
+	 * Handle search tracking from direct Meilisearch mode.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response
+	 */
+	public function handle_track_search( $request ) {
+		$query = $request->get_param( 'query' );
+		$total = $request->get_param( 'total' );
+
+		$this->log_search( $query, (int) $total );
 
 		return rest_ensure_response( array( 'tracked' => true ) );
 	}

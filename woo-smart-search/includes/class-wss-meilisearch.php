@@ -364,6 +364,27 @@ class WSS_Meilisearch {
 	}
 
 	/**
+	 * Set displayed attributes (controls which fields are returned in search results).
+	 *
+	 * @param string $index_name Index name.
+	 * @param array  $attributes Attributes to display.
+	 * @return bool
+	 */
+	public function set_displayed_attributes( string $index_name, array $attributes ): bool {
+		$response = $this->request( 'PUT', '/indexes/' . $index_name . '/settings/displayed-attributes', $attributes );
+		return ! is_wp_error( $response ) && in_array( wp_remote_retrieve_response_code( $response ), array( 200, 202 ), true );
+	}
+
+	/**
+	 * Get the base URL for this Meilisearch instance.
+	 *
+	 * @return string
+	 */
+	public function get_base_url(): string {
+		return $this->base_url;
+	}
+
+	/**
 	 * Set synonyms.
 	 *
 	 * @param string $index_name Index name.

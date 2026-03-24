@@ -11,6 +11,57 @@
 	var popularCache = null;
 	var activeController = null;
 
+	// Ultra-fast mode: direct Meilisearch search (bypasses WordPress entirely).
+	var useDirect = !!(config.meiliUrl && config.meiliKey && config.meiliIndex);
+	var meiliSearchUrl = useDirect
+		? config.meiliUrl + '/indexes/' + encodeURIComponent(config.meiliIndex) + '/search'
+		: '';
+
+	/**
+	 * Perform a direct Meilisearch POST search.
+	 * Returns a promise that resolves to the normalized response format.
+	 */
+	function meiliSearch(query, limit, facets, signal) {
+		var body = {
+			q: query,
+			limit: limit,
+			attributesToHighlight: ['name'],
+			highlightPreTag: '<mark>',
+			highlightPostTag: '</mark>'
+		};
+		if (facets && facets.length) {
+			body.facets = facets;
+		}
+
+		return fetch(meiliSearchUrl, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'Authorization': 'Bearer ' + config.meiliKey
+			},
+			body: JSON.stringify(body),
+			signal: signal
+		})
+		.then(function (res) {
+			if (!res.ok) throw new Error('Meili HTTP ' + res.status);
+			return res.json();
+		})
+		.then(function (data) {
+			// Normalize to match the WP REST API response format.
+			var hits = (data.hits || []).map(function (hit) {
+				var formatted = hit._formatted || {};
+				hit.name_highlighted = formatted.name || hit.name || '';
+				return hit;
+			});
+			return {
+				hits: hits,
+				total: data.estimatedTotalHits || hits.length,
+				facets: data.facetDistribution || {},
+				processingTimeMs: data.processingTimeMs || 0
+			};
+		});
+	}
+
 	function init() {
 		var wrappers = document.querySelectorAll('.wss-search-wrapper');
 		wrappers.forEach(function (wrapper) {
@@ -449,23 +500,34 @@
 			activeController = new AbortController();
 
 			var limit = config.maxResults || 8;
-			var facetsParam = needsFacets ? '&facets=categories,stock_status,on_sale,brand,rating' : '';
-			var url = config.apiUrl + '?q=' + encodeURIComponent(query) + '&limit=' + limit + facetsParam;
+			var facets = needsFacets ? (config.meilieFacets || ['categories', 'stock_status', 'on_sale', 'brand', 'rating']) : null;
+			var searchPromise;
 
-			fetch(url, {
-				method: 'GET',
-				headers: { 'X-WP-Nonce': config.nonce },
-				signal: activeController.signal
-			})
+			if (useDirect) {
+				// Ultra-fast: direct Meilisearch POST (no WordPress overhead).
+				searchPromise = meiliSearch(query, limit, facets, activeController.signal);
+			} else {
+				// Fallback: WordPress REST API proxy.
+				var facetsParam = needsFacets ? '&facets=categories,stock_status,on_sale,brand,rating' : '';
+				var url = config.apiUrl + '?q=' + encodeURIComponent(query) + '&limit=' + limit + facetsParam;
+				searchPromise = fetch(url, {
+					method: 'GET',
+					headers: { 'X-WP-Nonce': config.nonce },
+					signal: activeController.signal
+				})
 				.then(function (response) {
 					if (!response.ok) throw new Error('HTTP ' + response.status);
 					return response.json();
-				})
+				});
+			}
+
+			searchPromise
 				.then(function (data) {
 					cache[query] = data;
-					// Prefetch images in background so they display instantly.
 					prefetchImages(data.hits || []);
 					renderResults(data, query);
+					// Track search for analytics (non-blocking).
+					trackSearch(query, data.total || 0);
 					try {
 						document.dispatchEvent(new CustomEvent('wss_search', {
 							detail: { query: query, results: data.total || 0 }
@@ -776,6 +838,23 @@
 			hideState(footer);
 			if (!isFullscreen) showDropdown();
 		}
+	}
+
+	/**
+	 * Track search query for analytics via non-blocking beacon.
+	 * Only sends data in direct Meilisearch mode (WP proxy tracks automatically).
+	 */
+	function trackSearch(query, totalResults) {
+		if (!useDirect || !config.trackClickUrl) return;
+		try {
+			var data = JSON.stringify({ query: query, total: totalResults });
+			if (navigator.sendBeacon) {
+				navigator.sendBeacon(
+					config.apiUrl.replace('/search', '/track-search'),
+					new Blob([data], { type: 'application/json' })
+				);
+			}
+		} catch (err) { /* silent fail */ }
 	}
 
 	function formatPrice(price) {
