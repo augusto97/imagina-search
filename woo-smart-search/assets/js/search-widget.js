@@ -503,17 +503,13 @@
 			var facets = needsFacets ? (config.meilieFacets || ['categories', 'stock_status', 'on_sale', 'brand', 'rating']) : null;
 			var searchPromise;
 
-			if (useDirect) {
-				// Ultra-fast: direct Meilisearch POST (no WordPress overhead).
-				searchPromise = meiliSearch(query, limit, facets, activeController.signal);
-			} else {
-				// Fallback: WordPress REST API proxy.
+			function wpFallbackSearch(q, lim, sig) {
 				var facetsParam = needsFacets ? '&facets=categories,stock_status,on_sale,brand,rating' : '';
-				var url = config.apiUrl + '?q=' + encodeURIComponent(query) + '&limit=' + limit + facetsParam;
-				searchPromise = fetch(url, {
+				var fallbackUrl = config.apiUrl + '?q=' + encodeURIComponent(q) + '&limit=' + lim + facetsParam;
+				return fetch(fallbackUrl, {
 					method: 'GET',
 					headers: { 'X-WP-Nonce': config.nonce },
-					signal: activeController.signal
+					signal: sig
 				})
 				.then(function (response) {
 					if (!response.ok) throw new Error('HTTP ' + response.status);
@@ -521,12 +517,23 @@
 				});
 			}
 
+			if (useDirect) {
+				// Ultra-fast: direct Meilisearch POST, with automatic WP fallback on failure.
+				searchPromise = meiliSearch(query, limit, facets, activeController.signal)
+					.catch(function (err) {
+						if (err.name === 'AbortError') throw err;
+						console.warn('WSS: Direct Meilisearch failed, falling back to WP REST API', err.message);
+						return wpFallbackSearch(query, limit, activeController.signal);
+					});
+			} else {
+				searchPromise = wpFallbackSearch(query, limit, activeController.signal);
+			}
+
 			searchPromise
 				.then(function (data) {
 					cache[query] = data;
 					prefetchImages(data.hits || []);
 					renderResults(data, query);
-					// Track search for analytics (non-blocking).
 					trackSearch(query, data.total || 0);
 					try {
 						document.dispatchEvent(new CustomEvent('wss_search', {

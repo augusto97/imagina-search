@@ -206,8 +206,32 @@
 		var filterStr = buildFilterString();
 		var searchPromise;
 
+		function wpFallbackSearch() {
+			var params = new URLSearchParams();
+			params.set( 'q', state.query );
+			params.set( 'limit', state.limit );
+			params.set( 'page', state.page );
+
+			if ( filterStr ) {
+				params.set( 'filters', filterStr );
+			}
+
+			if ( state.sort ) {
+				params.set( 'sort', state.sort );
+			}
+
+			return fetch( cfg.apiUrl + '?' + params.toString(), {
+				signal: state.controller.signal,
+				headers: { 'X-WP-Nonce': cfg.nonce }
+			} )
+			.then( function ( res ) {
+				if ( ! res.ok ) throw new Error( 'HTTP ' + res.status );
+				return res.json();
+			} );
+		}
+
 		if ( useDirect ) {
-			// Ultra-fast: direct Meilisearch POST (no WordPress overhead).
+			// Ultra-fast: direct Meilisearch POST, with automatic WP fallback on failure.
 			var body = {
 				q: state.query,
 				limit: state.limit,
@@ -240,7 +264,6 @@
 				return res.json();
 			} )
 			.then( function ( data ) {
-				// Normalize hits — add name_highlighted from _formatted.
 				var hits = ( data.hits || [] ).map( function ( hit ) {
 					var formatted = hit._formatted || {};
 					hit.name_highlighted = formatted.name || hit.name || '';
@@ -252,30 +275,14 @@
 					facets: data.facetDistribution || {},
 					processingTimeMs: data.processingTimeMs || 0
 				};
+			} )
+			.catch( function ( err ) {
+				if ( err.name === 'AbortError' ) throw err;
+				console.warn( 'WSS: Direct Meilisearch failed, falling back to WP REST API', err.message );
+				return wpFallbackSearch();
 			} );
 		} else {
-			// Fallback: WordPress REST API proxy.
-			var params = new URLSearchParams();
-			params.set( 'q', state.query );
-			params.set( 'limit', state.limit );
-			params.set( 'page', state.page );
-
-			if ( filterStr ) {
-				params.set( 'filters', filterStr );
-			}
-
-			if ( state.sort ) {
-				params.set( 'sort', state.sort );
-			}
-
-			searchPromise = fetch( cfg.apiUrl + '?' + params.toString(), {
-				signal: state.controller.signal,
-				headers: { 'X-WP-Nonce': cfg.nonce }
-			} )
-			.then( function ( res ) {
-				if ( ! res.ok ) throw new Error( 'HTTP ' + res.status );
-				return res.json();
-			} );
+			searchPromise = wpFallbackSearch();
 		}
 
 		searchPromise
