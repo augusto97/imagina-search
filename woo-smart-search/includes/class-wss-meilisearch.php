@@ -170,10 +170,15 @@ class WSS_Meilisearch {
 			}
 		}
 
+		// Detect restricted key: /health works but /version doesn't.
+		$restricted_key = empty( $version_str ) && ! is_wp_error( $response )
+			&& 200 !== wp_remote_retrieve_response_code( $response );
+
 		return array(
-			'success' => true,
-			'message' => __( 'Connected successfully to Meilisearch', 'woo-smart-search' ),
-			'version' => $version_str,
+			'success'        => true,
+			'message'        => __( 'Connected successfully to Meilisearch', 'woo-smart-search' ),
+			'version'        => $version_str,
+			'restricted_key' => $restricted_key,
 		);
 	}
 

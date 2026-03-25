@@ -519,14 +519,14 @@
 
 			var limit = config.maxResults || 8;
 			var defaultFacets = config.isEcommerce || config.isMixed
-				? ['categories', 'stock_status', 'on_sale', 'brand', 'rating']
+				? ['categories', 'tags', 'stock_status', 'on_sale', 'brand', 'rating']
 				: ['categories', 'tags', 'post_type', 'author'];
 			var facets = needsFacets ? (config.meilieFacets || defaultFacets) : null;
 			var searchPromise;
 
 			function wpFallbackSearch(q, lim, sig) {
 				var defaultFacetStr = config.isEcommerce || config.isMixed
-					? 'categories,stock_status,on_sale,brand,rating'
+					? 'categories,tags,stock_status,on_sale,brand,rating'
 					: 'categories,tags,post_type,author';
 				var facetsParam = needsFacets ? '&facets=' + defaultFacetStr : '';
 				var fallbackUrl = config.apiUrl + '?q=' + encodeURIComponent(q) + '&limit=' + lim + facetsParam;

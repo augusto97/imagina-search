@@ -113,9 +113,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 					var data = response.data;
 
 					if ( data.status === 'connected' ) {
-						$dot.css( 'background', '#46b450' );
-						$indicator.css( 'border-left-color', '#46b450' );
-						$text.text( '<?php echo esc_js( __( 'Connected', 'woo-smart-search' ) ); ?>' );
+						if ( data.restricted_key ) {
+							$dot.css( 'background', '#ffb900' );
+							$indicator.css( 'border-left-color', '#ffb900' );
+							$text.html( '<?php echo esc_js( __( 'Connected', 'woo-smart-search' ) ); ?> <small style="color:#b45309;"><?php echo esc_js( __( '(restricted key — use the Master Key for full functionality)', 'woo-smart-search' ) ); ?></small>' );
+						} else {
+							$dot.css( 'background', '#46b450' );
+							$indicator.css( 'border-left-color', '#46b450' );
+							$text.text( '<?php echo esc_js( __( 'Connected', 'woo-smart-search' ) ); ?>' );
+						}
 						var info = '';
 						if ( data.version ) {
 							info += 'v' + data.version;
