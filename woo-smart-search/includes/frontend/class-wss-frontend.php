@@ -120,13 +120,25 @@ class WSS_Frontend {
 			}
 		}
 
-		// Build default facets list including dynamic product attributes.
-		$default_facets = array( 'categories', 'stock_status', 'on_sale', 'brand', 'rating' );
-		if ( class_exists( 'WSS_REST_API' ) ) {
-			$attr_names = WSS_REST_API::get_product_attribute_names();
-			foreach ( $attr_names as $attr_name ) {
-				$default_facets[] = 'attributes.' . $attr_name;
+		// Build default facets list based on content source mode.
+		$content_source = wss_get_content_source();
+		$is_ecom        = wss_is_ecommerce_mode();
+		$is_mixed       = 'mixed' === $content_source;
+
+		if ( $is_ecom || $is_mixed ) {
+			$default_facets = array( 'categories', 'stock_status', 'on_sale', 'brand', 'rating' );
+			if ( class_exists( 'WSS_REST_API' ) ) {
+				$attr_names = WSS_REST_API::get_product_attribute_names();
+				foreach ( $attr_names as $attr_name ) {
+					$default_facets[] = 'attributes.' . $attr_name;
+				}
 			}
+			if ( $is_mixed ) {
+				$default_facets = array_merge( $default_facets, array( 'tags', 'post_type', 'author' ) );
+			}
+		} else {
+			// WordPress content mode — no WC-specific facets.
+			$default_facets = array( 'categories', 'tags', 'post_type', 'author' );
 		}
 
 		wp_localize_script(
@@ -191,7 +203,11 @@ class WSS_Frontend {
 						: __( 'Start typing to search...', 'woo-smart-search' ),
 				),
 				'widgetLayout'   => $settings['widget_layout'] ?? 'standard',
-				'visibleFacets'  => implode( ',', $settings['visible_facets'] ?? array( 'categories', 'price', 'stock', 'attributes' ) ),
+				'visibleFacets'  => implode( ',', $settings['visible_facets'] ?? (
+				$is_ecom ? array( 'categories', 'price', 'stock', 'attributes' ) :
+				( $is_mixed ? array( 'categories', 'price', 'stock', 'attributes', 'tags', 'post_type', 'author' ) :
+				array( 'categories', 'tags', 'post_type', 'author' ) )
+			) ),
 			)
 		);
 
