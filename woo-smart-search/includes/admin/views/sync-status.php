@@ -115,6 +115,7 @@ if ( $is_mixed ) {
 </div>
 
 <form id="wss-indexing-form" class="wss-form">
+	<input type="hidden" name="_wss_tab" value="indexing" />
 	<h2><?php esc_html_e( 'Indexing Settings', 'woo-smart-search' ); ?></h2>
 	<table class="form-table">
 		<tr>

@@ -215,14 +215,24 @@ class WSS_Product_Sync {
 			);
 		}
 
-		$index_name = wss_get_option( 'index_name', 'woo_products' );
+		$index_name = wss_get_option( 'index_name', 'woo_products', true );
 
 		// Create index if it does not exist.
-		$engine->create_index( $index_name );
+		$created = $engine->create_index( $index_name );
+		if ( ! $created ) {
+			wss_log( sprintf( 'Failed to create index "%s". Sync aborted.', $index_name ), 'error' );
+			return array(
+				'success' => false,
+				'message' => __( 'Failed to create Meilisearch index. Check connection settings.', 'woo-smart-search' ),
+			);
+		}
 
 		// Configure index settings (skip if mixed mode already configured combined settings).
 		if ( ! get_option( 'wss_skip_index_configure' ) ) {
-			$this->configure_index_settings( $engine, $index_name );
+			$configured = $this->configure_index_settings( $engine, $index_name );
+			if ( ! $configured ) {
+				wss_log( 'Index configuration failed. Sync will proceed but may have issues.', 'warning' );
+			}
 		}
 
 		// Count total products without loading them all into memory.
@@ -481,7 +491,7 @@ class WSS_Product_Sync {
 	 * @param WSS_Meilisearch $engine     Meilisearch instance.
 	 * @param string          $index_name Index name.
 	 */
-	public function configure_index_settings( $engine, $index_name ) {
+	public function configure_index_settings( $engine, $index_name ): bool {
 		$searchable = apply_filters(
 			'wss_searchable_attributes',
 			array( 'name', 'sku', 'all_skus', 'categories', 'tags', 'brand', 'description', 'attributes_text', 'variations_text' )
@@ -561,7 +571,10 @@ class WSS_Product_Sync {
 			)
 		);
 
-		$engine->configure_index( $index_name, $settings );
+		$result = $engine->configure_index( $index_name, $settings );
+		if ( ! $result ) {
+			return false;
+		}
 
 		// Configure synonyms if set.
 		$synonyms = wss_get_option( 'synonyms', '' );
@@ -581,6 +594,8 @@ class WSS_Product_Sync {
 			$stop_words_array = array_map( 'trim', explode( ',', $stop_words ) );
 			$engine->set_stop_words( $index_name, $stop_words_array );
 		}
+
+		return true;
 	}
 
 	/**
