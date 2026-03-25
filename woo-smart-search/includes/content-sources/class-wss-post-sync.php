@@ -456,11 +456,6 @@ class WSS_Post_Sync {
 			'displayedAttributes'   => $displayed,
 		) );
 
-		$engine->set_searchable_attributes( $index_name, $searchable );
-		$engine->set_filterable_attributes( $index_name, $filterable );
-		$engine->set_sortable_attributes( $index_name, $sortable );
-		$engine->set_displayed_attributes( $index_name, $displayed );
-
 		// Configure synonyms if set.
 		$synonyms = wss_get_option( 'synonyms', '' );
 		if ( ! empty( $synonyms ) ) {
