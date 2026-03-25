@@ -369,8 +369,9 @@ class WSS_Rest_Api {
 	 * @return array
 	 */
 	private function format_hits( array $hits ): array {
-		$formatted = array();
-		$settings  = get_option( 'wss_settings', array() );
+		$formatted    = array();
+		$settings     = get_option( 'wss_settings', array() );
+		$is_ecommerce = wss_is_ecommerce_mode();
 
 		foreach ( $hits as $hit ) {
 			$item = array(
@@ -388,38 +389,48 @@ class WSS_Rest_Api {
 				$item['image'] = isset( $hit['image'] ) ? $hit['image'] : '';
 			}
 
-			if ( ( $settings['show_price'] ?? 'yes' ) === 'yes' ) {
-				$item['price']         = isset( $hit['price'] ) ? (float) $hit['price'] : 0;
-				$item['regular_price'] = isset( $hit['regular_price'] ) ? (float) $hit['regular_price'] : 0;
-				$item['sale_price']    = isset( $hit['sale_price'] ) ? (float) $hit['sale_price'] : 0;
-				$item['on_sale']       = isset( $hit['on_sale'] ) ? (bool) $hit['on_sale'] : false;
-				$item['currency']      = isset( $hit['currency'] ) ? $hit['currency'] : get_woocommerce_currency();
-				$item['price_min']     = isset( $hit['price_min'] ) ? (float) $hit['price_min'] : 0;
-				$item['price_max']     = isset( $hit['price_max'] ) ? (float) $hit['price_max'] : 0;
+			if ( $is_ecommerce ) {
+				// WooCommerce-specific fields.
+				if ( ( $settings['show_price'] ?? 'yes' ) === 'yes' ) {
+					$item['price']         = isset( $hit['price'] ) ? (float) $hit['price'] : 0;
+					$item['regular_price'] = isset( $hit['regular_price'] ) ? (float) $hit['regular_price'] : 0;
+					$item['sale_price']    = isset( $hit['sale_price'] ) ? (float) $hit['sale_price'] : 0;
+					$item['on_sale']       = isset( $hit['on_sale'] ) ? (bool) $hit['on_sale'] : false;
+					$item['currency']      = isset( $hit['currency'] ) ? $hit['currency'] : get_woocommerce_currency();
+					$item['price_min']     = isset( $hit['price_min'] ) ? (float) $hit['price_min'] : 0;
+					$item['price_max']     = isset( $hit['price_max'] ) ? (float) $hit['price_max'] : 0;
+				}
+
+				if ( ( $settings['show_sku'] ?? 'no' ) === 'yes' ) {
+					$item['sku'] = isset( $hit['sku'] ) ? $hit['sku'] : '';
+				}
+
+				if ( ( $settings['show_stock'] ?? 'yes' ) === 'yes' ) {
+					$item['stock_status'] = isset( $hit['stock_status'] ) ? $hit['stock_status'] : '';
+				}
+
+				if ( ( $settings['show_rating'] ?? 'no' ) === 'yes' ) {
+					$item['rating']       = isset( $hit['rating'] ) ? (float) $hit['rating'] : 0;
+					$item['review_count'] = isset( $hit['review_count'] ) ? (int) $hit['review_count'] : 0;
+				}
+
+				if ( ( $settings['show_sale_badge'] ?? 'yes' ) === 'yes' ) {
+					$item['show_sale_badge'] = true;
+				}
+
+				$item['type'] = isset( $hit['type'] ) ? $hit['type'] : 'simple';
+			} else {
+				// WordPress content fields.
+				$item['description'] = isset( $hit['description'] ) ? $hit['description'] : '';
+				$item['post_type']   = isset( $hit['post_type'] ) ? $hit['post_type'] : 'post';
+				$item['author']      = isset( $hit['author'] ) ? $hit['author'] : '';
+				$item['date_created'] = isset( $hit['date_created'] ) ? $hit['date_created'] : 0;
+				$item['content_source'] = 'wordpress';
 			}
 
 			if ( ( $settings['show_category'] ?? 'yes' ) === 'yes' ) {
 				$item['categories'] = isset( $hit['categories'] ) ? $hit['categories'] : array();
 			}
-
-			if ( ( $settings['show_sku'] ?? 'no' ) === 'yes' ) {
-				$item['sku'] = isset( $hit['sku'] ) ? $hit['sku'] : '';
-			}
-
-			if ( ( $settings['show_stock'] ?? 'yes' ) === 'yes' ) {
-				$item['stock_status'] = isset( $hit['stock_status'] ) ? $hit['stock_status'] : '';
-			}
-
-			if ( ( $settings['show_rating'] ?? 'no' ) === 'yes' ) {
-				$item['rating']       = isset( $hit['rating'] ) ? (float) $hit['rating'] : 0;
-				$item['review_count'] = isset( $hit['review_count'] ) ? (int) $hit['review_count'] : 0;
-			}
-
-			if ( ( $settings['show_sale_badge'] ?? 'yes' ) === 'yes' ) {
-				$item['show_sale_badge'] = true;
-			}
-
-			$item['type'] = isset( $hit['type'] ) ? $hit['type'] : 'simple';
 
 			$item = apply_filters( 'wss_result_item_html', $item, $hit );
 
@@ -548,9 +559,17 @@ class WSS_Rest_Api {
 	 * @return array
 	 */
 	private function fallback_search( string $query, int $limit, int $page ): array {
+		$is_ecommerce = wss_is_ecommerce_mode();
+
+		if ( $is_ecommerce ) {
+			$post_type = 'product';
+		} else {
+			$post_type = WSS_Post_Sync::get_configured_post_types();
+		}
+
 		$args = array(
 			's'              => $query,
-			'post_type'      => 'product',
+			'post_type'      => $post_type,
 			'post_status'    => 'publish',
 			'posts_per_page' => $limit,
 			'paged'          => $page,
@@ -561,32 +580,56 @@ class WSS_Rest_Api {
 
 		while ( $wp_query->have_posts() ) {
 			$wp_query->the_post();
-			$product = wc_get_product( get_the_ID() );
-			if ( ! $product ) {
-				continue;
-			}
+			$post_id = get_the_ID();
 
-			$image_id  = $product->get_image_id();
-			$categories = array();
-			$terms      = get_the_terms( $product->get_id(), 'product_cat' );
-			if ( ! empty( $terms ) && ! is_wp_error( $terms ) ) {
-				$categories = wp_list_pluck( $terms, 'name' );
-			}
+			if ( $is_ecommerce && function_exists( 'wc_get_product' ) ) {
+				$product = wc_get_product( $post_id );
+				if ( ! $product ) {
+					continue;
+				}
 
-			$hits[] = array(
-				'id'            => $product->get_id(),
-				'name'          => $product->get_name(),
-				'permalink'     => get_permalink( $product->get_id() ),
-				'image'         => $image_id ? wp_get_attachment_image_url( $image_id, 'woocommerce_thumbnail' ) : '',
-				'price'         => (float) $product->get_price(),
-				'regular_price' => (float) $product->get_regular_price(),
-				'sale_price'    => $product->get_sale_price() ? (float) $product->get_sale_price() : 0,
-				'on_sale'       => $product->is_on_sale(),
-				'stock_status'  => $product->get_stock_status(),
-				'categories'    => $categories,
-				'currency'      => get_woocommerce_currency(),
-				'type'          => $product->get_type(),
-			);
+				$image_id   = $product->get_image_id();
+				$categories = array();
+				$terms      = get_the_terms( $product->get_id(), 'product_cat' );
+				if ( ! empty( $terms ) && ! is_wp_error( $terms ) ) {
+					$categories = wp_list_pluck( $terms, 'name' );
+				}
+
+				$hits[] = array(
+					'id'            => $product->get_id(),
+					'name'          => $product->get_name(),
+					'permalink'     => get_permalink( $product->get_id() ),
+					'image'         => $image_id ? wp_get_attachment_image_url( $image_id, 'woocommerce_thumbnail' ) : '',
+					'price'         => (float) $product->get_price(),
+					'regular_price' => (float) $product->get_regular_price(),
+					'sale_price'    => $product->get_sale_price() ? (float) $product->get_sale_price() : 0,
+					'on_sale'       => $product->is_on_sale(),
+					'stock_status'  => $product->get_stock_status(),
+					'categories'    => $categories,
+					'currency'      => get_woocommerce_currency(),
+					'type'          => $product->get_type(),
+				);
+			} else {
+				$image_id   = get_post_thumbnail_id( $post_id );
+				$categories = array();
+				$terms      = get_the_terms( $post_id, 'category' );
+				if ( ! empty( $terms ) && ! is_wp_error( $terms ) ) {
+					$categories = wp_list_pluck( $terms, 'name' );
+				}
+
+				$hits[] = array(
+					'id'             => $post_id,
+					'name'           => get_the_title( $post_id ),
+					'permalink'      => get_permalink( $post_id ),
+					'image'          => $image_id ? wp_get_attachment_image_url( $image_id, 'medium' ) : '',
+					'description'    => wp_trim_words( get_the_excerpt( $post_id ), 20, '...' ),
+					'categories'     => $categories,
+					'post_type'      => get_post_type( $post_id ),
+					'author'         => get_the_author(),
+					'date_created'   => get_the_time( 'U' ),
+					'content_source' => 'wordpress',
+				);
+			}
 		}
 		wp_reset_postdata();
 

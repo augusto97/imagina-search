@@ -25,17 +25,29 @@ class WSS_Admin {
 	}
 
 	/**
-	 * Add menu page under WooCommerce.
+	 * Add menu page.
+	 *
+	 * Under WooCommerce if active, otherwise as a top-level Settings submenu.
 	 */
 	public function add_menu_page() {
-		add_submenu_page(
-			'woocommerce',
-			__( 'Smart Search', 'woo-smart-search' ),
-			__( 'Smart Search', 'woo-smart-search' ),
-			'manage_woocommerce',
-			'woo-smart-search',
-			array( $this, 'render_settings_page' )
-		);
+		if ( wss_is_woocommerce_active() ) {
+			add_submenu_page(
+				'woocommerce',
+				__( 'Smart Search', 'woo-smart-search' ),
+				__( 'Smart Search', 'woo-smart-search' ),
+				'manage_woocommerce',
+				'woo-smart-search',
+				array( $this, 'render_settings_page' )
+			);
+		} else {
+			add_options_page(
+				__( 'Smart Search', 'woo-smart-search' ),
+				__( 'Smart Search', 'woo-smart-search' ),
+				'manage_options',
+				'woo-smart-search',
+				array( $this, 'render_settings_page' )
+			);
+		}
 	}
 
 	/**
@@ -44,7 +56,7 @@ class WSS_Admin {
 	 * @param string $hook Current admin page.
 	 */
 	public function enqueue_assets( $hook ) {
-		if ( 'woocommerce_page_woo-smart-search' !== $hook ) {
+		if ( 'woocommerce_page_woo-smart-search' !== $hook && 'settings_page_woo-smart-search' !== $hook ) {
 			return;
 		}
 
@@ -76,7 +88,7 @@ class WSS_Admin {
 					'syncStarted'        => __( 'Synchronization started.', 'woo-smart-search' ),
 					'syncCompleted'      => __( 'Synchronization completed!', 'woo-smart-search' ),
 					'syncFailed'         => __( 'Synchronization failed:', 'woo-smart-search' ),
-					'confirmFullSync'    => __( 'This will re-index all products. Continue?', 'woo-smart-search' ),
+					'confirmFullSync'    => __( 'This will re-index all content. Continue?', 'woo-smart-search' ),
 					'confirmClearIndex'  => __( 'This will delete ALL indexed data. Are you sure?', 'woo-smart-search' ),
 					'confirmClearLogs'   => __( 'Delete all logs?', 'woo-smart-search' ),
 					'saving'             => __( 'Saving...', 'woo-smart-search' ),
@@ -121,7 +133,8 @@ class WSS_Admin {
 	 * Render the settings page.
 	 */
 	public function render_settings_page() {
-		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+		$required_cap = wss_is_woocommerce_active() ? 'manage_woocommerce' : 'manage_options';
+		if ( ! current_user_can( $required_cap ) ) {
 			return;
 		}
 

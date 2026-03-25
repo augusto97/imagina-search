@@ -2,6 +2,8 @@
 /**
  * Indexing/Sync tab template.
  *
+ * Adapts to content source mode (WooCommerce products vs WordPress content).
+ *
  * @package WooSmartSearch
  * @var array $settings Plugin settings.
  */
@@ -10,32 +12,51 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$product_count = wp_count_posts( 'product' );
-$published     = isset( $product_count->publish ) ? (int) $product_count->publish : 0;
+$is_ecommerce = wss_is_ecommerce_mode();
 $last_sync     = wss_get_option( 'last_sync', 0 );
 
-$categories = get_terms(
-	array(
-		'taxonomy'   => 'product_cat',
-		'hide_empty' => false,
-	)
-);
+if ( $is_ecommerce ) {
+	$product_count = wp_count_posts( 'product' );
+	$published     = isset( $product_count->publish ) ? (int) $product_count->publish : 0;
+	$content_label = __( 'WooCommerce Products', 'woo-smart-search' );
 
-// Get available meta keys for custom fields.
-global $wpdb;
-$meta_keys = $wpdb->get_col(
-	"SELECT DISTINCT meta_key FROM {$wpdb->postmeta} pm
-	 INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
-	 WHERE p.post_type = 'product' AND pm.meta_key NOT LIKE '\_%'
-	 ORDER BY meta_key LIMIT 100"
-);
+	$categories = get_terms(
+		array(
+			'taxonomy'   => 'product_cat',
+			'hide_empty' => false,
+		)
+	);
+
+	// Get available meta keys for custom fields.
+	global $wpdb;
+	$meta_keys = $wpdb->get_col(
+		"SELECT DISTINCT meta_key FROM {$wpdb->postmeta} pm
+		 INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+		 WHERE p.post_type = 'product' AND pm.meta_key NOT LIKE '\_%'
+		 ORDER BY meta_key LIMIT 100"
+	);
+} else {
+	$post_types = WSS_Post_Sync::get_configured_post_types();
+	$published  = 0;
+	foreach ( $post_types as $pt ) {
+		$counts = wp_count_posts( $pt );
+		$published += isset( $counts->publish ) ? (int) $counts->publish : 0;
+	}
+	$type_labels   = array_map( function( $pt ) {
+		$obj = get_post_type_object( $pt );
+		return $obj ? $obj->labels->name : $pt;
+	}, $post_types );
+	$content_label = implode( ', ', $type_labels );
+	$categories    = array();
+	$meta_keys     = array();
+}
 ?>
 <div class="wss-sync-section">
 	<h2><?php esc_html_e( 'Synchronization', 'woo-smart-search' ); ?></h2>
 
 	<div class="wss-stats-grid">
 		<div class="wss-stat-card">
-			<span class="wss-stat-label"><?php esc_html_e( 'WooCommerce Products', 'woo-smart-search' ); ?></span>
+			<span class="wss-stat-label"><?php echo esc_html( $content_label ); ?></span>
 			<span class="wss-stat-value"><?php echo esc_html( number_format_i18n( $published ) ); ?></span>
 		</div>
 		<div class="wss-stat-card">
@@ -83,9 +104,10 @@ $meta_keys = $wpdb->get_col(
 			</th>
 			<td>
 				<input type="number" id="wss-batch-size" name="batch_size" value="<?php echo esc_attr( $settings['batch_size'] ?? 100 ); ?>" class="small-text" min="10" max="500" />
-				<p class="description"><?php esc_html_e( 'Products per batch during full sync. Default: 100.', 'woo-smart-search' ); ?></p>
+				<p class="description"><?php esc_html_e( 'Items per batch during full sync. Default: 100.', 'woo-smart-search' ); ?></p>
 			</td>
 		</tr>
+		<?php if ( $is_ecommerce ) : ?>
 		<tr>
 			<th scope="row"><?php esc_html_e( 'Index Out of Stock', 'woo-smart-search' ); ?></th>
 			<td>
@@ -144,6 +166,7 @@ $meta_keys = $wpdb->get_col(
 				<p class="description"><?php esc_html_e( 'Custom meta fields / ACF fields to include in the index.', 'woo-smart-search' ); ?></p>
 			</td>
 		</tr>
+		<?php endif; ?>
 	</table>
 
 	<p class="submit">

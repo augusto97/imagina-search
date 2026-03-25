@@ -82,7 +82,10 @@ class WSS_Frontend {
 	 */
 	public function enqueue_assets() {
 		$mode      = wss_get_option( 'integration_mode', 'replace' );
-		$is_search = is_search() || is_shop() || is_product_category() || is_product_tag();
+		$is_search = is_search();
+		if ( wss_is_ecommerce_mode() ) {
+			$is_search = $is_search || is_shop() || is_product_category() || is_product_tag();
+		}
 
 		if ( 'replace' !== $mode && ! $is_search && ! $this->has_shortcode_or_widget() ) {
 			return;
@@ -151,16 +154,20 @@ class WSS_Frontend {
 				'showRating'     => ( $settings['show_rating'] ?? 'no' ) === 'yes',
 				'showSaleBadge'  => ( $settings['show_sale_badge'] ?? 'yes' ) === 'yes',
 				'theme'          => $settings['theme'] ?? 'light',
-				'currency'       => get_woocommerce_currency(),
-				'currencySymbol' => html_entity_decode( get_woocommerce_currency_symbol() ),
-				'currencyPos'    => get_option( 'woocommerce_currency_pos', 'left' ),
-				'decimals'       => (int) get_option( 'woocommerce_price_num_decimals', 2 ),
-				'decimalSep'     => get_option( 'woocommerce_price_decimal_sep', '.' ),
-				'thousandSep'    => get_option( 'woocommerce_price_thousand_sep', ',' ),
+				'contentSource'  => wss_get_content_source(),
+				'isEcommerce'   => wss_is_ecommerce_mode(),
+				'currency'       => wss_is_ecommerce_mode() ? get_woocommerce_currency() : '',
+				'currencySymbol' => wss_is_ecommerce_mode() ? html_entity_decode( get_woocommerce_currency_symbol() ) : '',
+				'currencyPos'    => wss_is_ecommerce_mode() ? get_option( 'woocommerce_currency_pos', 'left' ) : 'left',
+				'decimals'       => wss_is_ecommerce_mode() ? (int) get_option( 'woocommerce_price_num_decimals', 2 ) : 2,
+				'decimalSep'     => wss_is_ecommerce_mode() ? get_option( 'woocommerce_price_decimal_sep', '.' ) : '.',
+				'thousandSep'    => wss_is_ecommerce_mode() ? get_option( 'woocommerce_price_thousand_sep', ',' ) : ',',
 				'searchUrl'      => self::get_search_url_template(),
 				'placeholderImg' => WSS_PLUGIN_URL . 'assets/images/placeholder.svg',
 				'i18n'           => array(
-					'placeholder'      => ! empty( $settings['placeholder_text'] ) ? $settings['placeholder_text'] : __( 'Search products...', 'woo-smart-search' ),
+					'placeholder'      => ! empty( $settings['placeholder_text'] )
+						? $settings['placeholder_text']
+						: ( wss_is_ecommerce_mode() ? __( 'Search products...', 'woo-smart-search' ) : __( 'Search...', 'woo-smart-search' ) ),
 					'noResults'        => __( 'No results found for', 'woo-smart-search' ),
 					'viewAll'          => __( 'View all %d results', 'woo-smart-search' ),
 					'viewAllResults'   => __( 'View all results', 'woo-smart-search' ),
@@ -172,9 +179,11 @@ class WSS_Frontend {
 					'close'            => __( 'Close', 'woo-smart-search' ),
 					'popularSearches'  => __( 'Popular', 'woo-smart-search' ),
 					'suggestions'      => __( 'Suggestions', 'woo-smart-search' ),
-					'products'         => __( 'Products', 'woo-smart-search' ),
+					'products'         => wss_is_ecommerce_mode() ? __( 'Products', 'woo-smart-search' ) : __( 'Results', 'woo-smart-search' ),
 					'categories'       => __( 'Categories', 'woo-smart-search' ),
-					'startTyping'      => __( 'Start typing to search products...', 'woo-smart-search' ),
+					'startTyping'      => wss_is_ecommerce_mode()
+						? __( 'Start typing to search products...', 'woo-smart-search' )
+						: __( 'Start typing to search...', 'woo-smart-search' ),
 				),
 				'widgetLayout'   => $settings['widget_layout'] ?? 'standard',
 				'visibleFacets'  => implode( ',', $settings['visible_facets'] ?? array( 'categories', 'price', 'stock', 'attributes' ) ),
@@ -199,7 +208,11 @@ class WSS_Frontend {
 			$results_page_id = (int) wss_get_option( 'results_page_id', 0 );
 			$is_results_page = $results_page_id && is_page( $results_page_id );
 
-			if ( ! $is_results_page && ( ! is_search() || get_query_var( 'post_type' ) !== 'product' ) ) {
+			$is_search = is_search();
+			if ( wss_is_ecommerce_mode() ) {
+				$is_search = $is_search && get_query_var( 'post_type' ) === 'product';
+			}
+			if ( ! $is_results_page && ! $is_search ) {
 				return;
 			}
 		}
@@ -311,8 +324,12 @@ class WSS_Frontend {
 			return;
 		}
 
-		// Case 1: Native WooCommerce search → redirect to our results page.
-		if ( is_search() && get_query_var( 'post_type' ) === 'product' ) {
+		// Case 1: Native search → redirect to our results page.
+		$should_redirect = is_search();
+		if ( wss_is_ecommerce_mode() ) {
+			$should_redirect = $should_redirect && get_query_var( 'post_type' ) === 'product';
+		}
+		if ( $should_redirect ) {
 			$query       = get_search_query();
 			$results_url = get_permalink( $results_page_id );
 			$results_url = add_query_arg( 'q', rawurlencode( $query ), $results_url );
@@ -386,7 +403,10 @@ class WSS_Frontend {
 			// Use 'q' instead of 's' to avoid WordPress search hijack.
 			return add_query_arg( 'q', '{query}', $base );
 		}
-		return home_url( '/?s={query}&post_type=product' );
+		if ( wss_is_ecommerce_mode() ) {
+			return home_url( '/?s={query}&post_type=product' );
+		}
+		return home_url( '/?s={query}' );
 	}
 
 	/**

@@ -42,7 +42,8 @@ class WSS_Admin_Ajax {
 			return false;
 		}
 
-		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+		$required_cap = wss_is_woocommerce_active() ? 'manage_woocommerce' : 'manage_options';
+		if ( ! current_user_can( $required_cap ) ) {
 			wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'woo-smart-search' ) ) );
 			return false;
 		}
@@ -64,7 +65,7 @@ class WSS_Admin_Ajax {
 			'search_api_key', 'theme', 'primary_color', 'bg_color',
 			'text_color', 'border_color', 'font_size', 'border_radius',
 			'placeholder_text', 'custom_css', 'integration_mode',
-			'synonyms', 'stop_words', 'widget_layout',
+			'synonyms', 'stop_words', 'widget_layout', 'content_source',
 		);
 
 		foreach ( $text_fields as $field ) {
@@ -147,6 +148,26 @@ class WSS_Admin_Ajax {
 			$settings['visible_facets'] = array();
 		}
 
+		// Content source settings.
+		if ( isset( $_POST['content_source'] ) ) {
+			$source = sanitize_text_field( wp_unslash( $_POST['content_source'] ) );
+			if ( in_array( $source, array( 'auto', 'woocommerce', 'wordpress' ), true ) ) {
+				$settings['content_source'] = $source;
+			}
+		}
+
+		if ( isset( $_POST['wp_post_types'] ) && is_array( $_POST['wp_post_types'] ) ) {
+			$settings['wp_post_types'] = array_map( 'sanitize_text_field', wp_unslash( $_POST['wp_post_types'] ) );
+		} elseif ( 'content_sources' === $submitted_tab ) {
+			$settings['wp_post_types'] = array( 'post' );
+		}
+
+		if ( isset( $_POST['wp_custom_fields'] ) && is_array( $_POST['wp_custom_fields'] ) ) {
+			$settings['wp_custom_fields'] = array_map( 'sanitize_text_field', wp_unslash( $_POST['wp_custom_fields'] ) );
+		} elseif ( 'content_sources' === $submitted_tab ) {
+			$settings['wp_custom_fields'] = array();
+		}
+
 		update_option( 'wss_settings', $settings );
 
 		// Invalidate cached CSS variables.
@@ -155,8 +176,10 @@ class WSS_Admin_Ajax {
 		// Reset Meilisearch singleton so it picks up new config.
 		WSS_Meilisearch::reset();
 
-		// Update Meilisearch filterable attributes (includes product attributes).
-		WSS_Product_Sync::update_filterable_attributes();
+		// Update Meilisearch filterable attributes (only in ecommerce mode).
+		if ( wss_is_ecommerce_mode() ) {
+			WSS_Product_Sync::update_filterable_attributes();
+		}
 
 		wss_log( __( 'Settings updated', 'woo-smart-search' ), 'info' );
 
@@ -214,7 +237,12 @@ class WSS_Admin_Ajax {
 	public function full_sync() {
 		$this->verify_request();
 
-		$sync   = new WSS_Product_Sync();
+		if ( wss_is_ecommerce_mode() ) {
+			$sync = new WSS_Product_Sync();
+		} else {
+			$sync = new WSS_Post_Sync();
+		}
+
 		$result = $sync->start_full_sync();
 
 		if ( $result['success'] ) {

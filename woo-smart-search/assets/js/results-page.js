@@ -345,6 +345,13 @@
 	}
 
 	function buildProductCard( hit ) {
+		// Detect content source: use per-hit value or global config.
+		var isWpContent = hit.content_source === 'wordpress' || ( cfg.contentSource === 'wordpress' && ! cfg.isEcommerce );
+
+		if ( isWpContent ) {
+			return buildPostCard( hit );
+		}
+
 		var imgSrc    = hit.image || cfg.placeholderImg || '';
 		var name      = hit.name_highlighted ? sanitizeHighlight( hit.name_highlighted ) : escapeHtml( decodeHtml( hit.name || '' ) );
 		var category  = ( hit.categories && hit.categories.length ) ? escapeHtml( decodeHtml( hit.categories[0] ) ) : '';
@@ -400,6 +407,49 @@
 				'<div class="wss-product-card-price">' + priceHtml + '</div>' +
 				stockHtml +
 				ratingHtml +
+			'</div>' +
+			'</a></div>';
+	}
+
+	/**
+	 * Build a card for WordPress posts/pages/CPTs (non-ecommerce).
+	 */
+	function buildPostCard( hit ) {
+		var imgSrc    = hit.image || cfg.placeholderImg || '';
+		var name      = hit.name_highlighted ? sanitizeHighlight( hit.name_highlighted ) : escapeHtml( decodeHtml( hit.name || '' ) );
+		var category  = ( hit.categories && hit.categories.length ) ? escapeHtml( decodeHtml( hit.categories[0] ) ) : '';
+		var permalink = hit.permalink || '#';
+		var excerpt   = hit.description ? escapeHtml( hit.description ).substring( 0, 150 ) : '';
+		var author    = hit.author ? escapeHtml( hit.author ) : '';
+		var postType  = hit.post_type ? escapeHtml( hit.post_type ) : '';
+
+		// Date.
+		var dateHtml = '';
+		if ( hit.date_created ) {
+			var d = new Date( hit.date_created * 1000 );
+			dateHtml = '<span class="wss-post-date">' + d.toLocaleDateString() + '</span>';
+		}
+
+		// Meta line: author + date + post type.
+		var metaHtml = '';
+		var metaParts = [];
+		if ( author ) metaParts.push( author );
+		if ( dateHtml ) metaParts.push( dateHtml );
+		if ( postType && postType !== 'post' ) metaParts.push( '<em>' + postType + '</em>' );
+		if ( metaParts.length ) {
+			metaHtml = '<div class="wss-product-card-stock" style="gap:6px;">' + metaParts.join( ' &middot; ' ) + '</div>';
+		}
+
+		return '<div class="wss-product-card" data-id="' + ( hit.id || '' ) + '">' +
+			'<a href="' + escapeHtml( permalink ) + '">' +
+			'<div class="wss-product-card-image">' +
+				'<img src="' + escapeHtml( imgSrc ) + '" alt="' + escapeHtml( hit.name || '' ) + '" loading="lazy" />' +
+			'</div>' +
+			'<div class="wss-product-card-body">' +
+				( category ? '<div class="wss-product-card-category">' + category + '</div>' : '' ) +
+				'<div class="wss-product-card-name">' + name + '</div>' +
+				( excerpt ? '<div class="wss-product-card-price" style="font-weight:400;font-size:0.85em;color:#6b7280;-webkit-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;">' + excerpt + '</div>' : '' ) +
+				metaHtml +
 			'</div>' +
 			'</a></div>';
 	}
@@ -742,7 +792,8 @@
 
 	function updateResultsCount() {
 		if ( dom.resultsCount ) {
-			dom.resultsCount.textContent = state.total + ' products';
+			var label = cfg.isEcommerce ? ' products' : ' results';
+			dom.resultsCount.textContent = state.total + label;
 		}
 	}
 

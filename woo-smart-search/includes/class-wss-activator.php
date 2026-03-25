@@ -126,6 +126,10 @@ class WSS_Activator {
 			'stop_words'                => '',
 			'enable_analytics'          => 'yes',
 			'results_page_id'           => 0,
+			// Content source settings.
+			'content_source'            => 'auto',
+			'wp_post_types'             => array( 'post' ),
+			'wp_custom_fields'          => array(),
 		);
 
 		$existing = get_option( 'wss_settings', array() );

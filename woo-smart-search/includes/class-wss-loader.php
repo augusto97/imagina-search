@@ -49,21 +49,27 @@ class WSS_Loader {
 		$rest_api = new WSS_Rest_Api();
 		$rest_api->init();
 
-		// Initialize product sync.
-		$sync = new WSS_Product_Sync();
-		$sync->init();
+		// Initialize content source based on mode.
+		if ( wss_is_ecommerce_mode() ) {
+			// WooCommerce product sync.
+			$sync = new WSS_Product_Sync();
+			$sync->init();
 
-		// Initialize sync queue.
+			// Ensure Meilisearch filterable attributes include product attributes.
+			add_action( 'admin_init', array( 'WSS_Product_Sync', 'maybe_update_filterable_attributes' ) );
+		} else {
+			// WordPress content sync (posts, pages, CPTs).
+			$post_sync = new WSS_Post_Sync();
+			$post_sync->init();
+		}
+
+		// Initialize sync queue (shared by both modes).
 		$queue = new WSS_Sync_Queue();
 		$queue->init();
 
 		// Initialize search analytics.
 		$analytics = new WSS_Search_Analytics();
 		$analytics->init();
-
-		// Ensure Meilisearch filterable attributes include product attributes.
-		// Runs lazily on admin_init to avoid slowing down frontend page loads.
-		add_action( 'admin_init', array( 'WSS_Product_Sync', 'maybe_update_filterable_attributes' ) );
 
 		// Schedule health check every 5 minutes.
 		$this->schedule_health_check();
@@ -204,7 +210,8 @@ class WSS_Loader {
 	 * Register the dashboard widget.
 	 */
 	public function add_dashboard_widget() {
-		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+		$required_cap = wss_is_woocommerce_active() ? 'manage_woocommerce' : 'manage_options';
+		if ( ! current_user_can( $required_cap ) ) {
 			return;
 		}
 
