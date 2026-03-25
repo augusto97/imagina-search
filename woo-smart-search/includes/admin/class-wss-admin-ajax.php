@@ -258,6 +258,9 @@ class WSS_Admin_Ajax {
 	public function full_sync() {
 		$this->verify_request();
 
+		// Always clean up stale flag from previous sync attempts.
+		delete_option( 'wss_skip_index_configure' );
+
 		$content_source = wss_get_content_source();
 
 		if ( 'mixed' === $content_source ) {
@@ -416,10 +419,6 @@ class WSS_Admin_Ajax {
 		);
 
 		$engine->configure_index( $index_name, $settings );
-		$engine->set_searchable_attributes( $index_name, $searchable );
-		$engine->set_filterable_attributes( $index_name, $filterable );
-		$engine->set_sortable_attributes( $index_name, $sortable );
-		$engine->set_displayed_attributes( $index_name, $displayed );
 
 		// Configure synonyms if set.
 		$synonyms = wss_get_option( 'synonyms', '' );

@@ -177,7 +177,9 @@ class WSS_Meilisearch {
 			wss_log( 'Failed to create index: ' . $response->get_error_message(), 'error' );
 			return false;
 		}
-		return in_array( wp_remote_retrieve_response_code( $response ), array( 200, 201, 202 ), true );
+		$status = wp_remote_retrieve_response_code( $response );
+		// 200/201/202 = success or accepted, 409 = index already exists (not an error).
+		return in_array( $status, array( 200, 201, 202, 409 ), true );
 	}
 
 	/**
@@ -225,7 +227,13 @@ class WSS_Meilisearch {
 			wss_log( 'Failed to configure index: ' . $response->get_error_message(), 'error' );
 			return false;
 		}
-		return in_array( wp_remote_retrieve_response_code( $response ), array( 200, 202 ), true );
+		$status = wp_remote_retrieve_response_code( $response );
+		if ( ! in_array( $status, array( 200, 202 ), true ) ) {
+			$body = json_decode( wp_remote_retrieve_body( $response ), true );
+			wss_log( sprintf( 'configure_index failed (HTTP %d): %s', $status, isset( $body['message'] ) ? $body['message'] : 'Unknown' ), 'error' );
+			return false;
+		}
+		return true;
 	}
 
 	/**
@@ -240,7 +248,19 @@ class WSS_Meilisearch {
 		if ( is_wp_error( $response ) ) {
 			return array( 'success' => false, 'message' => $response->get_error_message() );
 		}
-		$body = json_decode( wp_remote_retrieve_body( $response ), true );
+
+		$status = wp_remote_retrieve_response_code( $response );
+		$body   = json_decode( wp_remote_retrieve_body( $response ), true );
+
+		if ( ! in_array( $status, array( 200, 202 ), true ) ) {
+			$error_msg = isset( $body['message'] ) ? $body['message'] : 'Unknown error';
+			wss_log(
+				sprintf( 'index_documents failed (HTTP %d): %s', $status, $error_msg ),
+				'error'
+			);
+			return array( 'success' => false, 'message' => sprintf( 'HTTP %d: %s', $status, $error_msg ) );
+		}
+
 		return array( 'success' => true, 'taskUid' => isset( $body['taskUid'] ) ? $body['taskUid'] : null );
 	}
 
