@@ -78,8 +78,14 @@
 				},
 				success: function (response) {
 					if (response.success) {
-						$result.addClass('wss-notice-success')
-							.text(l10n.connectionSuccess + ' (v' + (response.data.version || '?') + ')');
+						var versionInfo = response.data.version ? ' (v' + response.data.version + ')' : '';
+						var msg = l10n.connectionSuccess + versionInfo;
+						if (response.data.restricted_key) {
+							$result.addClass('wss-notice-warning')
+								.html(msg + '<br><strong>' + (l10n.restrictedKeyWarning || 'Warning: This key has limited permissions. The Master API Key field requires an admin or master key for indexing, settings, and statistics. The search-only key should go in the "Search API Key" field instead.') + '</strong>');
+						} else {
+							$result.addClass('wss-notice-success').text(msg);
+						}
 					} else {
 						$result.addClass('wss-notice-error')
 							.text(l10n.connectionFailed + ' ' + (response.data.message || ''));

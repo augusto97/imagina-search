@@ -718,9 +718,10 @@ class WSS_Admin_Ajax {
 
 		wp_send_json_success(
 			array(
-				'status'    => 'connected',
-				'version'   => isset( $result['version'] ) ? $result['version'] : '',
-				'documents' => $doc_count,
+				'status'         => 'connected',
+				'version'        => isset( $result['version'] ) ? $result['version'] : '',
+				'documents'      => $doc_count,
+				'restricted_key' => ! empty( $result['restricted_key'] ),
 			)
 		);
 	}

@@ -241,7 +241,7 @@
 				highlightPreTag: '<mark>',
 				highlightPostTag: '</mark>',
 				facets: cfg.meilieFacets || ( cfg.isEcommerce || cfg.isMixed
-				? [ 'categories', 'stock_status', 'on_sale', 'brand', 'rating' ]
+				? [ 'categories', 'tags', 'stock_status', 'on_sale', 'brand', 'rating' ]
 				: [ 'categories', 'tags', 'post_type', 'author' ] )
 			};
 
@@ -526,56 +526,58 @@
 		var html = closeHtml;
 
 		// Determine which facets are visible from config (admin-friendly keys).
-		var defaultFacetList = cfg.isEcommerce || cfg.isMixed
-			? 'categories,price,stock,attributes,brands,rating'
+		var hasEcommerce = cfg.isEcommerce || cfg.isMixed;
+		var hasWordpress = ! cfg.isEcommerce || cfg.isMixed;
+		var defaultFacetList = hasEcommerce
+			? 'categories,tags,price,stock,attributes,brands,rating' + ( cfg.isMixed ? ',post_type,author' : '' )
 			: 'categories,tags,post_type,author';
 		var visibleList = ( cfg.visibleFacets || defaultFacetList ).split( ',' );
 		function isFacetVisible( key ) {
 			return visibleList.indexOf( key ) !== -1;
 		}
 
-		// Categories.
+		// Categories (always available).
 		if ( isFacetVisible( 'categories' ) && facets.categories ) {
-			html += buildCheckboxFilter( 'categories', cfg.i18n ? 'Categories' : 'Categories', facets.categories );
+			html += buildCheckboxFilter( 'categories', 'Categories', facets.categories );
 		}
 
-		// Price slider.
-		if ( isFacetVisible( 'price' ) ) {
-			html += buildPriceFilter();
-		}
-
-		// Stock status.
-		if ( isFacetVisible( 'stock' ) && facets.stock_status ) {
-			html += buildCheckboxFilter( 'stock_status', 'Stock', facets.stock_status );
-		}
-
-		// Brand.
-		if ( isFacetVisible( 'brands' ) && facets.brand && Object.keys( facets.brand ).length ) {
-			html += buildCheckboxFilter( 'brand', 'Brand', facets.brand );
-		}
-
-		// Rating.
-		if ( isFacetVisible( 'rating' ) && facets.rating ) {
-			html += buildRatingFilter( facets.rating );
-		}
-
-		// Tags (WordPress content mode).
+		// Tags (available in all modes — products and posts both have tags).
 		if ( isFacetVisible( 'tags' ) && facets.tags && Object.keys( facets.tags ).length ) {
 			html += buildCheckboxFilter( 'tags', 'Tags', facets.tags );
 		}
 
+		// Price slider — ecommerce/mixed only (WP posts don't have prices).
+		if ( hasEcommerce && isFacetVisible( 'price' ) ) {
+			html += buildPriceFilter();
+		}
+
+		// Stock status — ecommerce/mixed only.
+		if ( hasEcommerce && isFacetVisible( 'stock' ) && facets.stock_status ) {
+			html += buildCheckboxFilter( 'stock_status', 'Stock', facets.stock_status );
+		}
+
+		// Brand — ecommerce/mixed only.
+		if ( hasEcommerce && isFacetVisible( 'brands' ) && facets.brand && Object.keys( facets.brand ).length ) {
+			html += buildCheckboxFilter( 'brand', 'Brand', facets.brand );
+		}
+
+		// Rating — ecommerce/mixed only.
+		if ( hasEcommerce && isFacetVisible( 'rating' ) && facets.rating ) {
+			html += buildRatingFilter( facets.rating );
+		}
+
 		// Post type (WordPress content / mixed mode).
-		if ( isFacetVisible( 'post_type' ) && facets.post_type && Object.keys( facets.post_type ).length ) {
+		if ( hasWordpress && isFacetVisible( 'post_type' ) && facets.post_type && Object.keys( facets.post_type ).length ) {
 			html += buildCheckboxFilter( 'post_type', 'Content Type', facets.post_type );
 		}
 
-		// Author (WordPress content mode).
-		if ( isFacetVisible( 'author' ) && facets.author && Object.keys( facets.author ).length ) {
+		// Author (WordPress content / mixed mode).
+		if ( hasWordpress && isFacetVisible( 'author' ) && facets.author && Object.keys( facets.author ).length ) {
 			html += buildCheckboxFilter( 'author', 'Author', facets.author );
 		}
 
-		// Dynamic product attributes (attributes.Color, attributes.Size, etc.).
-		if ( isFacetVisible( 'attributes' ) ) {
+		// Dynamic product attributes (attributes.Color, attributes.Size, etc.) — ecommerce/mixed only.
+		if ( hasEcommerce && isFacetVisible( 'attributes' ) ) {
 			var attrPrefix = 'attributes.';
 			Object.keys( facets ).forEach( function ( facetKey ) {
 				if ( facetKey.indexOf( attrPrefix ) === 0 && facets[ facetKey ] && Object.keys( facets[ facetKey ] ).length ) {
