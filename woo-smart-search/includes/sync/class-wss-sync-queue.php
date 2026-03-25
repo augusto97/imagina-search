@@ -101,8 +101,14 @@ class WSS_Sync_Queue {
 			return;
 		}
 
-		$table = $wpdb->prefix . 'wss_sync_queue';
-		$sync  = new WSS_Product_Sync();
+		$table        = $wpdb->prefix . 'wss_sync_queue';
+		$is_ecommerce = wss_is_ecommerce_mode();
+
+		if ( $is_ecommerce ) {
+			$sync = new WSS_Product_Sync();
+		} else {
+			$sync = new WSS_Post_Sync();
+		}
 
 		// Get pending items (max 50 at a time).
 		$items = $wpdb->get_results(
@@ -115,15 +121,15 @@ class WSS_Sync_Queue {
 		}
 
 		foreach ( $items as $item ) {
-			$product_id = (int) $item['product_id'];
-			$action     = $item['action'];
+			$post_id = (int) $item['product_id'];
+			$action  = $item['action'];
 
 			$success = false;
 
 			if ( 'delete' === $action ) {
-				$success = $sync->delete_single_product( $product_id );
+				$success = $is_ecommerce ? $sync->delete_single_product( $post_id ) : $sync->delete_single_post( $post_id );
 			} else {
-				$success = $sync->sync_single_product( $product_id );
+				$success = $is_ecommerce ? $sync->sync_single_product( $post_id ) : $sync->sync_single_post( $post_id );
 			}
 
 			$wpdb->update(

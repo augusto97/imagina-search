@@ -689,6 +689,45 @@
 
 @media (max-width: 480px) {
 	.wss-products-grid {
+		grid-template-columns: repeat(2, 1fr);
+		gap: 8px;
+	}
+
+	.wss-products-grid .wss-product-card-body {
+		padding: 8px;
+	}
+
+	.wss-products-grid .wss-product-card-name {
+		font-size: 0.85em;
+	}
+
+	.wss-products-grid .wss-product-card-price {
+		font-size: 0.85em;
+	}
+
+	.wss-products-grid .wss-product-card-category {
+		font-size: 0.7em;
+	}
+
+	/* Single column only when explicitly set */
+	.wss-products-grid.wss-mobile-1col {
 		grid-template-columns: 1fr;
+		gap: 12px;
+	}
+
+	.wss-products-grid.wss-mobile-1col .wss-product-card-body {
+		padding: 12px;
+	}
+
+	.wss-products-grid.wss-mobile-1col .wss-product-card-name {
+		font-size: 0.95em;
+	}
+
+	.wss-products-grid.wss-mobile-1col .wss-product-card-price {
+		font-size: inherit;
+	}
+
+	.wss-products-grid.wss-mobile-1col .wss-product-card-category {
+		font-size: 0.8em;
 	}
 }

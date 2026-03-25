@@ -2,8 +2,8 @@
 /**
  * Plugin Name:       Woo Smart Search
  * Plugin URI:        https://example.com/woo-smart-search
- * Description:       Replace WooCommerce native search with an instant, ultra-fast search experience powered by Meilisearch.
- * Version:           3.0.3
+ * Description:       Ultra-fast search powered by Meilisearch for WooCommerce products, blog posts, pages, and custom post types.
+ * Version:           4.0.0
  * Author:            Imagina
  * Author URI:        https://example.com
  * License:           GPL-2.0+
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Plugin constants.
-define( 'WSS_VERSION', '3.0.3' );
+define( 'WSS_VERSION', '4.0.0' );
 define( 'WSS_PLUGIN_FILE', __FILE__ );
 define( 'WSS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WSS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -31,24 +31,33 @@ define( 'WSS_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 
 /**
  * Check if WooCommerce is active.
+ *
+ * @return bool
  */
-function wss_check_woocommerce() {
-	if ( ! class_exists( 'WooCommerce' ) ) {
-		add_action( 'admin_notices', 'wss_woocommerce_missing_notice' );
-		return false;
-	}
-	return true;
+function wss_is_woocommerce_active() {
+	return class_exists( 'WooCommerce' );
 }
 
 /**
- * Admin notice when WooCommerce is not active.
+ * Get the active content source mode.
+ *
+ * @return string 'woocommerce' or 'wordpress'
  */
-function wss_woocommerce_missing_notice() {
-	?>
-	<div class="notice notice-error">
-		<p><?php esc_html_e( 'Woo Smart Search requires WooCommerce to be installed and active.', 'woo-smart-search' ); ?></p>
-	</div>
-	<?php
+function wss_get_content_source() {
+	$source = wss_get_option( 'content_source', 'auto' );
+	if ( 'auto' === $source ) {
+		return wss_is_woocommerce_active() ? 'woocommerce' : 'wordpress';
+	}
+	return $source;
+}
+
+/**
+ * Check if current content source is WooCommerce products.
+ *
+ * @return bool
+ */
+function wss_is_ecommerce_mode() {
+	return 'woocommerce' === wss_get_content_source() && wss_is_woocommerce_active();
 }
 
 /**
@@ -68,6 +77,7 @@ function wss_autoloader( $class_name ) {
 		WSS_PLUGIN_DIR . 'includes/sync/',
 		WSS_PLUGIN_DIR . 'includes/admin/',
 		WSS_PLUGIN_DIR . 'includes/frontend/',
+		WSS_PLUGIN_DIR . 'includes/content-sources/',
 	);
 
 	foreach ( $directories as $dir ) {
@@ -101,22 +111,20 @@ register_deactivation_hook( __FILE__, 'wss_deactivate' );
  * Initialize the plugin.
  */
 function wss_init() {
-	if ( ! wss_check_woocommerce() ) {
-		return;
-	}
-
 	// Load text domain.
 	load_plugin_textdomain( 'woo-smart-search', false, dirname( WSS_PLUGIN_BASENAME ) . '/languages' );
 
-	// Declare HPOS compatibility.
-	add_action(
-		'before_woocommerce_init',
-		function () {
-			if ( class_exists( '\Automattic\WooCommerce\Utilities\FeaturesUtil' ) ) {
-				\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', __FILE__, true );
+	// Declare HPOS compatibility if WooCommerce is active.
+	if ( wss_is_woocommerce_active() ) {
+		add_action(
+			'before_woocommerce_init',
+			function () {
+				if ( class_exists( '\Automattic\WooCommerce\Utilities\FeaturesUtil' ) ) {
+					\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', __FILE__, true );
+				}
 			}
-		}
-	);
+		);
+	}
 
 	// Initialize loader.
 	$loader = new WSS_Loader();

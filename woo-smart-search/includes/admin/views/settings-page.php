@@ -11,12 +11,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 $tabs = array(
-	'connection' => __( 'Connection', 'woo-smart-search' ),
-	'indexing'   => __( 'Indexing', 'woo-smart-search' ),
-	'appearance' => __( 'Widget', 'woo-smart-search' ),
-	'search'     => __( 'Results Page', 'woo-smart-search' ),
-	'analytics'  => __( 'Analytics', 'woo-smart-search' ),
-	'logs'       => __( 'Logs', 'woo-smart-search' ),
+	'connection'      => __( 'Connection', 'woo-smart-search' ),
+	'content_sources' => __( 'Content Sources', 'woo-smart-search' ),
+	'indexing'        => __( 'Indexing', 'woo-smart-search' ),
+	'appearance'      => __( 'Widget', 'woo-smart-search' ),
+	'search'          => __( 'Results Page', 'woo-smart-search' ),
+	'analytics'       => __( 'Analytics', 'woo-smart-search' ),
+	'logs'            => __( 'Logs', 'woo-smart-search' ),
 );
 
 $settings = get_option( 'wss_settings', array() );
@@ -70,6 +71,9 @@ if ( $connection_error ) {
 	<div class="wss-tab-content">
 		<?php
 		switch ( $active_tab ) {
+			case 'content_sources':
+				include __DIR__ . '/tab-content-sources.php';
+				break;
 			case 'indexing':
 				include WSS_PLUGIN_DIR . 'includes/admin/views/sync-status.php';
 				break;
