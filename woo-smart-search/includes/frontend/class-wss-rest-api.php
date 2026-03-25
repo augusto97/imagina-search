@@ -199,7 +199,8 @@ class WSS_Rest_Api {
 			return rest_ensure_response( $response );
 		}
 
-		$index_name = wss_get_option( 'index_name', 'woo_products' );
+		$index_name     = wss_get_option( 'index_name', 'woo_products' );
+		$content_source = wss_get_content_source();
 
 		// Build search options.
 		$options = array(
@@ -241,7 +242,6 @@ class WSS_Rest_Api {
 		$options['highlight_fields'] = array( 'name', 'description', 'categories' );
 
 		// Filter by content source (unless mixed mode).
-		$content_source = wss_get_content_source();
 		if ( 'mixed' !== $content_source ) {
 			$source_value  = wss_is_ecommerce_mode() ? 'woocommerce' : 'wordpress';
 			$source_filter = 'content_source = "' . $source_value . '"';
@@ -252,8 +252,8 @@ class WSS_Rest_Api {
 			}
 		}
 
-		// Hide out-of-stock if configured.
-		if ( 'yes' !== wss_get_option( 'show_out_of_stock_results', 'yes' ) ) {
+		// Hide out-of-stock if configured (only applies to ecommerce/mixed modes).
+		if ( ( wss_is_ecommerce_mode() || 'mixed' === $content_source ) && 'yes' !== wss_get_option( 'show_out_of_stock_results', 'yes' ) ) {
 			$stock_filter = 'stock_status = "instock"';
 			if ( ! empty( $options['filters'] ) ) {
 				$options['filters'] .= ' AND ' . $stock_filter;

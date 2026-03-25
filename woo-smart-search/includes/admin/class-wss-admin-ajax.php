@@ -270,16 +270,20 @@ class WSS_Admin_Ajax {
 				$this->configure_mixed_index( $engine, $index_name );
 			}
 
+			// Flag to prevent start_full_sync from overwriting the combined config.
+			update_option( 'wss_skip_index_configure', true, false );
+
 			$results = array();
 
 			if ( wss_is_woocommerce_active() ) {
 				$product_sync = new WSS_Product_Sync();
-				// Skip individual configure_index_settings — we already configured combined.
 				$results[] = $product_sync->start_full_sync();
 			}
 
 			$post_sync = new WSS_Post_Sync();
 			$results[] = $post_sync->start_full_sync();
+
+			delete_option( 'wss_skip_index_configure' );
 
 			$total = 0;
 			$messages = array();
