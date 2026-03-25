@@ -152,9 +152,9 @@ function wss_get_engine() {
  * @param mixed  $default Default value.
  * @return mixed
  */
-function wss_get_option( $key, $default = '' ) {
+function wss_get_option( $key, $default = '', $force_refresh = false ) {
 	static $options = null;
-	if ( null === $options ) {
+	if ( null === $options || $force_refresh ) {
 		$options = get_option( 'wss_settings', array() );
 	}
 	return isset( $options[ $key ] ) ? $options[ $key ] : $default;

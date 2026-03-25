@@ -55,16 +55,19 @@ class WSS_Meilisearch {
 			return self::$instance;
 		}
 
-		$api_key = wss_get_option( 'api_key', '' );
+		// Read directly from DB to avoid stale static cache in wss_get_option().
+		$settings = get_option( 'wss_settings', array() );
+		$api_key  = isset( $settings['api_key'] ) ? $settings['api_key'] : '';
+
 		if ( empty( $api_key ) ) {
 			return null;
 		}
 
 		self::$instance = new self();
 		self::$instance->connect( array(
-			'host'     => wss_get_option( 'host', 'localhost' ),
-			'port'     => wss_get_option( 'port', '' ),
-			'protocol' => wss_get_option( 'protocol', 'http' ),
+			'host'     => isset( $settings['host'] ) ? $settings['host'] : 'localhost',
+			'port'     => isset( $settings['port'] ) ? $settings['port'] : '',
+			'protocol' => isset( $settings['protocol'] ) ? $settings['protocol'] : 'http',
 			'api_key'  => self::decrypt_key( $api_key ),
 		) );
 
@@ -150,8 +153,21 @@ class WSS_Meilisearch {
 		$version_str = '';
 		$response    = $this->request( 'GET', '/version' );
 		if ( ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response ) ) {
-			$body        = json_decode( wp_remote_retrieve_body( $response ), true );
-			$version_str = isset( $body['pkgVersion'] ) ? $body['pkgVersion'] : '';
+			$body = json_decode( wp_remote_retrieve_body( $response ), true );
+			// Meilisearch returns pkgVersion; handle possible key variations.
+			if ( isset( $body['pkgVersion'] ) ) {
+				$version_str = $body['pkgVersion'];
+			} elseif ( isset( $body['version'] ) ) {
+				$version_str = $body['version'];
+			}
+		}
+
+		// Fallback: try /health response which may include version in some setups.
+		if ( empty( $version_str ) && ! is_wp_error( $health ) ) {
+			$health_body = json_decode( wp_remote_retrieve_body( $health ), true );
+			if ( isset( $health_body['version'] ) ) {
+				$version_str = $health_body['version'];
+			}
 		}
 
 		return array(

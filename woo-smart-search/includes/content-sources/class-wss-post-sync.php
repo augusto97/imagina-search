@@ -217,10 +217,17 @@ class WSS_Post_Sync {
 			);
 		}
 
-		$index_name = wss_get_option( 'index_name', 'woo_products' );
+		$index_name = wss_get_option( 'index_name', 'woo_products', true );
 
 		// Create index if it does not exist.
-		$engine->create_index( $index_name );
+		$created = $engine->create_index( $index_name );
+		if ( ! $created ) {
+			wss_log( sprintf( 'Failed to create index "%s". Post sync aborted.', $index_name ), 'error' );
+			return array(
+				'success' => false,
+				'message' => __( 'Failed to create Meilisearch index. Check connection settings.', 'woo-smart-search' ),
+			);
+		}
 
 		// Configure index settings (skip if mixed mode already configured combined settings).
 		if ( ! get_option( 'wss_skip_index_configure' ) ) {

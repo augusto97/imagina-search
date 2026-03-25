@@ -118,27 +118,34 @@ class WSS_Admin_Ajax {
 			'search_by_sku', 'show_out_of_stock_results',
 		);
 
+		$indexing_bools = array(
+			'index_out_of_stock', 'index_hidden',
+		);
+
 		$bool_fields = array();
 		if ( 'appearance' === $submitted_tab ) {
 			$bool_fields = $appearance_bools;
 		} elseif ( 'search' === $submitted_tab ) {
-			$bool_fields = $search_bools;
+			// Remove indexing bools from search tab (they belong to indexing tab now).
+			$bool_fields = array_diff( $search_bools, $indexing_bools );
+		} elseif ( 'indexing' === $submitted_tab ) {
+			$bool_fields = $indexing_bools;
 		}
 
 		foreach ( $bool_fields as $field ) {
 			$settings[ $field ] = isset( $_POST[ $field ] ) ? 'yes' : 'no';
 		}
 
-		// Array fields.
+		// Array fields — only reset when their owning tab is submitted.
 		if ( isset( $_POST['exclude_categories'] ) && is_array( $_POST['exclude_categories'] ) ) {
 			$settings['exclude_categories'] = array_map( 'absint', $_POST['exclude_categories'] );
-		} else {
+		} elseif ( 'indexing' === $submitted_tab ) {
 			$settings['exclude_categories'] = array();
 		}
 
 		if ( isset( $_POST['custom_fields'] ) && is_array( $_POST['custom_fields'] ) ) {
 			$settings['custom_fields'] = array_map( 'sanitize_text_field', wp_unslash( $_POST['custom_fields'] ) );
-		} else {
+		} elseif ( 'indexing' === $submitted_tab ) {
 			$settings['custom_fields'] = array();
 		}
 
@@ -466,12 +473,28 @@ class WSS_Admin_Ajax {
 		$this->verify_request();
 
 		$engine = WSS_Meilisearch::get_instance();
+
+		// Fallback: try creating from saved settings if singleton failed.
+		if ( ! $engine ) {
+			$settings  = get_option( 'wss_settings', array() );
+			$saved_key = isset( $settings['api_key'] ) ? $settings['api_key'] : '';
+			if ( ! empty( $saved_key ) ) {
+				$engine = WSS_Meilisearch::create( array(
+					'host'     => isset( $settings['host'] ) ? $settings['host'] : 'localhost',
+					'port'     => isset( $settings['port'] ) ? $settings['port'] : '',
+					'protocol' => isset( $settings['protocol'] ) ? $settings['protocol'] : 'http',
+					'api_key'  => WSS_Meilisearch::decrypt_key( $saved_key ),
+				) );
+			}
+		}
+
 		if ( ! $engine ) {
 			wp_send_json_error( array( 'message' => __( 'Meilisearch is not configured.', 'woo-smart-search' ) ) );
 			return;
 		}
 
-		$index_name = wss_get_option( 'index_name', 'woo_products' );
+		$settings   = get_option( 'wss_settings', array() );
+		$index_name = isset( $settings['index_name'] ) ? $settings['index_name'] : 'woo_products';
 		$result     = $engine->delete_all_documents( $index_name );
 
 		if ( $result ) {
@@ -650,6 +673,22 @@ class WSS_Admin_Ajax {
 		}
 
 		$engine = WSS_Meilisearch::get_instance();
+
+		// Fallback: if get_instance() returned null, try creating from saved settings directly.
+		if ( ! $engine ) {
+			$settings = get_option( 'wss_settings', array() );
+			$saved_key = isset( $settings['api_key'] ) ? $settings['api_key'] : '';
+
+			if ( ! empty( $saved_key ) ) {
+				$engine = WSS_Meilisearch::create( array(
+					'host'     => isset( $settings['host'] ) ? $settings['host'] : 'localhost',
+					'port'     => isset( $settings['port'] ) ? $settings['port'] : '',
+					'protocol' => isset( $settings['protocol'] ) ? $settings['protocol'] : 'http',
+					'api_key'  => WSS_Meilisearch::decrypt_key( $saved_key ),
+				) );
+			}
+		}
+
 		if ( ! $engine ) {
 			wp_send_json_success(
 				array(
@@ -672,7 +711,8 @@ class WSS_Admin_Ajax {
 		}
 
 		// Get document count.
-		$index_name = wss_get_option( 'index_name', 'woo_products' );
+		$settings   = get_option( 'wss_settings', array() );
+		$index_name = isset( $settings['index_name'] ) ? $settings['index_name'] : 'woo_products';
 		$stats      = $engine->get_index_stats( $index_name );
 		$doc_count  = isset( $stats['numberOfDocuments'] ) ? (int) $stats['numberOfDocuments'] : 0;
 
