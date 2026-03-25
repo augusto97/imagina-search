@@ -378,16 +378,23 @@
 		function renderFalabellaColumns(facets) {
 			if (!isFalabella) return;
 
-			// Brands column.
+			// Brands column (or tags for WP content mode).
 			if (falabellaBrandsList) {
 				falabellaBrandsList.innerHTML = '';
-				var brands = facets.brand;
-				if (brands && typeof brands === 'object') {
-					var entries = Object.entries(brands).sort(function (a, b) { return b[1] - a[1]; });
+				var brandData = facets.brand || facets.tags;
+				var brandFilterKey = facets.brand ? 'brand' : 'tags';
+				// Update heading text based on data source.
+				var brandHeading = falabellaBrandsList.closest('.wss-falabella-col');
+				if (brandHeading) {
+					var headingEl = brandHeading.querySelector('.wss-column-heading');
+					if (headingEl) headingEl.textContent = facets.brand ? (config.i18n.relatedBrands || 'Related Brands') : (config.i18n.relatedTags || 'Related Tags');
+				}
+				if (brandData && typeof brandData === 'object') {
+					var entries = Object.entries(brandData).sort(function (a, b) { return b[1] - a[1]; });
 					entries.slice(0, 10).forEach(function (entry) {
 						var li = document.createElement('li');
 						var a = document.createElement('a');
-						a.href = getSearchPageUrl(lastQuery + '&filter_brand=' + encodeURIComponent(entry[0]));
+						a.href = getSearchPageUrl(lastQuery + '&filter_' + brandFilterKey + '=' + encodeURIComponent(entry[0]));
 						a.textContent = decodeHtml(entry[0]);
 						li.appendChild(a);
 						falabellaBrandsList.appendChild(li);
@@ -511,11 +518,17 @@
 			activeController = new AbortController();
 
 			var limit = config.maxResults || 8;
-			var facets = needsFacets ? (config.meilieFacets || ['categories', 'stock_status', 'on_sale', 'brand', 'rating']) : null;
+			var defaultFacets = config.isEcommerce || config.isMixed
+				? ['categories', 'stock_status', 'on_sale', 'brand', 'rating']
+				: ['categories', 'tags', 'post_type', 'author'];
+			var facets = needsFacets ? (config.meilieFacets || defaultFacets) : null;
 			var searchPromise;
 
 			function wpFallbackSearch(q, lim, sig) {
-				var facetsParam = needsFacets ? '&facets=categories,stock_status,on_sale,brand,rating' : '';
+				var defaultFacetStr = config.isEcommerce || config.isMixed
+					? 'categories,stock_status,on_sale,brand,rating'
+					: 'categories,tags,post_type,author';
+				var facetsParam = needsFacets ? '&facets=' + defaultFacetStr : '';
 				var fallbackUrl = config.apiUrl + '?q=' + encodeURIComponent(q) + '&limit=' + lim + facetsParam;
 				return fetch(fallbackUrl, {
 					method: 'GET',
@@ -585,7 +598,15 @@
 				renderSidebarCategories(facets);
 				renderSuggestions(query);
 				hideState(popularContainer);
-				if (mainHeading) mainHeading.textContent = config.i18n.products || 'PRODUCTS';
+				if (mainHeading) {
+				if (config.isEcommerce) {
+					mainHeading.textContent = config.i18n.products || 'PRODUCTS';
+				} else if (config.isMixed) {
+					mainHeading.textContent = config.i18n.results || 'RESULTS';
+				} else {
+					mainHeading.textContent = config.i18n.content || 'CONTENT';
+				}
+			}
 			}
 
 			if (isFalabella) {

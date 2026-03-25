@@ -240,7 +240,9 @@
 				attributesToHighlight: [ 'name' ],
 				highlightPreTag: '<mark>',
 				highlightPostTag: '</mark>',
-				facets: cfg.meilieFacets || [ 'categories', 'stock_status', 'on_sale', 'brand', 'rating' ]
+				facets: cfg.meilieFacets || ( cfg.isEcommerce || cfg.isMixed
+				? [ 'categories', 'stock_status', 'on_sale', 'brand', 'rating' ]
+				: [ 'categories', 'tags', 'post_type', 'author' ] )
 			};
 
 			// Build filter combining user filters + content_source restriction.
@@ -524,7 +526,10 @@
 		var html = closeHtml;
 
 		// Determine which facets are visible from config (admin-friendly keys).
-		var visibleList = ( cfg.visibleFacets || 'categories,price,stock,attributes,brands,rating' ).split( ',' );
+		var defaultFacetList = cfg.isEcommerce || cfg.isMixed
+			? 'categories,price,stock,attributes,brands,rating'
+			: 'categories,tags,post_type,author';
+		var visibleList = ( cfg.visibleFacets || defaultFacetList ).split( ',' );
 		function isFacetVisible( key ) {
 			return visibleList.indexOf( key ) !== -1;
 		}
@@ -552,6 +557,21 @@
 		// Rating.
 		if ( isFacetVisible( 'rating' ) && facets.rating ) {
 			html += buildRatingFilter( facets.rating );
+		}
+
+		// Tags (WordPress content mode).
+		if ( isFacetVisible( 'tags' ) && facets.tags && Object.keys( facets.tags ).length ) {
+			html += buildCheckboxFilter( 'tags', 'Tags', facets.tags );
+		}
+
+		// Post type (WordPress content / mixed mode).
+		if ( isFacetVisible( 'post_type' ) && facets.post_type && Object.keys( facets.post_type ).length ) {
+			html += buildCheckboxFilter( 'post_type', 'Content Type', facets.post_type );
+		}
+
+		// Author (WordPress content mode).
+		if ( isFacetVisible( 'author' ) && facets.author && Object.keys( facets.author ).length ) {
+			html += buildCheckboxFilter( 'author', 'Author', facets.author );
 		}
 
 		// Dynamic product attributes (attributes.Color, attributes.Size, etc.).
