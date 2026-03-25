@@ -79,14 +79,29 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<th scope="row"><?php esc_html_e( 'Visible Facets', 'woo-smart-search' ); ?></th>
 			<td>
 				<?php
+				$is_ecommerce_tab = wss_is_ecommerce_mode();
+				$is_mixed_tab     = 'mixed' === wss_get_content_source();
+
+				// Common facets.
 				$facet_options = array(
 					'categories' => __( 'Categories', 'woo-smart-search' ),
-					'price'      => __( 'Price', 'woo-smart-search' ),
-					'stock'      => __( 'Stock', 'woo-smart-search' ),
-					'attributes' => __( 'Attributes', 'woo-smart-search' ),
-					'brands'     => __( 'Brands', 'woo-smart-search' ),
-					'rating'     => __( 'Rating', 'woo-smart-search' ),
 				);
+
+				// WooCommerce-specific facets.
+				if ( $is_ecommerce_tab || $is_mixed_tab ) {
+					$facet_options['price']      = __( 'Price', 'woo-smart-search' );
+					$facet_options['stock']      = __( 'Stock', 'woo-smart-search' );
+					$facet_options['attributes'] = __( 'Attributes', 'woo-smart-search' );
+					$facet_options['brands']     = __( 'Brands', 'woo-smart-search' );
+					$facet_options['rating']     = __( 'Rating', 'woo-smart-search' );
+				}
+
+				// WordPress-specific facets.
+				if ( ! $is_ecommerce_tab || $is_mixed_tab ) {
+					$facet_options['post_type'] = __( 'Post Type', 'woo-smart-search' );
+					$facet_options['author']    = __( 'Author', 'woo-smart-search' );
+				}
+
 				$visible_facets = $settings['visible_facets'] ?? array( 'categories', 'price', 'stock', 'attributes' );
 				foreach ( $facet_options as $key => $label ) :
 					?>
@@ -98,6 +113,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 				<p class="description"><?php esc_html_e( 'Select which filter facets to show in the results page sidebar.', 'woo-smart-search' ); ?></p>
 			</td>
 		</tr>
+		<?php if ( $is_ecommerce_tab || $is_mixed_tab ) : ?>
 		<tr>
 			<th scope="row"><?php esc_html_e( 'Search by SKU', 'woo-smart-search' ); ?></th>
 			<td>
@@ -116,6 +132,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 				</label>
 			</td>
 		</tr>
+		<?php endif; ?>
 		<tr>
 			<th scope="row">
 				<label for="wss-cache-ttl"><?php esc_html_e( 'Cache TTL (seconds)', 'woo-smart-search' ); ?></label>

@@ -48,6 +48,10 @@ function wss_get_content_source() {
 	if ( 'auto' === $source ) {
 		return wss_is_woocommerce_active() ? 'woocommerce' : 'wordpress';
 	}
+	// Mixed mode requires WooCommerce for the product part.
+	if ( 'mixed' === $source && ! wss_is_woocommerce_active() ) {
+		return 'wordpress';
+	}
 	return $source;
 }
 

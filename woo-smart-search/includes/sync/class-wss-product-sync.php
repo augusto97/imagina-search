@@ -501,6 +501,7 @@ class WSS_Product_Sync {
 				'rating',
 				'brand',
 				'type',
+				'content_source',
 			)
 		);
 
@@ -544,6 +545,7 @@ class WSS_Product_Sync {
 				'attributes',
 				'rating', 'review_count',
 				'type',
+				'content_source',
 			)
 		);
 
@@ -615,6 +617,7 @@ class WSS_Product_Sync {
 				'rating',
 				'brand',
 				'type',
+				'content_source',
 			)
 		);
 
@@ -645,6 +648,7 @@ class WSS_Product_Sync {
 				'attributes',
 				'rating', 'review_count',
 				'type',
+				'content_source',
 			)
 		);
 		$engine->set_displayed_attributes( $index_name, $displayed );

@@ -13,9 +13,28 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 $is_ecommerce = wss_is_ecommerce_mode();
+$is_mixed     = 'mixed' === wss_get_content_source();
 $last_sync     = wss_get_option( 'last_sync', 0 );
 
-if ( $is_ecommerce ) {
+if ( $is_mixed ) {
+	// Mixed mode: count both products and posts.
+	$product_count = wp_count_posts( 'product' );
+	$published     = isset( $product_count->publish ) ? (int) $product_count->publish : 0;
+
+	$post_types = WSS_Post_Sync::get_configured_post_types();
+	foreach ( $post_types as $pt ) {
+		$counts = wp_count_posts( $pt );
+		$published += isset( $counts->publish ) ? (int) $counts->publish : 0;
+	}
+
+	$type_labels   = array_map( function( $pt ) {
+		$obj = get_post_type_object( $pt );
+		return $obj ? $obj->labels->name : $pt;
+	}, $post_types );
+	$content_label = __( 'Products', 'woo-smart-search' ) . ' + ' . implode( ', ', $type_labels );
+	$categories    = array();
+	$meta_keys     = array();
+} elseif ( $is_ecommerce ) {
 	$product_count = wp_count_posts( 'product' );
 	$published     = isset( $product_count->publish ) ? (int) $product_count->publish : 0;
 	$content_label = __( 'WooCommerce Products', 'woo-smart-search' );
@@ -107,7 +126,7 @@ if ( $is_ecommerce ) {
 				<p class="description"><?php esc_html_e( 'Items per batch during full sync. Default: 100.', 'woo-smart-search' ); ?></p>
 			</td>
 		</tr>
-		<?php if ( $is_ecommerce ) : ?>
+		<?php if ( $is_ecommerce || $is_mixed ) : ?>
 		<tr>
 			<th scope="row"><?php esc_html_e( 'Index Out of Stock', 'woo-smart-search' ); ?></th>
 			<td>

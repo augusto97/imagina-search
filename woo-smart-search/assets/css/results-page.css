@@ -731,3 +731,85 @@
 		font-size: 0.8em;
 	}
 }
+
+/* ===== Mixed Mode Sections ===== */
+
+.wss-mixed-section {
+	margin-bottom: 32px;
+}
+
+.wss-mixed-section-title {
+	font-size: 1.15em;
+	font-weight: 600;
+	color: var(--wss-text-color, #1f2937);
+	margin: 0 0 16px;
+	padding-bottom: 8px;
+	border-bottom: 2px solid var(--wss-primary-color, #2563eb);
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+}
+
+.wss-mixed-section-count {
+	font-size: 0.82em;
+	font-weight: 400;
+	color: var(--wss-text-secondary, #6b7280);
+}
+
+.wss-mixed-section-grid {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 16px;
+}
+
+@media (max-width: 768px) {
+	.wss-mixed-section-grid {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+
+@media (max-width: 480px) {
+	.wss-mixed-section-grid {
+		grid-template-columns: repeat(2, 1fr);
+		gap: 10px;
+	}
+}
+
+/* ===== Post Card Styles ===== */
+
+.wss-post-card-excerpt {
+	font-weight: 400;
+	font-size: 0.85em;
+	color: var(--wss-text-secondary, #6b7280);
+	-webkit-line-clamp: 2;
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	margin-top: 4px;
+}
+
+.wss-post-card-meta {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 4px;
+	font-size: 0.8em;
+	color: var(--wss-text-secondary, #6b7280);
+	margin-top: 6px;
+}
+
+.wss-meta-sep {
+	margin: 0 2px;
+}
+
+.wss-post-type-badge {
+	display: inline-block;
+	background: var(--wss-primary-color, #2563eb);
+	color: #fff;
+	font-size: 0.7em;
+	font-weight: 600;
+	text-transform: uppercase;
+	padding: 1px 6px;
+	border-radius: 3px;
+	letter-spacing: 0.5px;
+}

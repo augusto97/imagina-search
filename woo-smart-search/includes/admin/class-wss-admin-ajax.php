@@ -109,7 +109,8 @@ class WSS_Admin_Ajax {
 		$appearance_bools = array(
 			'show_image', 'show_price', 'show_category',
 			'show_sku', 'show_stock', 'show_rating',
-			'show_sale_badge', 'enable_analytics',
+			'show_sale_badge', 'show_excerpt', 'show_author',
+			'show_date', 'show_post_type', 'enable_analytics',
 		);
 
 		$search_bools = array(
@@ -149,9 +150,14 @@ class WSS_Admin_Ajax {
 		}
 
 		// Content source settings.
+		$content_source_changed = false;
 		if ( isset( $_POST['content_source'] ) ) {
 			$source = sanitize_text_field( wp_unslash( $_POST['content_source'] ) );
-			if ( in_array( $source, array( 'auto', 'woocommerce', 'wordpress' ), true ) ) {
+			if ( in_array( $source, array( 'auto', 'woocommerce', 'wordpress', 'mixed' ), true ) ) {
+				$old_source = $settings['content_source'] ?? 'auto';
+				if ( $old_source !== $source ) {
+					$content_source_changed = true;
+				}
 				$settings['content_source'] = $source;
 			}
 		}
@@ -181,9 +187,24 @@ class WSS_Admin_Ajax {
 			WSS_Product_Sync::update_filterable_attributes();
 		}
 
+		// Auto-clear index when content source changes (old documents would pollute results).
+		if ( $content_source_changed ) {
+			$engine = WSS_Meilisearch::get_instance();
+			if ( $engine ) {
+				$index_name = $settings['index_name'] ?? 'woo_products';
+				$engine->delete_all_documents( $index_name );
+				wss_log( __( 'Index cleared automatically due to content source change. Please run a Full Sync.', 'woo-smart-search' ), 'info' );
+			}
+		}
+
 		wss_log( __( 'Settings updated', 'woo-smart-search' ), 'info' );
 
-		wp_send_json_success( array( 'message' => __( 'Settings saved successfully.', 'woo-smart-search' ) ) );
+		$message = __( 'Settings saved successfully.', 'woo-smart-search' );
+		if ( $content_source_changed ) {
+			$message .= ' ' . __( 'Content source changed — index has been cleared. Please run a Full Sync from the Indexing tab.', 'woo-smart-search' );
+		}
+
+		wp_send_json_success( array( 'message' => $message ) );
 	}
 
 	/**
@@ -237,18 +258,179 @@ class WSS_Admin_Ajax {
 	public function full_sync() {
 		$this->verify_request();
 
-		if ( wss_is_ecommerce_mode() ) {
+		$content_source = wss_get_content_source();
+
+		if ( 'mixed' === $content_source ) {
+			// Mixed mode: configure index with combined attributes, then sync both.
+			$engine     = wss_get_engine();
+			$index_name = wss_get_option( 'index_name', 'woo_products' );
+
+			if ( $engine ) {
+				$engine->create_index( $index_name );
+				$this->configure_mixed_index( $engine, $index_name );
+			}
+
+			$results = array();
+
+			if ( wss_is_woocommerce_active() ) {
+				$product_sync = new WSS_Product_Sync();
+				// Skip individual configure_index_settings — we already configured combined.
+				$results[] = $product_sync->start_full_sync();
+			}
+
+			$post_sync = new WSS_Post_Sync();
+			$results[] = $post_sync->start_full_sync();
+
+			$total = 0;
+			$messages = array();
+			foreach ( $results as $r ) {
+				$total += $r['total'] ?? 0;
+				$messages[] = $r['message'] ?? '';
+			}
+
+			wp_send_json_success( array(
+				'success' => true,
+				'message' => implode( ' | ', array_filter( $messages ) ),
+				'total'   => $total,
+			) );
+		} elseif ( wss_is_ecommerce_mode() ) {
 			$sync = new WSS_Product_Sync();
 		} else {
 			$sync = new WSS_Post_Sync();
 		}
 
-		$result = $sync->start_full_sync();
+		if ( isset( $sync ) ) {
+			$result = $sync->start_full_sync();
 
-		if ( $result['success'] ) {
-			wp_send_json_success( $result );
-		} else {
-			wp_send_json_error( $result );
+			if ( $result['success'] ) {
+				wp_send_json_success( $result );
+			} else {
+				wp_send_json_error( $result );
+			}
+		}
+	}
+
+	/**
+	 * Configure a mixed-mode index with merged attributes from both product and post sync.
+	 *
+	 * @param WSS_Meilisearch $engine     The Meilisearch engine instance.
+	 * @param string          $index_name The index name.
+	 */
+	private function configure_mixed_index( $engine, $index_name ) {
+		// Product searchable attributes.
+		$product_searchable = apply_filters(
+			'wss_searchable_attributes',
+			array( 'name', 'sku', 'all_skus', 'categories', 'tags', 'brand', 'description', 'attributes_text', 'variations_text' )
+		);
+
+		// Post searchable attributes.
+		$post_searchable = apply_filters(
+			'wss_wp_searchable_attributes',
+			array( 'name', 'description', 'full_description', 'categories', 'tags', 'taxonomies_text', 'author' )
+		);
+
+		$searchable = array_values( array_unique( array_merge( $product_searchable, $post_searchable ) ) );
+
+		// Product filterable attributes.
+		$product_filterable = apply_filters(
+			'wss_filterable_attributes',
+			array(
+				'categories', 'category_ids', 'category_slugs', 'tags',
+				'price', 'price_min', 'price_max', 'stock_status', 'on_sale',
+				'featured', 'rating', 'brand', 'type', 'content_source',
+			)
+		);
+
+		// Dynamically add WC product attributes as filterable.
+		if ( wss_is_woocommerce_active() && function_exists( 'wc_get_attribute_taxonomies' ) ) {
+			$attribute_taxonomies = wc_get_attribute_taxonomies();
+			$attribute_names      = array();
+			if ( ! empty( $attribute_taxonomies ) ) {
+				foreach ( $attribute_taxonomies as $tax ) {
+					$label               = $tax->attribute_label ? $tax->attribute_label : $tax->attribute_name;
+					$product_filterable[] = 'attributes.' . $label;
+					$attribute_names[]    = $label;
+				}
+			}
+			update_option( 'wss_product_attribute_names', $attribute_names, true );
+		}
+
+		// Post filterable attributes.
+		$post_filterable = apply_filters(
+			'wss_wp_filterable_attributes',
+			array( 'categories', 'category_ids', 'category_slugs', 'tags', 'post_type', 'author', 'content_source' )
+		);
+
+		$filterable = array_values( array_unique( array_merge( $product_filterable, $post_filterable ) ) );
+
+		// Sortable: merge both sets.
+		$product_sortable = array( 'price', 'price_min', 'price_max', 'date_created', 'date_modified', 'name', 'rating', 'total_sales', 'menu_order' );
+		$post_sortable    = array( 'date_created', 'date_modified', 'name', 'menu_order', 'comment_count' );
+		$sortable         = array_values( array_unique( array_merge( $product_sortable, $post_sortable ) ) );
+
+		// Displayed: merge both sets.
+		$product_displayed = apply_filters(
+			'wss_displayed_attributes',
+			array(
+				'id', 'name', 'slug', 'description', 'sku', 'permalink',
+				'image', 'gallery',
+				'price', 'regular_price', 'sale_price', 'price_min', 'price_max',
+				'on_sale', 'currency',
+				'stock_status',
+				'categories', 'category_slugs',
+				'tags', 'brand',
+				'attributes',
+				'rating', 'review_count',
+				'type',
+				'content_source',
+			)
+		);
+
+		$post_displayed = apply_filters(
+			'wss_wp_displayed_attributes',
+			array(
+				'id', 'name', 'slug', 'description', 'permalink',
+				'image', 'post_type',
+				'categories', 'category_slugs',
+				'tags', 'taxonomies',
+				'author', 'date_created',
+				'comment_count', 'content_source',
+			)
+		);
+
+		$displayed = array_values( array_unique( array_merge( $product_displayed, $post_displayed ) ) );
+
+		// Apply combined settings.
+		$settings = apply_filters(
+			'wss_index_settings',
+			array(
+				'searchableAttributes' => $searchable,
+				'filterableAttributes' => $filterable,
+				'sortableAttributes'   => $sortable,
+				'displayedAttributes'  => $displayed,
+			)
+		);
+
+		$engine->configure_index( $index_name, $settings );
+		$engine->set_searchable_attributes( $index_name, $searchable );
+		$engine->set_filterable_attributes( $index_name, $filterable );
+		$engine->set_sortable_attributes( $index_name, $sortable );
+		$engine->set_displayed_attributes( $index_name, $displayed );
+
+		// Configure synonyms if set.
+		$synonyms = wss_get_option( 'synonyms', '' );
+		if ( ! empty( $synonyms ) ) {
+			$synonyms_array = json_decode( $synonyms, true );
+			if ( is_array( $synonyms_array ) ) {
+				$engine->set_synonyms( $index_name, $synonyms_array );
+			}
+		}
+
+		// Configure stop words if set.
+		$stop_words = wss_get_option( 'stop_words', '' );
+		if ( ! empty( $stop_words ) ) {
+			$stop_words_array = array_map( 'trim', explode( ',', $stop_words ) );
+			$engine->set_stop_words( $index_name, $stop_words_array );
 		}
 	}
 
@@ -258,7 +440,7 @@ class WSS_Admin_Ajax {
 	public function sync_progress() {
 		$this->verify_request();
 
-		$progress = get_transient( 'wss_sync_progress' );
+		$progress = get_option( 'wss_sync_progress' );
 
 		if ( ! $progress ) {
 			wp_send_json_success(

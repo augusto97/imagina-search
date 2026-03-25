@@ -161,6 +161,7 @@ class WSS_Product_Transformer {
 			'variations_count' => $variations_count,
 			'variation_skus'   => $variation_skus,
 			'custom_fields'    => $custom_fields,
+			'content_source'   => 'woocommerce',
 		);
 
 		/**

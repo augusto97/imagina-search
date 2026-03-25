@@ -50,7 +50,18 @@ class WSS_Loader {
 		$rest_api->init();
 
 		// Initialize content source based on mode.
-		if ( wss_is_ecommerce_mode() ) {
+		$content_source = wss_get_content_source();
+
+		if ( 'mixed' === $content_source ) {
+			// Mixed mode: initialize both syncs.
+			if ( wss_is_woocommerce_active() ) {
+				$sync = new WSS_Product_Sync();
+				$sync->init();
+				add_action( 'admin_init', array( 'WSS_Product_Sync', 'maybe_update_filterable_attributes' ) );
+			}
+			$post_sync = new WSS_Post_Sync();
+			$post_sync->init();
+		} elseif ( wss_is_ecommerce_mode() ) {
 			// WooCommerce product sync.
 			$sync = new WSS_Product_Sync();
 			$sync->init();
