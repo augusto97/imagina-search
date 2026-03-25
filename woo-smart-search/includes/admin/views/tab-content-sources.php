@@ -79,12 +79,22 @@ $meta_keys       = $wpdb->get_col(
 							— <?php esc_html_e( 'Index posts, pages, and/or custom post types.', 'woo-smart-search' ); ?>
 						</span>
 					</label>
+					<label style="display:block; margin-bottom:8px;">
+						<input type="radio" name="content_source" value="mixed" <?php checked( $content_source, 'mixed' ); ?> <?php disabled( ! $wc_active ); ?> />
+						<strong><?php esc_html_e( 'Mixed — Products + Content', 'woo-smart-search' ); ?></strong>
+						<span class="description">
+							— <?php esc_html_e( 'Index WooCommerce products AND posts/pages in the same search, displayed in separate sections (like Searchanise).', 'woo-smart-search' ); ?>
+						</span>
+						<?php if ( ! $wc_active ) : ?>
+							<em style="color: #dc3232;">(<?php esc_html_e( 'Requires WooCommerce', 'woo-smart-search' ); ?>)</em>
+						<?php endif; ?>
+					</label>
 				</fieldset>
 			</td>
 		</tr>
 	</table>
 
-	<div id="wss-wp-content-options" style="<?php echo ( 'wordpress' === $content_source || ( 'auto' === $content_source && ! $wc_active ) ) ? '' : 'display:none;'; ?>">
+	<div id="wss-wp-content-options" style="<?php echo ( 'wordpress' === $content_source || 'mixed' === $content_source || ( 'auto' === $content_source && ! $wc_active ) ) ? '' : 'display:none;'; ?>">
 		<h2><?php esc_html_e( 'WordPress Content Settings', 'woo-smart-search' ); ?></h2>
 		<table class="form-table">
 			<tr>
@@ -137,7 +147,7 @@ $meta_keys       = $wpdb->get_col(
 			var val = $( this ).val();
 			var wcActive = <?php echo $wc_active ? 'true' : 'false'; ?>;
 
-			if ( val === 'wordpress' || ( val === 'auto' && ! wcActive ) ) {
+			if ( val === 'wordpress' || val === 'mixed' || ( val === 'auto' && ! wcActive ) ) {
 				$( '#wss-wp-content-options' ).slideDown( 200 );
 			} else {
 				$( '#wss-wp-content-options' ).slideUp( 200 );

@@ -116,20 +116,36 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<th scope="row"><?php esc_html_e( 'Visible Elements', 'woo-smart-search' ); ?></th>
 			<td>
 				<?php
+				$is_ecommerce = wss_is_ecommerce_mode();
+				$is_mixed     = 'mixed' === wss_get_content_source();
+
+				// Common elements.
 				$elements = array(
-					'show_image'      => __( 'Product image', 'woo-smart-search' ),
-					'show_price'      => __( 'Price', 'woo-smart-search' ),
-					'show_category'   => __( 'Category', 'woo-smart-search' ),
-					'show_sku'        => __( 'SKU', 'woo-smart-search' ),
-					'show_stock'      => __( 'Stock status', 'woo-smart-search' ),
-					'show_rating'     => __( 'Rating', 'woo-smart-search' ),
-					'show_sale_badge' => __( 'Sale badge', 'woo-smart-search' ),
-					'enable_analytics' => __( 'Enable search analytics', 'woo-smart-search' ),
+					'show_image'    => __( 'Featured image', 'woo-smart-search' ),
+					'show_category' => __( 'Categories', 'woo-smart-search' ),
 				);
+
+				// WooCommerce-specific elements.
+				if ( $is_ecommerce || $is_mixed ) {
+					$elements['show_price']      = __( 'Price', 'woo-smart-search' );
+					$elements['show_sku']        = __( 'SKU', 'woo-smart-search' );
+					$elements['show_stock']      = __( 'Stock status', 'woo-smart-search' );
+					$elements['show_rating']     = __( 'Rating', 'woo-smart-search' );
+					$elements['show_sale_badge'] = __( 'Sale badge', 'woo-smart-search' );
+				}
+
+				// WordPress content elements.
+				if ( ! $is_ecommerce || $is_mixed ) {
+					$elements['show_excerpt']   = __( 'Excerpt / Description', 'woo-smart-search' );
+					$elements['show_author']    = __( 'Author', 'woo-smart-search' );
+					$elements['show_date']      = __( 'Date', 'woo-smart-search' );
+					$elements['show_post_type'] = __( 'Post type badge', 'woo-smart-search' );
+				}
+
+				// Always available.
+				$elements['enable_analytics'] = __( 'Enable search analytics', 'woo-smart-search' );
+
 				foreach ( $elements as $key => $label ) :
-					?>
-					<?php
-					// Default to 'yes' for most display options, 'no' for show_sku and show_rating.
 					$default = in_array( $key, array( 'show_sku', 'show_rating' ), true ) ? 'no' : 'yes';
 					?>
 					<label style="display:block; margin-bottom:4px;">

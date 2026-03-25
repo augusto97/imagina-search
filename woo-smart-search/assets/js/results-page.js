@@ -243,8 +243,16 @@
 				facets: cfg.meilieFacets || [ 'categories', 'stock_status', 'on_sale', 'brand', 'rating' ]
 			};
 
-			if ( filterStr ) {
-				body.filter = filterStr;
+			// Build filter combining user filters + content_source restriction.
+			var combinedFilter = filterStr;
+			if ( ! cfg.isMixed && cfg.contentSource ) {
+				var sourceValue = cfg.isEcommerce ? 'woocommerce' : 'wordpress';
+				var sourceFilter = 'content_source = "' + sourceValue + '"';
+				combinedFilter = combinedFilter ? combinedFilter + ' AND ' + sourceFilter : sourceFilter;
+			}
+
+			if ( combinedFilter ) {
+				body.filter = combinedFilter;
 			}
 
 			if ( state.sort ) {
@@ -327,9 +335,55 @@
 		dom.grid.classList.toggle( 'wss-view-list', state.view === 'list' );
 
 		var html = '';
-		hits.forEach( function ( hit ) {
-			html += buildProductCard( hit );
-		} );
+
+		// In mixed mode, group results by content_source into separate sections.
+		if ( cfg.isMixed ) {
+			var productHits = [];
+			var contentHits = [];
+
+			hits.forEach( function ( hit ) {
+				if ( hit.content_source === 'woocommerce' ) {
+					productHits.push( hit );
+				} else {
+					contentHits.push( hit );
+				}
+			} );
+
+			if ( productHits.length ) {
+				html += '<div class="wss-mixed-section">';
+				html += '<h3 class="wss-mixed-section-title">' + escapeHtml( cfg.i18n && cfg.i18n.products ? cfg.i18n.products : 'Products' ) + ' <span class="wss-mixed-section-count">(' + productHits.length + ')</span></h3>';
+				html += '<div class="wss-mixed-section-grid wss-products-grid' + ( state.view === 'list' ? ' wss-view-list' : '' ) + '">';
+				productHits.forEach( function ( hit ) {
+					html += buildProductCard( hit );
+				} );
+				html += '</div></div>';
+			}
+
+			if ( contentHits.length ) {
+				// Group content by post_type.
+				var byType = {};
+				contentHits.forEach( function ( hit ) {
+					var pt = hit.post_type || 'post';
+					if ( ! byType[ pt ] ) byType[ pt ] = [];
+					byType[ pt ].push( hit );
+				} );
+
+				Object.keys( byType ).forEach( function ( pt ) {
+					var ptLabel = pt.charAt( 0 ).toUpperCase() + pt.slice( 1 ) + 's';
+					html += '<div class="wss-mixed-section">';
+					html += '<h3 class="wss-mixed-section-title">' + escapeHtml( ptLabel ) + ' <span class="wss-mixed-section-count">(' + byType[ pt ].length + ')</span></h3>';
+					html += '<div class="wss-mixed-section-grid wss-products-grid' + ( state.view === 'list' ? ' wss-view-list' : '' ) + '">';
+					byType[ pt ].forEach( function ( hit ) {
+						html += buildPostCard( hit );
+					} );
+					html += '</div></div>';
+				} );
+			}
+		} else {
+			hits.forEach( function ( hit ) {
+				html += buildProductCard( hit );
+			} );
+		}
 
 		dom.grid.innerHTML = html;
 
@@ -417,38 +471,44 @@
 	function buildPostCard( hit ) {
 		var imgSrc    = hit.image || cfg.placeholderImg || '';
 		var name      = hit.name_highlighted ? sanitizeHighlight( hit.name_highlighted ) : escapeHtml( decodeHtml( hit.name || '' ) );
-		var category  = ( hit.categories && hit.categories.length ) ? escapeHtml( decodeHtml( hit.categories[0] ) ) : '';
+		var category  = ( cfg.showCategory !== false && hit.categories && hit.categories.length ) ? escapeHtml( decodeHtml( hit.categories[0] ) ) : '';
 		var permalink = hit.permalink || '#';
-		var excerpt   = hit.description ? escapeHtml( hit.description ).substring( 0, 150 ) : '';
-		var author    = hit.author ? escapeHtml( hit.author ) : '';
-		var postType  = hit.post_type ? escapeHtml( hit.post_type ) : '';
+		var excerpt   = ( cfg.showExcerpt !== false && hit.description ) ? escapeHtml( hit.description ).substring( 0, 150 ) : '';
+		var author    = ( cfg.showAuthor !== false && hit.author ) ? escapeHtml( hit.author ) : '';
+		var postType  = ( cfg.showPostType && hit.post_type ) ? escapeHtml( hit.post_type ) : '';
 
 		// Date.
 		var dateHtml = '';
-		if ( hit.date_created ) {
+		if ( cfg.showDate !== false && hit.date_created ) {
 			var d = new Date( hit.date_created * 1000 );
 			dateHtml = '<span class="wss-post-date">' + d.toLocaleDateString() + '</span>';
 		}
 
-		// Meta line: author + date + post type.
+		// Meta line: author + date + post type badge.
 		var metaHtml = '';
 		var metaParts = [];
 		if ( author ) metaParts.push( author );
 		if ( dateHtml ) metaParts.push( dateHtml );
-		if ( postType && postType !== 'post' ) metaParts.push( '<em>' + postType + '</em>' );
+		if ( postType ) metaParts.push( '<span class="wss-post-type-badge">' + postType + '</span>' );
 		if ( metaParts.length ) {
-			metaHtml = '<div class="wss-product-card-stock" style="gap:6px;">' + metaParts.join( ' &middot; ' ) + '</div>';
+			metaHtml = '<div class="wss-post-card-meta">' + metaParts.join( ' <span class="wss-meta-sep">&middot;</span> ' ) + '</div>';
 		}
 
-		return '<div class="wss-product-card" data-id="' + ( hit.id || '' ) + '">' +
-			'<a href="' + escapeHtml( permalink ) + '">' +
-			'<div class="wss-product-card-image">' +
+		// Image section.
+		var imageHtml = '';
+		if ( cfg.showImage !== false ) {
+			imageHtml = '<div class="wss-product-card-image">' +
 				'<img src="' + escapeHtml( imgSrc ) + '" alt="' + escapeHtml( hit.name || '' ) + '" loading="lazy" />' +
-			'</div>' +
+			'</div>';
+		}
+
+		return '<div class="wss-product-card wss-post-card" data-id="' + ( hit.id || '' ) + '">' +
+			'<a href="' + escapeHtml( permalink ) + '">' +
+			imageHtml +
 			'<div class="wss-product-card-body">' +
 				( category ? '<div class="wss-product-card-category">' + category + '</div>' : '' ) +
 				'<div class="wss-product-card-name">' + name + '</div>' +
-				( excerpt ? '<div class="wss-product-card-price" style="font-weight:400;font-size:0.85em;color:#6b7280;-webkit-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;">' + excerpt + '</div>' : '' ) +
+				( excerpt ? '<div class="wss-post-card-excerpt">' + excerpt + '</div>' : '' ) +
 				metaHtml +
 			'</div>' +
 			'</a></div>';
@@ -792,7 +852,7 @@
 
 	function updateResultsCount() {
 		if ( dom.resultsCount ) {
-			var label = cfg.isEcommerce ? ' products' : ' results';
+			var label = cfg.isMixed ? ' results' : ( cfg.isEcommerce ? ' products' : ' results' );
 			dom.resultsCount.textContent = state.total + label;
 		}
 	}

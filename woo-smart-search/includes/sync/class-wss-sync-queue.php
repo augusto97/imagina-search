@@ -101,13 +101,19 @@ class WSS_Sync_Queue {
 			return;
 		}
 
-		$table        = $wpdb->prefix . 'wss_sync_queue';
-		$is_ecommerce = wss_is_ecommerce_mode();
+		$table          = $wpdb->prefix . 'wss_sync_queue';
+		$content_source = wss_get_content_source();
+		$is_ecommerce   = wss_is_ecommerce_mode();
+		$is_mixed       = 'mixed' === $content_source;
 
-		if ( $is_ecommerce ) {
-			$sync = new WSS_Product_Sync();
-		} else {
-			$sync = new WSS_Post_Sync();
+		$product_sync = null;
+		$post_sync    = null;
+
+		if ( $is_ecommerce || $is_mixed ) {
+			$product_sync = new WSS_Product_Sync();
+		}
+		if ( ! $is_ecommerce || $is_mixed ) {
+			$post_sync = new WSS_Post_Sync();
 		}
 
 		// Get pending items (max 50 at a time).
@@ -121,15 +127,23 @@ class WSS_Sync_Queue {
 		}
 
 		foreach ( $items as $item ) {
-			$post_id = (int) $item['product_id'];
-			$action  = $item['action'];
+			$post_id   = (int) $item['product_id'];
+			$action    = $item['action'];
+			$post_type = get_post_type( $post_id );
 
 			$success = false;
 
+			// Route to correct sync handler based on post type.
+			$is_product = ( 'product' === $post_type ) && $product_sync;
+
 			if ( 'delete' === $action ) {
-				$success = $is_ecommerce ? $sync->delete_single_product( $post_id ) : $sync->delete_single_post( $post_id );
+				$success = $is_product
+					? $product_sync->delete_single_product( $post_id )
+					: ( $post_sync ? $post_sync->delete_single_post( $post_id ) : false );
 			} else {
-				$success = $is_ecommerce ? $sync->sync_single_product( $post_id ) : $sync->sync_single_post( $post_id );
+				$success = $is_product
+					? $product_sync->sync_single_product( $post_id )
+					: ( $post_sync ? $post_sync->sync_single_post( $post_id ) : false );
 			}
 
 			$wpdb->update(

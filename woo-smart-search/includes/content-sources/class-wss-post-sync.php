@@ -423,6 +423,7 @@ class WSS_Post_Sync {
 				'tags',
 				'post_type',
 				'author',
+				'content_source',
 			)
 		);
 

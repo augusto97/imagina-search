@@ -126,6 +126,11 @@ class WSS_Activator {
 			'stop_words'                => '',
 			'enable_analytics'          => 'yes',
 			'results_page_id'           => 0,
+			// WordPress content display settings.
+			'show_excerpt'              => 'yes',
+			'show_author'               => 'yes',
+			'show_date'                 => 'yes',
+			'show_post_type'            => 'no',
 			// Content source settings.
 			'content_source'            => 'auto',
 			'wp_post_types'             => array( 'post' ),

@@ -33,6 +33,12 @@
 			body.facets = facets;
 		}
 
+		// Filter by content_source unless mixed mode.
+		if (!config.isMixed && config.contentSource) {
+			var sourceValue = config.isEcommerce ? 'woocommerce' : 'wordpress';
+			body.filter = 'content_source = "' + sourceValue + '"';
+		}
+
 		return fetch(meiliSearchUrl, {
 			method: 'POST',
 			headers: {
@@ -606,10 +612,47 @@
 
 			if (isExpanded && mainHeading) showState(mainHeading);
 
-			hits.forEach(function (hit, index) {
-				var item = createResultItem(hit, index, query);
-				productsContainer.appendChild(item);
-			});
+			// In mixed mode, group results by content_source with section headers.
+			if (config.isMixed && !isAmazon && !isFalabella) {
+				var productHits = [];
+				var contentHits = [];
+				hits.forEach(function (hit) {
+					if (hit.content_source === 'woocommerce') {
+						productHits.push(hit);
+					} else {
+						contentHits.push(hit);
+					}
+				});
+
+				var globalIdx = 0;
+
+				if (productHits.length) {
+					var prodHeader = document.createElement('div');
+					prodHeader.className = 'wss-mixed-dropdown-header';
+					prodHeader.textContent = config.i18n.products || 'Products';
+					productsContainer.appendChild(prodHeader);
+					productHits.forEach(function (hit) {
+						var item = createResultItem(hit, globalIdx++, query);
+						productsContainer.appendChild(item);
+					});
+				}
+
+				if (contentHits.length) {
+					var contentHeader = document.createElement('div');
+					contentHeader.className = 'wss-mixed-dropdown-header';
+					contentHeader.textContent = config.i18n.content || 'Content';
+					productsContainer.appendChild(contentHeader);
+					contentHits.forEach(function (hit) {
+						var item = createResultItem(hit, globalIdx++, query);
+						productsContainer.appendChild(item);
+					});
+				}
+			} else {
+				hits.forEach(function (hit, index) {
+					var item = createResultItem(hit, index, query);
+					productsContainer.appendChild(item);
+				});
+			}
 
 			// Footer (non-fullscreen).
 			if (!isFullscreen && footer) {
@@ -702,45 +745,64 @@
 			var title = hit.name_highlighted ? sanitizeHighlight(hit.name_highlighted) : escHtml(decodeHtml(hit.name || ''));
 			html += '<h4 class="wss-result-title">' + title + '</h4>';
 
-			// SKU.
-			if (!isCompact && config.showSku && hit.sku) {
-				html += '<span class="wss-result-sku">SKU: ' + escHtml(hit.sku) + '</span>';
-			}
+			// Detect if this hit is WordPress content (vs WooCommerce product).
+			var hitIsWpContent = hit.content_source === 'wordpress' || (!config.isEcommerce && !config.isMixed && typeof hit.price === 'undefined');
 
-			// Price row.
-			html += '<div class="wss-result-meta">';
-			if (config.showPrice !== false && hit.price !== undefined) {
-				html += '<div class="wss-result-price">';
-				if (hit.on_sale && hit.regular_price) {
-					html += '<span class="wss-price-regular">' + formatPrice(hit.regular_price) + '</span> ';
-					html += '<span class="wss-price-current wss-price-sale">' + formatPrice(hit.price) + '</span>';
-					if (!isCompact) {
-						var discount = Math.round((1 - hit.price / hit.regular_price) * 100);
-						if (discount > 0) html += ' <span class="wss-sale-badge">-' + discount + '%</span>';
-					}
-				} else if (hit.price_min && hit.price_max && hit.price_min !== hit.price_max) {
-					html += '<span class="wss-price-current">' + formatPrice(hit.price_min) + ' &ndash; ' + formatPrice(hit.price_max) + '</span>';
-				} else {
-					html += '<span class="wss-price-current">' + formatPrice(hit.price) + '</span>';
+			if (hitIsWpContent) {
+				// WordPress content: show excerpt, author, date.
+				if (!isCompact && config.showExcerpt !== false && hit.description) {
+					html += '<span class="wss-result-excerpt">' + escHtml(hit.description).substring(0, 80) + '</span>';
 				}
+				html += '<div class="wss-result-meta">';
+				var wpMeta = [];
+				if (config.showAuthor !== false && hit.author) wpMeta.push(escHtml(hit.author));
+				if (config.showDate !== false && hit.date_created) {
+					var d = new Date(hit.date_created * 1000);
+					wpMeta.push(d.toLocaleDateString());
+				}
+				if (config.showPostType && hit.post_type && hit.post_type !== 'post') {
+					wpMeta.push('<em>' + escHtml(hit.post_type) + '</em>');
+				}
+				if (wpMeta.length) html += '<span class="wss-result-wp-meta">' + wpMeta.join(' &middot; ') + '</span>';
 				html += '</div>';
-			}
+			} else {
+				// WooCommerce product: show SKU, price, stock, rating.
+				if (!isCompact && config.showSku && hit.sku) {
+					html += '<span class="wss-result-sku">SKU: ' + escHtml(hit.sku) + '</span>';
+				}
 
-			// Stock indicator dot.
-			if (!isCompact && config.showStock !== false && hit.stock_status) {
-				var stockClass = 'wss-stock-dot wss-stock-' + hit.stock_status;
-				var stockText = config.i18n[hit.stock_status === 'instock' ? 'inStock' : (hit.stock_status === 'outofstock' ? 'outOfStock' : 'onBackorder')] || hit.stock_status;
-				html += '<span class="' + stockClass + '" title="' + escHtml(stockText) + '"><span class="wss-stock-circle"></span>' + escHtml(stockText) + '</span>';
-			}
-			html += '</div>'; // .wss-result-meta
+				html += '<div class="wss-result-meta">';
+				if (config.showPrice !== false && hit.price !== undefined) {
+					html += '<div class="wss-result-price">';
+					if (hit.on_sale && hit.regular_price) {
+						html += '<span class="wss-price-regular">' + formatPrice(hit.regular_price) + '</span> ';
+						html += '<span class="wss-price-current wss-price-sale">' + formatPrice(hit.price) + '</span>';
+						if (!isCompact) {
+							var discount = Math.round((1 - hit.price / hit.regular_price) * 100);
+							if (discount > 0) html += ' <span class="wss-sale-badge">-' + discount + '%</span>';
+						}
+					} else if (hit.price_min && hit.price_max && hit.price_min !== hit.price_max) {
+						html += '<span class="wss-price-current">' + formatPrice(hit.price_min) + ' &ndash; ' + formatPrice(hit.price_max) + '</span>';
+					} else {
+						html += '<span class="wss-price-current">' + formatPrice(hit.price) + '</span>';
+					}
+					html += '</div>';
+				}
 
-			// Rating.
-			if (!isCompact && config.showRating && hit.rating) {
-				html += '<span class="wss-result-rating">';
-				var fullStars = Math.floor(hit.rating);
-				for (var i = 0; i < 5; i++) html += i < fullStars ? '\u2605' : '\u2606';
-				if (hit.review_count) html += ' <span class="wss-review-count">(' + hit.review_count + ')</span>';
-				html += '</span>';
+				if (!isCompact && config.showStock !== false && hit.stock_status) {
+					var stockClass = 'wss-stock-dot wss-stock-' + hit.stock_status;
+					var stockText = config.i18n[hit.stock_status === 'instock' ? 'inStock' : (hit.stock_status === 'outofstock' ? 'outOfStock' : 'onBackorder')] || hit.stock_status;
+					html += '<span class="' + stockClass + '" title="' + escHtml(stockText) + '"><span class="wss-stock-circle"></span>' + escHtml(stockText) + '</span>';
+				}
+				html += '</div>'; // .wss-result-meta
+
+				if (!isCompact && config.showRating && hit.rating) {
+					html += '<span class="wss-result-rating">';
+					var fullStars = Math.floor(hit.rating);
+					for (var i = 0; i < 5; i++) html += i < fullStars ? '\u2605' : '\u2606';
+					if (hit.review_count) html += ' <span class="wss-review-count">(' + hit.review_count + ')</span>';
+					html += '</span>';
+				}
 			}
 			html += '</div>'; // .wss-result-info
 

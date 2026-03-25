@@ -218,16 +218,39 @@ class WSS_Rest_Api {
 		if ( ! empty( $facets ) ) {
 			$options['facets'] = explode( ',', $facets );
 		} else {
-			$default_facets = array( 'categories', 'stock_status', 'on_sale', 'brand', 'rating' );
-			// Include product attribute facets (e.g., attributes.Color, attributes.Size).
-			$attr_names = self::get_product_attribute_names();
-			foreach ( $attr_names as $attr_name ) {
-				$default_facets[] = 'attributes.' . $attr_name;
+			$default_facets = array( 'categories' );
+
+			if ( wss_is_ecommerce_mode() || 'mixed' === $content_source ) {
+				$default_facets = array_merge( $default_facets, array( 'stock_status', 'on_sale', 'brand', 'rating' ) );
+				// Include product attribute facets.
+				$attr_names = self::get_product_attribute_names();
+				foreach ( $attr_names as $attr_name ) {
+					$default_facets[] = 'attributes.' . $attr_name;
+				}
 			}
+
+			if ( ! wss_is_ecommerce_mode() || 'mixed' === $content_source ) {
+				$default_facets[] = 'post_type';
+				$default_facets[] = 'author';
+			}
+
+			$default_facets[] = 'content_source';
 			$options['facets'] = $default_facets;
 		}
 
 		$options['highlight_fields'] = array( 'name', 'description', 'categories' );
+
+		// Filter by content source (unless mixed mode).
+		$content_source = wss_get_content_source();
+		if ( 'mixed' !== $content_source ) {
+			$source_value  = wss_is_ecommerce_mode() ? 'woocommerce' : 'wordpress';
+			$source_filter = 'content_source = "' . $source_value . '"';
+			if ( ! empty( $options['filters'] ) ) {
+				$options['filters'] .= ' AND ' . $source_filter;
+			} else {
+				$options['filters'] = $source_filter;
+			}
+		}
 
 		// Hide out-of-stock if configured.
 		if ( 'yes' !== wss_get_option( 'show_out_of_stock_results', 'yes' ) ) {
@@ -372,12 +395,16 @@ class WSS_Rest_Api {
 		$formatted    = array();
 		$settings     = get_option( 'wss_settings', array() );
 		$is_ecommerce = wss_is_ecommerce_mode();
+		$is_mixed     = 'mixed' === wss_get_content_source();
 
 		foreach ( $hits as $hit ) {
+			$hit_source = isset( $hit['content_source'] ) ? $hit['content_source'] : ( $is_ecommerce ? 'woocommerce' : 'wordpress' );
+
 			$item = array(
-				'id'        => isset( $hit['id'] ) ? (int) $hit['id'] : 0,
-				'name'      => isset( $hit['name'] ) ? $hit['name'] : '',
-				'permalink' => isset( $hit['permalink'] ) ? $hit['permalink'] : '',
+				'id'             => isset( $hit['id'] ) ? (int) $hit['id'] : 0,
+				'name'           => isset( $hit['name'] ) ? $hit['name'] : '',
+				'permalink'      => isset( $hit['permalink'] ) ? $hit['permalink'] : '',
+				'content_source' => $hit_source,
 			);
 
 			// Highlighted name.
@@ -389,14 +416,17 @@ class WSS_Rest_Api {
 				$item['image'] = isset( $hit['image'] ) ? $hit['image'] : '';
 			}
 
-			if ( $is_ecommerce ) {
+			// Determine if this hit is a product or WordPress content.
+			$hit_is_product = ( 'woocommerce' === $hit_source );
+
+			if ( $hit_is_product ) {
 				// WooCommerce-specific fields.
 				if ( ( $settings['show_price'] ?? 'yes' ) === 'yes' ) {
 					$item['price']         = isset( $hit['price'] ) ? (float) $hit['price'] : 0;
 					$item['regular_price'] = isset( $hit['regular_price'] ) ? (float) $hit['regular_price'] : 0;
 					$item['sale_price']    = isset( $hit['sale_price'] ) ? (float) $hit['sale_price'] : 0;
 					$item['on_sale']       = isset( $hit['on_sale'] ) ? (bool) $hit['on_sale'] : false;
-					$item['currency']      = isset( $hit['currency'] ) ? $hit['currency'] : get_woocommerce_currency();
+					$item['currency']      = isset( $hit['currency'] ) ? $hit['currency'] : ( function_exists( 'get_woocommerce_currency' ) ? get_woocommerce_currency() : '' );
 					$item['price_min']     = isset( $hit['price_min'] ) ? (float) $hit['price_min'] : 0;
 					$item['price_max']     = isset( $hit['price_max'] ) ? (float) $hit['price_max'] : 0;
 				}
@@ -421,11 +451,16 @@ class WSS_Rest_Api {
 				$item['type'] = isset( $hit['type'] ) ? $hit['type'] : 'simple';
 			} else {
 				// WordPress content fields.
-				$item['description'] = isset( $hit['description'] ) ? $hit['description'] : '';
-				$item['post_type']   = isset( $hit['post_type'] ) ? $hit['post_type'] : 'post';
-				$item['author']      = isset( $hit['author'] ) ? $hit['author'] : '';
-				$item['date_created'] = isset( $hit['date_created'] ) ? $hit['date_created'] : 0;
-				$item['content_source'] = 'wordpress';
+				if ( ( $settings['show_excerpt'] ?? 'yes' ) === 'yes' ) {
+					$item['description'] = isset( $hit['description'] ) ? $hit['description'] : '';
+				}
+				$item['post_type'] = isset( $hit['post_type'] ) ? $hit['post_type'] : 'post';
+				if ( ( $settings['show_author'] ?? 'yes' ) === 'yes' ) {
+					$item['author'] = isset( $hit['author'] ) ? $hit['author'] : '';
+				}
+				if ( ( $settings['show_date'] ?? 'yes' ) === 'yes' ) {
+					$item['date_created'] = isset( $hit['date_created'] ) ? $hit['date_created'] : 0;
+				}
 			}
 
 			if ( ( $settings['show_category'] ?? 'yes' ) === 'yes' ) {
@@ -515,7 +550,8 @@ class WSS_Rest_Api {
 		// Allowed filterable attribute names.
 		$allowed_attrs = array(
 			'categories', 'stock_status', 'on_sale', 'brand', 'rating',
-			'price', 'price_min', 'price_max', 'type',
+			'price', 'price_min', 'price_max', 'type', 'content_source',
+			'post_type', 'author',
 		);
 		// Also allow dynamic product attributes (attributes.Color, etc.).
 		$attr_names = self::get_product_attribute_names();
