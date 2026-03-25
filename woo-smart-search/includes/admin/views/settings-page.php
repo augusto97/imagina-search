@@ -24,7 +24,7 @@ $settings = get_option( 'wss_settings', array() );
 
 // Determine connection status for the status bar.
 $connection_error = get_transient( 'wss_connection_error' );
-$sync_progress    = get_transient( 'wss_sync_progress' );
+$sync_progress    = get_option( 'wss_sync_progress' );
 $is_syncing       = ( $sync_progress && isset( $sync_progress['status'] ) && 'running' === $sync_progress['status'] );
 
 if ( $connection_error ) {

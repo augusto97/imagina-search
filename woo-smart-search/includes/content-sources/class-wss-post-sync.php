@@ -217,13 +217,15 @@ class WSS_Post_Sync {
 			);
 		}
 
-		$index_name = wss_get_option( 'index_name', 'wp_content' );
+		$index_name = wss_get_option( 'index_name', 'woo_products' );
 
 		// Create index if it does not exist.
 		$engine->create_index( $index_name );
 
-		// Configure index settings.
-		$this->configure_index_settings( $engine, $index_name );
+		// Configure index settings (skip if mixed mode already configured combined settings).
+		if ( ! get_option( 'wss_skip_index_configure' ) ) {
+			$this->configure_index_settings( $engine, $index_name );
+		}
 
 		// Count total posts.
 		$post_types = self::get_configured_post_types();
@@ -313,7 +315,7 @@ class WSS_Post_Sync {
 
 		$page       = isset( $batch_args['page'] ) ? (int) $batch_args['page'] : 1;
 		$batch_size = (int) wss_get_option( 'batch_size', 100 );
-		$index_name = wss_get_option( 'index_name', 'wp_content' );
+		$index_name = wss_get_option( 'index_name', 'woo_products' );
 		$post_types = self::get_configured_post_types();
 
 		$query = new WP_Query( array(
@@ -495,7 +497,7 @@ class WSS_Post_Sync {
 			return false;
 		}
 
-		$index_name = wss_get_option( 'index_name', 'wp_content' );
+		$index_name = wss_get_option( 'index_name', 'woo_products' );
 
 		$should_index = 'publish' === get_post_status( $post_id );
 		$should_index = apply_filters( 'wss_should_index_post', $should_index, $post );
@@ -524,7 +526,7 @@ class WSS_Post_Sync {
 			return false;
 		}
 
-		$index_name = wss_get_option( 'index_name', 'wp_content' );
+		$index_name = wss_get_option( 'index_name', 'woo_products' );
 		return $engine->delete_document( $index_name, (string) $post_id );
 	}
 

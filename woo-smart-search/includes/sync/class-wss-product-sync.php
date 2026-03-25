@@ -220,8 +220,10 @@ class WSS_Product_Sync {
 		// Create index if it does not exist.
 		$engine->create_index( $index_name );
 
-		// Configure index settings.
-		$this->configure_index_settings( $engine, $index_name );
+		// Configure index settings (skip if mixed mode already configured combined settings).
+		if ( ! get_option( 'wss_skip_index_configure' ) ) {
+			$this->configure_index_settings( $engine, $index_name );
+		}
 
 		// Count total products without loading them all into memory.
 		$count_args                  = $this->get_product_query_args();
