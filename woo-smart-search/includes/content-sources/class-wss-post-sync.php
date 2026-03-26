@@ -436,6 +436,35 @@ class WSS_Post_Sync {
 			)
 		);
 
+		// Dynamically add custom taxonomy keys as filterable (tax_genre, tax_topic, etc.).
+		$post_types          = self::get_configured_post_types();
+		$excluded_taxonomies = array( 'category', 'post_tag', 'product_cat', 'product_tag', 'post_format' );
+		$custom_tax_keys     = array();
+		foreach ( $post_types as $pt ) {
+			$pt_taxonomies = get_object_taxonomies( $pt, 'objects' );
+			foreach ( $pt_taxonomies as $tax_name => $tax_obj ) {
+				if ( in_array( $tax_name, $excluded_taxonomies, true ) || ! $tax_obj->public ) {
+					continue;
+				}
+				$key = 'tax_' . $tax_name;
+				if ( ! in_array( $key, $custom_tax_keys, true ) ) {
+					$custom_tax_keys[] = $key;
+					$filterable[]      = $key;
+				}
+			}
+		}
+
+		// Dynamically add custom field keys as filterable (cf_color, cf_size, etc.).
+		$configured_fields = wss_get_option( 'wp_custom_fields', array() );
+		$custom_cf_keys    = array();
+		if ( ! empty( $configured_fields ) && is_array( $configured_fields ) ) {
+			foreach ( $configured_fields as $cf_key ) {
+				$prefixed          = 'cf_' . $cf_key;
+				$custom_cf_keys[]  = $prefixed;
+				$filterable[]      = $prefixed;
+			}
+		}
+
 		$sortable = array(
 			'date_created',
 			'date_modified',
@@ -455,6 +484,9 @@ class WSS_Post_Sync {
 				'comment_count', 'content_source',
 			)
 		);
+
+		// Add custom taxonomy and custom field keys to displayed attributes.
+		$displayed = array_values( array_unique( array_merge( $displayed, $custom_tax_keys, $custom_cf_keys ) ) );
 
 		$engine->configure_index( $index_name, array(
 			'searchableAttributes'  => $searchable,

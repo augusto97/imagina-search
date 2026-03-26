@@ -85,6 +85,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 				// Common facets.
 				$facet_options = array(
 					'categories' => __( 'Categories', 'woo-smart-search' ),
+					'tags'       => __( 'Tags', 'woo-smart-search' ),
 				);
 
 				// WooCommerce-specific facets.
@@ -100,6 +101,35 @@ if ( ! defined( 'ABSPATH' ) ) {
 				if ( ! $is_ecommerce_tab || $is_mixed_tab ) {
 					$facet_options['post_type'] = __( 'Post Type', 'woo-smart-search' );
 					$facet_options['author']    = __( 'Author', 'woo-smart-search' );
+
+					// Custom taxonomies — discover from configured post types.
+					$wp_post_types = $settings['wp_post_types'] ?? array( 'post' );
+					$excluded_taxonomies = array( 'category', 'post_tag', 'product_cat', 'product_tag', 'post_format' );
+					$custom_tax_found = array();
+					foreach ( $wp_post_types as $pt ) {
+						$pt_taxonomies = get_object_taxonomies( $pt, 'objects' );
+						foreach ( $pt_taxonomies as $tax_name => $tax_obj ) {
+							if ( in_array( $tax_name, $excluded_taxonomies, true ) || ! $tax_obj->public ) {
+								continue;
+							}
+							$custom_tax_found[ $tax_name ] = $tax_obj->label;
+						}
+					}
+					foreach ( $custom_tax_found as $tax_name => $tax_label ) {
+						$facet_options[ 'tax_' . $tax_name ] = $tax_label;
+					}
+				}
+
+				// Custom fields configured for indexing.
+				$wp_custom_fields = $settings['wp_custom_fields'] ?? array();
+				if ( ! empty( $wp_custom_fields ) ) {
+					foreach ( $wp_custom_fields as $cf_key ) {
+						$facet_options[ 'cf_' . $cf_key ] = sprintf(
+							/* translators: %s: custom field key */
+							__( 'Field: %s', 'woo-smart-search' ),
+							$cf_key
+						);
+					}
 				}
 
 				$visible_facets = $settings['visible_facets'] ?? array( 'categories', 'price', 'stock', 'attributes' );

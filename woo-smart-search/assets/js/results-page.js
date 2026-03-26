@@ -587,6 +587,23 @@
 			} );
 		}
 
+		// Custom taxonomy facets (tax_genre, tax_topic, etc.).
+		var customLabels = cfg.customFacetLabels || {};
+		Object.keys( facets ).forEach( function ( facetKey ) {
+			if ( facetKey.indexOf( 'tax_' ) === 0 && isFacetVisible( facetKey ) && facets[ facetKey ] && Object.keys( facets[ facetKey ] ).length ) {
+				var label = customLabels[ facetKey ] || facetKey.replace( 'tax_', '' );
+				html += buildCheckboxFilter( facetKey, label, facets[ facetKey ] );
+			}
+		} );
+
+		// Custom field facets (cf_color, cf_size, etc.).
+		Object.keys( facets ).forEach( function ( facetKey ) {
+			if ( facetKey.indexOf( 'cf_' ) === 0 && isFacetVisible( facetKey ) && facets[ facetKey ] && Object.keys( facets[ facetKey ] ).length ) {
+				var label = customLabels[ facetKey ] || facetKey.replace( 'cf_', '' );
+				html += buildCheckboxFilter( facetKey, label, facets[ facetKey ] );
+			}
+		} );
+
 		dom.sidebar.innerHTML = html;
 
 		// Re-bind close button.
@@ -731,10 +748,14 @@
 		Object.keys( state.filters ).forEach( function ( key ) {
 			state.filters[ key ].forEach( function ( val ) {
 				hasFilters = true;
-				// For attribute filters, show label prefix (e.g., "Color: Rojo").
+				// For attribute/taxonomy/field filters, show label prefix.
 				var displayLabel = escapeHtml( val );
+				var customLabels = cfg.customFacetLabels || {};
 				if ( key.indexOf( 'attributes.' ) === 0 ) {
 					displayLabel = escapeHtml( key.replace( 'attributes.', '' ) ) + ': ' + displayLabel;
+				} else if ( key.indexOf( 'tax_' ) === 0 || key.indexOf( 'cf_' ) === 0 ) {
+					var filterLabel = customLabels[ key ] || key.replace( /^(tax_|cf_)/, '' );
+					displayLabel = escapeHtml( filterLabel ) + ': ' + displayLabel;
 				}
 				tags.push(
 					'<span class="wss-active-filter-tag" data-filter="' + escapeHtml( key ) + '" data-value="' + escapeHtml( val ) + '">' +

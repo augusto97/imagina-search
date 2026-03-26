@@ -375,6 +375,37 @@ class WSS_Admin_Ajax {
 			array( 'categories', 'category_ids', 'category_slugs', 'tags', 'post_type', 'author', 'content_source' )
 		);
 
+		// Dynamically add custom taxonomy keys as filterable (tax_genre, etc.).
+		$wp_post_types       = wss_get_option( 'wp_post_types', array( 'post' ) );
+		$excluded_taxonomies = array( 'category', 'post_tag', 'product_cat', 'product_tag', 'post_format' );
+		$custom_tax_keys     = array();
+		if ( ! empty( $wp_post_types ) && is_array( $wp_post_types ) ) {
+			foreach ( $wp_post_types as $pt ) {
+				$pt_taxonomies = get_object_taxonomies( $pt, 'objects' );
+				foreach ( $pt_taxonomies as $tax_name => $tax_obj ) {
+					if ( in_array( $tax_name, $excluded_taxonomies, true ) || ! $tax_obj->public ) {
+						continue;
+					}
+					$key = 'tax_' . $tax_name;
+					if ( ! in_array( $key, $custom_tax_keys, true ) ) {
+						$custom_tax_keys[]  = $key;
+						$post_filterable[]  = $key;
+					}
+				}
+			}
+		}
+
+		// Dynamically add custom field keys as filterable (cf_color, etc.).
+		$configured_fields = wss_get_option( 'wp_custom_fields', array() );
+		$custom_cf_keys    = array();
+		if ( ! empty( $configured_fields ) && is_array( $configured_fields ) ) {
+			foreach ( $configured_fields as $cf_key ) {
+				$prefixed         = 'cf_' . $cf_key;
+				$custom_cf_keys[] = $prefixed;
+				$post_filterable[] = $prefixed;
+			}
+		}
+
 		$filterable = array_values( array_unique( array_merge( $product_filterable, $post_filterable ) ) );
 
 		// Sortable: merge both sets.
@@ -412,7 +443,7 @@ class WSS_Admin_Ajax {
 			)
 		);
 
-		$displayed = array_values( array_unique( array_merge( $product_displayed, $post_displayed ) ) );
+		$displayed = array_values( array_unique( array_merge( $product_displayed, $post_displayed, $custom_tax_keys, $custom_cf_keys ) ) );
 
 		// Apply combined settings.
 		$settings = apply_filters(
