@@ -51,11 +51,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 		</tr>
 		<tr>
 			<th scope="row">
-				<label for="wss-api-key"><?php esc_html_e( 'API Key (Master)', 'woo-smart-search' ); ?></label>
+				<label for="wss-api-key"><?php esc_html_e( 'Admin API Key', 'woo-smart-search' ); ?></label>
 			</th>
 			<td>
 				<input type="password" id="wss-api-key" name="api_key" value="" class="regular-text" placeholder="<?php echo ! empty( $settings['api_key'] ) ? '********' : ''; ?>" />
-				<p class="description"><?php esc_html_e( 'Master API key for admin operations (indexing, settings). Leave empty to keep current.', 'woo-smart-search' ); ?></p>
+				<p class="description">
+					<?php esc_html_e( 'Required for indexing, configuration, and statistics. Leave empty to keep current key.', 'woo-smart-search' ); ?>
+				</p>
+				<p class="description" style="margin-top: 4px;">
+					<strong><?php esc_html_e( 'Which key to use:', 'woo-smart-search' ); ?></strong>
+					<?php esc_html_e( 'Use your Master Key or the "Default Admin API Key" from Meilisearch Cloud. Do NOT use the "Default Search API Key" here — it only has search permissions and cannot index or configure.', 'woo-smart-search' ); ?>
+				</p>
 			</td>
 		</tr>
 		<tr>
@@ -65,11 +71,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<td>
 				<input type="text" id="wss-search-api-key" name="search_api_key" value="<?php echo esc_attr( $settings['search_api_key'] ?? '' ); ?>" class="regular-text" />
 				<p class="description">
-					<?php esc_html_e( 'Read-only search key for ultra-fast direct search. When set, the browser queries Meilisearch directly (bypassing WordPress) for maximum speed. Leave empty to use the WordPress proxy mode.', 'woo-smart-search' ); ?>
+					<?php esc_html_e( 'Optional. Enables ultra-fast direct search from the browser (bypasses WordPress). Leave empty to use WordPress proxy mode.', 'woo-smart-search' ); ?>
 				</p>
 				<p class="description" style="margin-top: 4px;">
-					<strong><?php esc_html_e( 'How to get it:', 'woo-smart-search' ); ?></strong>
-					<?php esc_html_e( 'In Meilisearch Cloud, go to Settings > API Keys and copy the "Default Search API Key". For self-hosted, use the key with only "search" action permission.', 'woo-smart-search' ); ?>
+					<strong><?php esc_html_e( 'Which key to use:', 'woo-smart-search' ); ?></strong>
+					<?php esc_html_e( 'Use the "Default Search API Key" from Meilisearch Cloud. This is a read-only key safe to expose in the browser.', 'woo-smart-search' ); ?>
 				</p>
 			</td>
 		</tr>
