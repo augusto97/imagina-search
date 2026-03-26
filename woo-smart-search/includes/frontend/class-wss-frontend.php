@@ -125,6 +125,41 @@ class WSS_Frontend {
 		$is_ecom        = wss_is_ecommerce_mode();
 		$is_mixed       = 'mixed' === $content_source;
 
+		// Discover custom taxonomy and custom field facet keys.
+		$custom_tax_facets = array();
+		$custom_cf_facets  = array();
+		$custom_tax_labels = array(); // key => label for frontend rendering.
+		$custom_cf_labels  = array();
+
+		if ( ! $is_ecom || $is_mixed ) {
+			$wp_post_types       = $settings['wp_post_types'] ?? array( 'post' );
+			$excluded_taxonomies = array( 'category', 'post_tag', 'product_cat', 'product_tag', 'post_format' );
+			if ( ! empty( $wp_post_types ) && is_array( $wp_post_types ) ) {
+				foreach ( $wp_post_types as $pt ) {
+					$pt_taxonomies = get_object_taxonomies( $pt, 'objects' );
+					foreach ( $pt_taxonomies as $tax_name => $tax_obj ) {
+						if ( in_array( $tax_name, $excluded_taxonomies, true ) || ! $tax_obj->public ) {
+							continue;
+						}
+						$key = 'tax_' . $tax_name;
+						if ( ! isset( $custom_tax_labels[ $key ] ) ) {
+							$custom_tax_facets[]       = $key;
+							$custom_tax_labels[ $key ] = $tax_obj->label;
+						}
+					}
+				}
+			}
+
+			$wp_custom_fields = $settings['wp_custom_fields'] ?? array();
+			if ( ! empty( $wp_custom_fields ) && is_array( $wp_custom_fields ) ) {
+				foreach ( $wp_custom_fields as $cf_key ) {
+					$prefixed                   = 'cf_' . $cf_key;
+					$custom_cf_facets[]         = $prefixed;
+					$custom_cf_labels[ $prefixed ] = $cf_key;
+				}
+			}
+		}
+
 		if ( $is_ecom || $is_mixed ) {
 			$default_facets = array( 'categories', 'tags', 'stock_status', 'on_sale', 'brand', 'rating' );
 			if ( class_exists( 'WSS_REST_API' ) ) {
@@ -134,11 +169,11 @@ class WSS_Frontend {
 				}
 			}
 			if ( $is_mixed ) {
-				$default_facets = array_merge( $default_facets, array( 'post_type', 'author' ) );
+				$default_facets = array_merge( $default_facets, array( 'post_type', 'author' ), $custom_tax_facets, $custom_cf_facets );
 			}
 		} else {
 			// WordPress content mode — no WC-specific facets.
-			$default_facets = array( 'categories', 'tags', 'post_type', 'author' );
+			$default_facets = array_merge( array( 'categories', 'tags', 'post_type', 'author' ), $custom_tax_facets, $custom_cf_facets );
 		}
 
 		wp_localize_script(
@@ -208,6 +243,7 @@ class WSS_Frontend {
 				( $is_mixed ? array( 'categories', 'tags', 'price', 'stock', 'attributes', 'post_type', 'author' ) :
 				array( 'categories', 'tags', 'post_type', 'author' ) )
 			) ),
+				'customFacetLabels' => array_merge( $custom_tax_labels, $custom_cf_labels ),
 			)
 		);
 

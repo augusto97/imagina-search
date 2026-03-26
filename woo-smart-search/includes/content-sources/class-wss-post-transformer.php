@@ -42,9 +42,10 @@ class WSS_Post_Transformer {
 		$tag_slugs      = array();
 
 		// Get all taxonomies for this post type.
-		$taxonomies      = get_object_taxonomies( $post->post_type, 'objects' );
-		$all_terms_text  = '';
-		$custom_taxonomies = array();
+		$taxonomies          = get_object_taxonomies( $post->post_type, 'objects' );
+		$all_terms_text      = '';
+		$custom_taxonomies   = array();
+		$custom_tax_by_slug  = array(); // tax_name => term_names for flat filtering keys.
 
 		foreach ( $taxonomies as $tax_name => $tax_obj ) {
 			$terms = get_the_terms( $post_id, $tax_name );
@@ -75,6 +76,7 @@ class WSS_Post_Transformer {
 			} else {
 				// Store custom taxonomies for filtering.
 				$custom_taxonomies[ $tax_obj->label ] = $term_names;
+				$custom_tax_by_slug[ $tax_name ]      = $term_names;
 			}
 
 			$all_terms_text .= implode( ' ', $term_names ) . ' ';
@@ -120,6 +122,18 @@ class WSS_Post_Transformer {
 			'custom_fields'    => $custom_fields,
 			'content_source'   => 'wordpress',
 		);
+
+		// Flatten custom taxonomies to top-level keys for Meilisearch filtering.
+		// e.g. tax_genre: ["Fiction", "Drama"] so they become filterable attributes.
+		foreach ( $custom_tax_by_slug as $tax_name => $term_names ) {
+			$document[ 'tax_' . $tax_name ] = $term_names;
+		}
+
+		// Flatten custom fields to top-level keys for Meilisearch filtering.
+		// They already use cf_ prefix inside the custom_fields array.
+		foreach ( $custom_fields as $cf_key => $cf_value ) {
+			$document[ $cf_key ] = $cf_value;
+		}
 
 		/**
 		 * Filter the post document before indexing.
