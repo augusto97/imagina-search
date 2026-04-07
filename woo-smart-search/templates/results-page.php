@@ -12,6 +12,9 @@
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
+
+$wss_settings = get_option( 'wss_settings', array() );
+$i18n         = WSS_Frontend::get_frontend_i18n( $wss_settings );
 ?>
 
 <style>
@@ -33,7 +36,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 	<!-- Mobile filter toggle -->
 	<button class="wss-mobile-filter-toggle" type="button">
-		<?php esc_html_e( 'Filters', 'woo-smart-search' ); ?>
+		<?php echo esc_html( $i18n['filters'] ); ?>
 	</button>
 
 	<!-- Mobile overlay -->
@@ -52,13 +55,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 		<div class="wss-results-header">
 			<h1>
-				<?php
-				printf(
-					/* translators: %s: search query */
-					esc_html__( 'Results for "%s"', 'woo-smart-search' ),
-					esc_html( $query )
-				);
-				?>
+				<?php echo esc_html( sprintf( $i18n['resultsFor'], $query ) ); ?>
 			</h1>
 			<span class="wss-results-count"></span>
 		</div>
@@ -76,18 +73,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 				$show_wc_sorts   = $is_ecommerce || 'mixed' === $content_source;
 			?>
 				<select id="wss-sort" class="wss-sort-select">
-					<option value=""><?php esc_html_e( 'Relevance', 'woo-smart-search' ); ?></option>
+					<option value=""><?php echo esc_html( $i18n['sortRelevance'] ); ?></option>
 					<?php if ( $show_wc_sorts ) : ?>
-					<option value="price:asc"><?php esc_html_e( 'Price: Low to High', 'woo-smart-search' ); ?></option>
-					<option value="price:desc"><?php esc_html_e( 'Price: High to Low', 'woo-smart-search' ); ?></option>
+					<option value="price:asc"><?php echo esc_html( $i18n['sortPriceLow'] ); ?></option>
+					<option value="price:desc"><?php echo esc_html( $i18n['sortPriceHigh'] ); ?></option>
 					<?php endif; ?>
-					<option value="date_created:desc"><?php esc_html_e( 'Newest', 'woo-smart-search' ); ?></option>
+					<option value="date_created:desc"><?php echo esc_html( $i18n['sortNewest'] ); ?></option>
 					<?php if ( $show_wc_sorts ) : ?>
-					<option value="total_sales:desc"><?php esc_html_e( 'Most Popular', 'woo-smart-search' ); ?></option>
-					<option value="rating:desc"><?php esc_html_e( 'Best Rated', 'woo-smart-search' ); ?></option>
+					<option value="total_sales:desc"><?php echo esc_html( $i18n['sortPopular'] ); ?></option>
+					<option value="rating:desc"><?php echo esc_html( $i18n['sortRating'] ); ?></option>
 					<?php endif; ?>
-					<option value="name:asc"><?php esc_html_e( 'Name: A–Z', 'woo-smart-search' ); ?></option>
-					<option value="name:desc"><?php esc_html_e( 'Name: Z–A', 'woo-smart-search' ); ?></option>
+					<option value="name:asc"><?php echo esc_html( $i18n['sortNameAZ'] ); ?></option>
+					<option value="name:desc"><?php echo esc_html( $i18n['sortNameZA'] ); ?></option>
 				</select>
 			</div>
 			<div class="wss-view-toggle">
@@ -106,7 +103,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 		<!-- No results -->
 		<div class="wss-no-results" style="display:none;">
-			<p><?php esc_html_e( 'No results found matching your search.', 'woo-smart-search' ); ?></p>
+			<p><?php echo esc_html( $i18n['noResultsPage'] ); ?></p>
 		</div>
 
 		<!-- Pagination -->
