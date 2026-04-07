@@ -49,8 +49,7 @@
 		}
 
 		dom.page           = page;
-		// Reveal the page now that CSS layout is applied (prevents FOUC).
-		page.style.transition = 'opacity .15s ease-out';
+		// Reveal the page (inline critical CSS already applied the layout).
 		page.classList.add( 'wss-ready' );
 		dom.grid           = page.querySelector( '.wss-products-grid' );
 		dom.sidebar        = page.querySelector( '.wss-filters-sidebar' );
