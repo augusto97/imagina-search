@@ -134,6 +134,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 				</p>
 			</td>
 		</tr>
+		<tr>
+			<th scope="row"><?php esc_html_e( 'Search Cache', 'woo-smart-search' ); ?></th>
+			<td>
+				<p class="description" style="margin-bottom: 8px;">
+					<?php esc_html_e( 'Frequent search queries are cached for up to 5 minutes to provide near-instant responses. Cache is automatically cleared when products are updated.', 'woo-smart-search' ); ?>
+				</p>
+				<span id="wss-cache-stats" style="color: #666; font-style: italic;"></span>
+				<button type="button" id="wss-purge-cache" class="button button-secondary" style="margin-left: 10px;">
+					<?php esc_html_e( 'Purge Cache', 'woo-smart-search' ); ?>
+				</button>
+				<span id="wss-cache-status" style="margin-left: 8px;"></span>
+			</td>
+		</tr>
 	</table>
 	</div><!-- /#wss-local-settings -->
 
@@ -206,10 +219,52 @@ if ( ! defined( 'ABSPATH' ) ) {
 			if ( engine === 'local' ) {
 				$( '#wss-meilisearch-settings' ).hide();
 				$( '#wss-local-settings' ).show();
+				wssLoadCacheStats();
 			} else {
 				$( '#wss-meilisearch-settings' ).show();
 				$( '#wss-local-settings' ).hide();
 			}
+		} );
+
+		// Load cache stats on page load if local engine is active.
+		function wssLoadCacheStats() {
+			$.post( wssAdmin.ajaxUrl, {
+				action: 'wss_get_cache_stats',
+				nonce: wssAdmin.nonce
+			}, function( response ) {
+				if ( response.success && response.data ) {
+					$( '#wss-cache-stats' ).text(
+						response.data.entries + ' <?php echo esc_js( __( 'cached queries', 'woo-smart-search' ) ); ?>' +
+						' (' + response.data.size + ')'
+					);
+				}
+			} );
+		}
+
+		if ( $( '#wss-search-engine' ).val() === 'local' ) {
+			wssLoadCacheStats();
+		}
+
+		// Purge cache button.
+		$( '#wss-purge-cache' ).on( 'click', function() {
+			var $btn    = $( this );
+			var $status = $( '#wss-cache-status' );
+			$btn.prop( 'disabled', true );
+			$status.text( '<?php echo esc_js( __( 'Purging...', 'woo-smart-search' ) ); ?>' );
+
+			$.post( wssAdmin.ajaxUrl, {
+				action: 'wss_purge_search_cache',
+				nonce: wssAdmin.nonce
+			}, function( response ) {
+				$btn.prop( 'disabled', false );
+				if ( response.success ) {
+					$status.text( '<?php echo esc_js( __( 'Cache purged!', 'woo-smart-search' ) ); ?>' ).css( 'color', '#46b450' );
+					wssLoadCacheStats();
+				} else {
+					$status.text( '<?php echo esc_js( __( 'Error purging cache.', 'woo-smart-search' ) ); ?>' ).css( 'color', '#dc3232' );
+				}
+				setTimeout( function() { $status.text( '' ); }, 3000 );
+			} );
 		} );
 	} );
 </script>

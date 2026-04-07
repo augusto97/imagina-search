@@ -201,15 +201,24 @@ if ( ! empty( $facets_str ) ) {
 
 $search_options['highlight_fields'] = array( 'name' );
 
-// Execute search.
+// Execute search (cache is handled inside the engine).
 $result = $engine->search( $index_name, $query, $search_options );
 
 // Format response to match Meilisearch format (for frontend compatibility).
-echo wp_json_encode( array(
+$response = array(
 	'hits'               => $result['hits'],
 	'query'              => $result['query'],
 	'estimatedTotalHits' => $result['estimatedTotalHits'],
 	'facetDistribution'  => ! empty( $result['facetDistribution'] ) ? $result['facetDistribution'] : new stdClass(),
 	'processingTimeMs'   => $result['processingTimeMs'],
-) );
+);
+
+// Add cache hit indicator for debugging (optional header).
+if ( ! empty( $result['_cacheHit'] ) ) {
+	header( 'X-WSS-Cache: HIT' );
+} else {
+	header( 'X-WSS-Cache: MISS' );
+}
+
+echo wp_json_encode( $response );
 exit;

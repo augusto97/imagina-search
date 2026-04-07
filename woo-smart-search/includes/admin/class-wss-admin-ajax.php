@@ -29,6 +29,8 @@ class WSS_Admin_Ajax {
 		add_action( 'wp_ajax_wss_get_index_stats', array( $this, 'get_index_stats' ) );
 		add_action( 'wp_ajax_wss_get_analytics', array( $this, 'get_analytics' ) );
 		add_action( 'wp_ajax_wss_get_connection_status', array( $this, 'get_connection_status' ) );
+		add_action( 'wp_ajax_wss_purge_search_cache', array( $this, 'purge_search_cache' ) );
+		add_action( 'wp_ajax_wss_get_cache_stats', array( $this, 'get_cache_stats' ) );
 	}
 
 	/**
@@ -789,5 +791,31 @@ class WSS_Admin_Ajax {
 			'restricted_key' => ! empty( $result['restricted_key'] ),
 			'engine_type'    => 'meilisearch',
 		) );
+	}
+
+	/**
+	 * Purge the local search cache.
+	 */
+	public function purge_search_cache() {
+		$this->verify_request();
+
+		$engine = WSS_Local_Engine::get_instance();
+		$engine->invalidate_cache();
+
+		wss_log( __( 'Search cache purged manually.', 'woo-smart-search' ), 'info' );
+
+		wp_send_json_success( array( 'message' => __( 'Search cache purged.', 'woo-smart-search' ) ) );
+	}
+
+	/**
+	 * Get local search cache statistics.
+	 */
+	public function get_cache_stats() {
+		$this->verify_request();
+
+		$engine = WSS_Local_Engine::get_instance();
+		$stats  = $engine->get_cache_stats();
+
+		wp_send_json_success( $stats );
 	}
 }

@@ -47,6 +47,18 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	private $synonyms = array();
 
 	/**
+	 * In-memory result cache for the current request.
+	 *
+	 * @var array
+	 */
+	private $memory_cache = array();
+
+	/**
+	 * Default cache TTL in seconds (5 minutes).
+	 */
+	const CACHE_TTL = 300;
+
+	/**
 	 * Get the singleton instance.
 	 *
 	 * @return WSS_Local_Engine
@@ -180,6 +192,9 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 		$docs_table     = $wpdb->prefix . 'wss_index_documents';
 		$terms_table    = $wpdb->prefix . 'wss_index_terms';
 		$postings_table = $wpdb->prefix . 'wss_index_postings';
+
+		// Invalidate search cache when documents change.
+		$this->invalidate_cache( $index_name );
 
 		$settings    = isset( $this->index_settings[ $index_name ] ) ? $this->index_settings[ $index_name ] : array();
 		$searchable  = isset( $settings['searchableAttributes'] ) ? $settings['searchableAttributes'] : array( 'name', 'description' );
@@ -339,6 +354,8 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 		$wpdb->delete( $wpdb->prefix . 'wss_index_postings', array( 'doc_id' => $doc_id, 'index_name' => $index_name ), array( '%d', '%s' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$wpdb->delete( $wpdb->prefix . 'wss_index_documents', array( 'doc_id' => $doc_id, 'index_name' => $index_name ), array( '%d', '%s' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 
+		$this->invalidate_cache( $index_name );
+
 		return true;
 	}
 
@@ -354,11 +371,15 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 		$wpdb->delete( $wpdb->prefix . 'wss_index_postings', array( 'index_name' => $index_name ), array( '%s' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$wpdb->delete( $wpdb->prefix . 'wss_index_documents', array( 'index_name' => $index_name ), array( '%s' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 
+		$this->invalidate_cache( $index_name );
+
 		return true;
 	}
 
 	/**
 	 * Search documents using the inverted index with TF-IDF scoring.
+	 *
+	 * Results are cached in a dedicated MySQL table for ultra-fast repeated queries.
 	 *
 	 * @param string $index_name Index name.
 	 * @param string $query      Search query.
@@ -369,6 +390,27 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 		global $wpdb;
 
 		$start_time = microtime( true );
+
+		// Build a cache key from the query + options that affect results.
+		$cache_key = $this->build_cache_key( $index_name, $query, $options );
+
+		// Check in-memory cache first (same request).
+		if ( isset( $this->memory_cache[ $cache_key ] ) ) {
+			$cached = $this->memory_cache[ $cache_key ];
+			$cached['processingTimeMs'] = 0;
+			$cached['_cacheHit']        = true;
+			return $cached;
+		}
+
+		// Check persistent cache (MySQL table).
+		$cached = $this->get_cached_result( $cache_key );
+		if ( null !== $cached ) {
+			$this->memory_cache[ $cache_key ] = $cached;
+			$elapsed = ( microtime( true ) - $start_time ) * 1000;
+			$cached['processingTimeMs'] = (int) $elapsed;
+			$cached['_cacheHit']        = true;
+			return $cached;
+		}
 
 		$limit  = isset( $options['limit'] ) ? (int) $options['limit'] : 12;
 		$offset = isset( $options['offset'] ) ? (int) $options['offset'] : 0;
@@ -524,13 +566,19 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 
 		$elapsed = ( microtime( true ) - $start_time ) * 1000;
 
-		return array(
+		$result = array(
 			'hits'               => $hits,
 			'query'              => $query,
 			'estimatedTotalHits' => $total_hits,
 			'facetDistribution'  => $facet_distribution,
 			'processingTimeMs'   => (int) $elapsed,
 		);
+
+		// Store in both caches.
+		$this->memory_cache[ $cache_key ] = $result;
+		$this->store_cached_result( $cache_key, $result );
+
+		return $result;
 	}
 
 	/**
@@ -887,6 +935,181 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 		);
 	}
 
+	// ---- Cache helpers ----
+
+	/**
+	 * Build a deterministic cache key from query + options.
+	 *
+	 * @param string $index_name Index name.
+	 * @param string $query      Search query.
+	 * @param array  $options    Search options.
+	 * @return string MD5 hash key.
+	 */
+	private function build_cache_key( string $index_name, string $query, array $options ): string {
+		$key_parts = array(
+			'idx'     => $index_name,
+			'q'       => mb_strtolower( trim( $query ) ),
+			'limit'   => $options['limit'] ?? 12,
+			'offset'  => $options['offset'] ?? 0,
+			'filters' => $options['filters'] ?? '',
+			'sort'    => $options['sort'] ?? '',
+			'facets'  => $options['facets'] ?? array(),
+		);
+		return md5( wp_json_encode( $key_parts ) );
+	}
+
+	/**
+	 * Get a cached search result from the persistent cache table.
+	 *
+	 * @param string $cache_key Cache key.
+	 * @return array|null Cached result or null if not found/expired.
+	 */
+	private function get_cached_result( string $cache_key ) {
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'wss_search_cache';
+
+		// Check if table exists (avoid errors before activation).
+		if ( ! $this->cache_table_exists() ) {
+			return null;
+		}
+
+		$ttl = (int) apply_filters( 'wss_search_cache_ttl', self::CACHE_TTL );
+
+		$row = $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"SELECT result_data FROM {$table} WHERE cache_key = %s AND created_at >= DATE_SUB( NOW(), INTERVAL %d SECOND ) LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$cache_key,
+				$ttl
+			)
+		);
+
+		if ( null === $row ) {
+			return null;
+		}
+
+		$result = json_decode( $row, true );
+		return is_array( $result ) ? $result : null;
+	}
+
+	/**
+	 * Store a search result in the persistent cache.
+	 *
+	 * @param string $cache_key Cache key.
+	 * @param array  $result    Search result to cache.
+	 */
+	private function store_cached_result( string $cache_key, array $result ) {
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'wss_search_cache';
+
+		if ( ! $this->cache_table_exists() ) {
+			return;
+		}
+
+		// Remove timing data from cached result (will be recalculated on read).
+		$to_cache = $result;
+		unset( $to_cache['processingTimeMs'], $to_cache['_cacheHit'] );
+
+		// Use REPLACE to upsert (handles duplicate keys).
+		$wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"REPLACE INTO {$table} (cache_key, result_data, created_at) VALUES (%s, %s, NOW())", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$cache_key,
+				wp_json_encode( $to_cache, JSON_UNESCAPED_UNICODE )
+			)
+		);
+	}
+
+	/**
+	 * Invalidate all cached results for an index.
+	 *
+	 * Called when documents are indexed, updated, or deleted.
+	 *
+	 * @param string $index_name Index name (unused, clears all for simplicity).
+	 */
+	public function invalidate_cache( string $index_name = '' ) {
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'wss_search_cache';
+
+		if ( ! $this->cache_table_exists() ) {
+			return;
+		}
+
+		$wpdb->query( "TRUNCATE TABLE {$table}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$this->memory_cache = array();
+	}
+
+	/**
+	 * Purge expired entries from the cache table.
+	 *
+	 * Can be called periodically to keep the table small.
+	 */
+	public function purge_expired_cache() {
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'wss_search_cache';
+
+		if ( ! $this->cache_table_exists() ) {
+			return;
+		}
+
+		$ttl = (int) apply_filters( 'wss_search_cache_ttl', self::CACHE_TTL );
+
+		$wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"DELETE FROM {$table} WHERE created_at < DATE_SUB( NOW(), INTERVAL %d SECOND )", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$ttl
+			)
+		);
+	}
+
+	/**
+	 * Get cache statistics.
+	 *
+	 * @return array
+	 */
+	public function get_cache_stats(): array {
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'wss_search_cache';
+
+		if ( ! $this->cache_table_exists() ) {
+			return array( 'entries' => 0, 'size' => '0 KB' );
+		}
+
+		$count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$size  = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"SELECT ROUND( SUM( LENGTH( result_data ) ) / 1024, 1 ) FROM {$table} WHERE 1 = %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				1
+			)
+		);
+
+		return array(
+			'entries' => $count,
+			'size'    => $size . ' KB',
+		);
+	}
+
+	/**
+	 * Check if the cache table exists.
+	 *
+	 * @return bool
+	 */
+	private function cache_table_exists(): bool {
+		global $wpdb;
+		static $exists = null;
+
+		if ( null === $exists ) {
+			$table  = $wpdb->prefix . 'wss_search_cache';
+			$exists = (bool) $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		}
+
+		return $exists;
+	}
+
 	/**
 	 * Create the local index database tables.
 	 *
@@ -925,6 +1148,14 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 			KEY idx_term_index (term_id, index_name),
 			KEY idx_doc_index (doc_id, index_name),
 			KEY idx_index_name (index_name)
+		) {$charset_collate};
+
+		CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wss_search_cache (
+			cache_key char(32) NOT NULL,
+			result_data longtext NOT NULL,
+			created_at datetime NOT NULL,
+			PRIMARY KEY (cache_key),
+			KEY idx_created_at (created_at)
 		) {$charset_collate};";
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
