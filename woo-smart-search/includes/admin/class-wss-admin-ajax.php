@@ -197,12 +197,23 @@ class WSS_Admin_Ajax {
 		// Translations — sanitize each string value, remove empties.
 		if ( 'translations' === $submitted_tab && isset( $_POST['translations'] ) && is_array( $_POST['translations'] ) ) {
 			$raw = wp_unslash( $_POST['translations'] );
+			// Allowed translation keys (camelCase).
+			$allowed_keys = array(
+				'placeholder', 'noResults', 'viewAll', 'viewAllResults', 'error',
+				'startTyping', 'products', 'results', 'content', 'categories',
+				'popularSearches', 'suggestions', 'inStock', 'outOfStock', 'onBackorder',
+				'clearSearch', 'close', 'searchOurStore', 'collections', 'brands',
+				'relatedBrands', 'relatedCategories', 'filters', 'resultsFor',
+				'noResultsPage', 'sortRelevance', 'sortPriceLow', 'sortPriceHigh',
+				'sortNewest', 'sortPopular', 'sortRating', 'sortNameAZ', 'sortNameZA',
+			);
 			$clean = array();
 			foreach ( $raw as $key => $value ) {
-				$k = sanitize_key( $key );
-				$v = sanitize_text_field( $value );
-				if ( '' !== $v ) {
-					$clean[ $k ] = $v;
+				if ( in_array( $key, $allowed_keys, true ) ) {
+					$v = sanitize_text_field( $value );
+					if ( '' !== $v ) {
+						$clean[ $key ] = $v;
+					}
 				}
 			}
 			$settings['translations'] = $clean;
