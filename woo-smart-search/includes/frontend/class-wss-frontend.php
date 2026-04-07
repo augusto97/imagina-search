@@ -81,15 +81,10 @@ class WSS_Frontend {
 	 * Enqueue frontend assets.
 	 */
 	public function enqueue_assets() {
-		$mode      = wss_get_option( 'integration_mode', 'replace' );
-		$is_search = is_search();
-		if ( wss_is_ecommerce_mode() ) {
-			$is_search = $is_search || is_shop() || is_product_category() || is_product_tag();
-		}
-
-		if ( 'replace' !== $mode && ! $is_search && ! $this->has_shortcode_or_widget() ) {
-			return;
-		}
+		// Always load assets — lightweight CSS/JS that must be available for
+		// shortcodes, widgets, and search-replace mode regardless of the page.
+		// Conditional loading caused shortcodes on non-search pages to render
+		// without styles because wp_head had already been output.
 
 		wp_enqueue_style(
 			'wss-search-widget',
