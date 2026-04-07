@@ -506,6 +506,9 @@
 				'</div>';
 		}
 
+		// Short description (visible in list view via CSS).
+		var descHtml = hit.description ? '<div class="wss-product-card-description">' + escapeHtml( hit.description ).substring( 0, 120 ) + '</div>' : '';
+
 		return '<div class="wss-product-card" data-id="' + ( hit.id || '' ) + '">' +
 			'<a href="' + escapeHtml( permalink ) + '">' +
 			'<div class="wss-product-card-image">' +
@@ -515,6 +518,7 @@
 			'<div class="wss-product-card-body">' +
 				( category ? '<div class="wss-product-card-category">' + category + '</div>' : '' ) +
 				'<div class="wss-product-card-name">' + name + '</div>' +
+				descHtml +
 				'<div class="wss-product-card-price">' + priceHtml + '</div>' +
 				stockHtml +
 				ratingHtml +
