@@ -63,7 +63,7 @@ $query = substr( strip_tags( $query ), 0, 200 );
 
 // Load plugin constants and the local engine.
 if ( ! defined( 'WSS_VERSION' ) ) {
-	define( 'WSS_VERSION', '4.1.0' );
+	define( 'WSS_VERSION', '4.2.0' );
 }
 if ( ! defined( 'WSS_PLUGIN_DIR' ) ) {
 	define( 'WSS_PLUGIN_DIR', dirname( __FILE__ ) . '/' );
