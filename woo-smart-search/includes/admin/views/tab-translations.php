@@ -14,11 +14,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 $t = $settings['translations'] ?? array();
 
-/**
- * Helper to get a translation value or empty string (shows placeholder).
- */
-function wss_tr( $translations, $key ) {
-	return isset( $translations[ $key ] ) ? $translations[ $key ] : '';
+if ( ! function_exists( 'wss_tr' ) ) {
+	/**
+	 * Helper to get a translation value or empty string (shows placeholder).
+	 */
+	function wss_tr( $translations, $key ) {
+		return isset( $translations[ $key ] ) ? $translations[ $key ] : '';
+	}
 }
 ?>
 <form id="wss-translations-form" class="wss-form">
@@ -184,6 +186,9 @@ function wss_tr( $translations, $key ) {
 	</table>
 
 	<p class="submit">
-		<button type="submit" class="button button-primary"><?php esc_html_e( 'Save Translations', 'woo-smart-search' ); ?></button>
+		<button type="submit" class="button button-primary wss-save-settings">
+			<?php esc_html_e( 'Save Translations', 'woo-smart-search' ); ?>
+		</button>
+		<span class="wss-status-message"></span>
 	</p>
 </form>
