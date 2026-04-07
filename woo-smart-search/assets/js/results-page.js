@@ -389,6 +389,7 @@
 		if ( dom.noResults ) dom.noResults.style.display = 'none';
 
 		dom.grid.classList.toggle( 'wss-view-list', state.view === 'list' );
+		dom.grid.classList.toggle( 'wss-mixed-layout', !!cfg.isMixed );
 
 		var html = '';
 
@@ -407,7 +408,7 @@
 
 			if ( productHits.length ) {
 				html += '<div class="wss-mixed-section">';
-				html += '<h3 class="wss-mixed-section-title">' + escapeHtml( cfg.i18n && cfg.i18n.products ? cfg.i18n.products : 'Products' ) + ' <span class="wss-mixed-section-count">(' + productHits.length + ')</span></h3>';
+				html += '<h3 class="wss-mixed-section-title">Products <span class="wss-mixed-section-count">(' + productHits.length + ')</span></h3>';
 				html += '<div class="wss-mixed-section-grid wss-products-grid' + ( state.view === 'list' ? ' wss-view-list' : '' ) + '">';
 				productHits.forEach( function ( hit ) {
 					html += buildProductCard( hit );

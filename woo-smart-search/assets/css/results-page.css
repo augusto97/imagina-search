@@ -743,6 +743,10 @@
 
 /* ===== Mixed Mode Sections ===== */
 
+.wss-products-grid.wss-mixed-layout {
+	display: block;
+}
+
 .wss-mixed-section {
 	margin-bottom: 32px;
 }
