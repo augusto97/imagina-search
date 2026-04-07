@@ -289,6 +289,7 @@ class WSS_Admin_Ajax {
 			$engine     = wss_get_engine();
 			$index_name = wss_get_option( 'index_name', 'woo_products' );
 
+
 			if ( $engine ) {
 				$engine->create_index( $index_name );
 				$this->configure_mixed_index( $engine, $index_name );
@@ -315,6 +316,22 @@ class WSS_Admin_Ajax {
 				$total += $r['total'] ?? 0;
 				$messages[] = $r['message'] ?? '';
 			}
+
+			// Override progress with combined total so the progress bar
+			// reflects ALL content, not just the last sync that overwrote it.
+			update_option(
+				'wss_sync_progress',
+				array(
+					'total'     => $total,
+					'processed' => 0,
+					'batches'   => 0,
+					'current'   => 0,
+					'status'    => 'running',
+					'started'   => time(),
+					'errors'    => 0,
+				),
+				false
+			);
 
 			wp_send_json_success( array(
 				'success' => true,
@@ -517,10 +534,10 @@ class WSS_Admin_Ajax {
 	public function clear_index() {
 		$this->verify_request();
 
-		$engine = WSS_Meilisearch::get_instance();
+		$engine = wss_get_engine();
 
-		// Fallback: try creating from saved settings if singleton failed.
-		if ( ! $engine ) {
+		// Fallback for Meilisearch: try creating from saved settings if singleton failed.
+		if ( ! $engine && 'meilisearch' === wss_get_option( 'search_engine', 'meilisearch' ) ) {
 			$settings  = get_option( 'wss_settings', array() );
 			$saved_key = isset( $settings['api_key'] ) ? $settings['api_key'] : '';
 			if ( ! empty( $saved_key ) ) {
@@ -534,7 +551,7 @@ class WSS_Admin_Ajax {
 		}
 
 		if ( ! $engine ) {
-			wp_send_json_error( array( 'message' => __( 'Meilisearch is not configured.', 'woo-smart-search' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Search engine is not configured.', 'woo-smart-search' ) ) );
 			return;
 		}
 
@@ -633,9 +650,9 @@ class WSS_Admin_Ajax {
 	public function get_index_stats() {
 		$this->verify_request();
 
-		$engine = WSS_Meilisearch::get_instance();
+		$engine = wss_get_engine();
 		if ( ! $engine ) {
-			wp_send_json_error( array( 'message' => __( 'Meilisearch is not configured.', 'woo-smart-search' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Search engine is not configured.', 'woo-smart-search' ) ) );
 			return;
 		}
 

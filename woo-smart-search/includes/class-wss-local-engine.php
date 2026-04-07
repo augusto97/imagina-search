@@ -108,17 +108,24 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 		$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 
 		if ( ! $exists ) {
-			return array(
-				'success' => false,
-				'message' => __( 'Local search index tables not found. Please deactivate and reactivate the plugin.', 'woo-smart-search' ),
-				'version' => '',
-			);
+			// Auto-create tables if missing (e.g. engine switched without reactivation).
+			self::create_tables();
+
+			// Re-check after creation.
+			$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			if ( ! $exists ) {
+				return array(
+					'success' => false,
+					'message' => __( 'Could not create local search index tables. Check database permissions.', 'woo-smart-search' ),
+					'version' => '',
+				);
+			}
 		}
 
 		return array(
 			'success' => true,
 			'message' => __( 'Local search engine is ready.', 'woo-smart-search' ),
-			'version' => 'Local v' . WSS_VERSION,
+			'version' => 'Local ' . WSS_VERSION,
 		);
 	}
 
@@ -175,6 +182,54 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	 */
 	public function configure_index( string $index_name, array $settings ): bool {
 		$this->index_settings[ $index_name ] = $settings;
+		update_option( 'wss_local_index_settings', $this->index_settings );
+		return true;
+	}
+
+	/**
+	 * Set filterable attributes for an index.
+	 *
+	 * @param string $index_name Index name.
+	 * @param array  $attributes Filterable attribute names.
+	 * @return bool
+	 */
+	public function set_filterable_attributes( string $index_name, array $attributes ): bool {
+		if ( ! isset( $this->index_settings[ $index_name ] ) ) {
+			$this->index_settings[ $index_name ] = array();
+		}
+		$this->index_settings[ $index_name ]['filterableAttributes'] = $attributes;
+		update_option( 'wss_local_index_settings', $this->index_settings );
+		return true;
+	}
+
+	/**
+	 * Set sortable attributes for an index.
+	 *
+	 * @param string $index_name Index name.
+	 * @param array  $attributes Sortable attribute names.
+	 * @return bool
+	 */
+	public function set_sortable_attributes( string $index_name, array $attributes ): bool {
+		if ( ! isset( $this->index_settings[ $index_name ] ) ) {
+			$this->index_settings[ $index_name ] = array();
+		}
+		$this->index_settings[ $index_name ]['sortableAttributes'] = $attributes;
+		update_option( 'wss_local_index_settings', $this->index_settings );
+		return true;
+	}
+
+	/**
+	 * Set displayed attributes for an index.
+	 *
+	 * @param string $index_name Index name.
+	 * @param array  $attributes Displayed attribute names.
+	 * @return bool
+	 */
+	public function set_displayed_attributes( string $index_name, array $attributes ): bool {
+		if ( ! isset( $this->index_settings[ $index_name ] ) ) {
+			$this->index_settings[ $index_name ] = array();
+		}
+		$this->index_settings[ $index_name ]['displayedAttributes'] = $attributes;
 		update_option( 'wss_local_index_settings', $this->index_settings );
 		return true;
 	}
@@ -1120,45 +1175,47 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 
 		$charset_collate = $wpdb->get_charset_collate();
 
-		$sql = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wss_index_documents (
-			id bigint(20) NOT NULL AUTO_INCREMENT,
-			index_name varchar(100) NOT NULL DEFAULT 'woo_products',
-			doc_id bigint(20) NOT NULL,
-			doc_data longtext NOT NULL,
-			indexed_at datetime NOT NULL,
-			PRIMARY KEY (id),
-			UNIQUE KEY idx_index_doc (index_name, doc_id),
-			KEY idx_index_name (index_name)
-		) {$charset_collate};
+		// Use direct CREATE TABLE IF NOT EXISTS — more reliable than dbDelta
+		// in contexts where wp-admin/includes/upgrade.php may not be available.
+		$tables = array(
+			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wss_index_documents (
+				id bigint(20) NOT NULL AUTO_INCREMENT,
+				index_name varchar(100) NOT NULL DEFAULT 'woo_products',
+				doc_id bigint(20) NOT NULL,
+				doc_data longtext NOT NULL,
+				indexed_at datetime NOT NULL,
+				PRIMARY KEY (id),
+				UNIQUE KEY idx_index_doc (index_name, doc_id),
+				KEY idx_index_name (index_name)
+			) {$charset_collate}",
+			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wss_index_terms (
+				id bigint(20) NOT NULL AUTO_INCREMENT,
+				term varchar(191) NOT NULL,
+				PRIMARY KEY (id),
+				UNIQUE KEY idx_term (term)
+			) {$charset_collate}",
+			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wss_index_postings (
+				id bigint(20) NOT NULL AUTO_INCREMENT,
+				index_name varchar(100) NOT NULL DEFAULT 'woo_products',
+				term_id bigint(20) NOT NULL,
+				doc_id bigint(20) NOT NULL,
+				tf float NOT NULL DEFAULT 0,
+				PRIMARY KEY (id),
+				KEY idx_term_index (term_id, index_name),
+				KEY idx_doc_index (doc_id, index_name),
+				KEY idx_index_name (index_name)
+			) {$charset_collate}",
+			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wss_search_cache (
+				cache_key char(32) NOT NULL,
+				result_data longtext NOT NULL,
+				created_at datetime NOT NULL,
+				PRIMARY KEY (cache_key),
+				KEY idx_created_at (created_at)
+			) {$charset_collate}",
+		);
 
-		CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wss_index_terms (
-			id bigint(20) NOT NULL AUTO_INCREMENT,
-			term varchar(191) NOT NULL,
-			PRIMARY KEY (id),
-			UNIQUE KEY idx_term (term)
-		) {$charset_collate};
-
-		CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wss_index_postings (
-			id bigint(20) NOT NULL AUTO_INCREMENT,
-			index_name varchar(100) NOT NULL DEFAULT 'woo_products',
-			term_id bigint(20) NOT NULL,
-			doc_id bigint(20) NOT NULL,
-			tf float NOT NULL DEFAULT 0,
-			PRIMARY KEY (id),
-			KEY idx_term_index (term_id, index_name),
-			KEY idx_doc_index (doc_id, index_name),
-			KEY idx_index_name (index_name)
-		) {$charset_collate};
-
-		CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wss_search_cache (
-			cache_key char(32) NOT NULL,
-			result_data longtext NOT NULL,
-			created_at datetime NOT NULL,
-			PRIMARY KEY (cache_key),
-			KEY idx_created_at (created_at)
-		) {$charset_collate};";
-
-		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-		dbDelta( $sql );
+		foreach ( $tables as $sql ) {
+			$wpdb->query( $sql ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+		}
 	}
 }

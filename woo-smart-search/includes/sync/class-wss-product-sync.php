@@ -370,31 +370,26 @@ class WSS_Product_Sync {
 			}
 		}
 
-		// Count total products without loading them all into memory.
-		$count_args                  = $this->get_product_query_args();
-		$count_args['return']        = 'ids';
-		$count_args['posts_per_page'] = 1;
-		$count_args['page']          = 1;
+		// Count total products using paginated query.
+		$count_args             = $this->get_product_query_args();
+		$count_args['return']   = 'ids';
+		$count_args['paginate'] = true;
+		$count_args['limit']    = 1;
+		$count_args['page']     = 1;
 
-		$count_query = new WC_Product_Query( $count_args );
-		$count_query->get_products();
+		$total  = 0;
+		$result = wc_get_products( $count_args );
 
-		// WC_Product_Query uses WP_Query internally; access total from the query.
-		$total = 0;
-		if ( isset( $count_query->query_vars['paginate'] ) || true ) {
-			// Use a paginated query to get total.
-			$paginated_args             = $this->get_product_query_args();
-			$paginated_args['return']   = 'ids';
-			$paginated_args['paginate'] = true;
-			$paginated_args['limit']    = 1;
-			$paginated_args['page']     = 1;
+		if ( is_object( $result ) && isset( $result->total ) ) {
+			$total = (int) $result->total;
+		}
 
-			$paginated_query = new WC_Product_Query( $paginated_args );
-			$result          = $paginated_query->get_products();
-
-			if ( is_object( $result ) && isset( $result->total ) ) {
-				$total = (int) $result->total;
-			}
+		// Fallback: direct DB count if paginated query fails.
+		if ( 0 === $total ) {
+			global $wpdb;
+			$total = (int) $wpdb->get_var(
+				"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'product' AND post_status = 'publish'"
+			);
 		}
 
 		if ( 0 === $total ) {
@@ -502,11 +497,18 @@ class WSS_Product_Sync {
 		$documents = array();
 		$errors    = 0;
 
+		$index_hidden = ( 'yes' === wss_get_option( 'index_hidden', 'no' ) );
+
 		foreach ( $product_ids as $product_id ) {
 			$product = wc_get_product( $product_id );
 
 			if ( ! $product ) {
 				++$errors;
+				continue;
+			}
+
+			// Skip hidden products unless "Index Hidden" is checked.
+			if ( ! $index_hidden && 'hidden' === $product->get_catalog_visibility() ) {
 				continue;
 			}
 
@@ -833,10 +835,11 @@ class WSS_Product_Sync {
 			'order'   => 'ASC',
 		);
 
-		// Visibility filter.
-		if ( 'yes' !== wss_get_option( 'index_hidden', 'no' ) ) {
-			$args['visibility'] = 'visible';
-		}
+		// Visibility filter: only exclude products set to "hidden" in WooCommerce.
+		// Note: we intentionally do NOT set 'visibility' => 'visible' because it
+		// can exclude products whose visibility term is unset (common in imports/demos).
+		// Instead we filter out hidden products after retrieval in process_bulk_sync_batch.
+		// When "Index Hidden" is checked, no visibility filter is applied at all.
 
 		// Stock filter.
 		if ( 'yes' !== wss_get_option( 'index_out_of_stock', 'yes' ) ) {
@@ -847,8 +850,8 @@ class WSS_Product_Sync {
 		$exclude_cats = wss_get_option( 'exclude_categories', array() );
 
 		if ( ! empty( $exclude_cats ) ) {
-			$args['category'] = array();
-			$all_cats         = get_terms(
+			// Get all category slugs except the excluded ones.
+			$included_cats = get_terms(
 				array(
 					'taxonomy'   => 'product_cat',
 					'fields'     => 'slugs',
@@ -857,8 +860,9 @@ class WSS_Product_Sync {
 				)
 			);
 
-			if ( ! is_wp_error( $all_cats ) ) {
-				$args['category'] = $all_cats;
+			// Only apply filter if there are remaining categories to include.
+			if ( ! is_wp_error( $included_cats ) && ! empty( $included_cats ) ) {
+				$args['category'] = $included_cats;
 			}
 		}
 

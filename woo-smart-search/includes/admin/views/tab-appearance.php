@@ -25,6 +25,22 @@ if ( ! defined( 'ABSPATH' ) ) {
 					<option value="replace" <?php selected( $settings['integration_mode'] ?? 'replace', 'replace' ); ?>><?php esc_html_e( 'Replace native search', 'woo-smart-search' ); ?></option>
 					<option value="shortcode" <?php selected( $settings['integration_mode'] ?? '', 'shortcode' ); ?>><?php esc_html_e( 'Shortcode only', 'woo-smart-search' ); ?></option>
 				</select>
+				<p class="description" style="margin-top: 8px;">
+					<strong><?php esc_html_e( 'Available shortcodes:', 'woo-smart-search' ); ?></strong><br/>
+					<code>[woo_smart_search]</code> — <?php esc_html_e( 'Displays the search bar widget. Use in any page, post, or widget area.', 'woo-smart-search' ); ?><br/>
+					<code>[woo_smart_search_results]</code> — <?php esc_html_e( 'Displays the full search results page with facets and filters.', 'woo-smart-search' ); ?>
+				</p>
+				<p class="description" style="margin-top: 4px;">
+					<strong><?php esc_html_e( 'Search bar attributes (optional):', 'woo-smart-search' ); ?></strong><br/>
+					<code>placeholder</code>, <code>max_results</code>, <code>show_image</code>, <code>show_price</code>, <code>show_category</code>, <code>show_sku</code>, <code>show_stock</code>, <code>show_rating</code>, <code>theme</code>, <code>layout</code>, <code>width</code><br/>
+					<?php
+					printf(
+						/* translators: %s: shortcode example */
+						esc_html__( 'Example: %s', 'woo-smart-search' ),
+						'<code>[woo_smart_search placeholder="Search products..." layout="expanded" max_results="6"]</code>'
+					);
+					?>
+				</p>
 			</td>
 		</tr>
 		<tr>
