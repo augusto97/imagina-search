@@ -690,7 +690,6 @@
 			}
 
 			// In mixed mode, group results by content_source with section headers.
-			if (productsContainer) productsContainer.classList.toggle('wss-mixed-dropdown', !!(config.isMixed && !isAmazon && !isFalabella));
 			if (config.isMixed && !isAmazon && !isFalabella) {
 				var productHits = [];
 				var contentHits = [];

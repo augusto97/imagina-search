@@ -938,42 +938,9 @@
 	gap: 16px;
 }
 
-/* Mixed mode: disable card grid, use vertical list */
-.wss-layout-expanded .wss-results-products.wss-mixed-dropdown {
-	display: block;
-}
-
-.wss-layout-expanded .wss-results-products.wss-mixed-dropdown .wss-result-item {
-	display: flex;
-	flex-direction: row;
-	padding: 10px 14px;
-	border: none;
-	border-bottom: 1px solid var(--wss-border-color);
-	border-radius: 0;
-	gap: 12px;
-	align-items: center;
-}
-
-.wss-layout-expanded .wss-results-products.wss-mixed-dropdown .wss-result-item:last-child {
-	border-bottom: none;
-}
-
-.wss-layout-expanded .wss-results-products.wss-mixed-dropdown .wss-result-image {
-	width: var(--wss-image-size, 60px);
-	height: var(--wss-image-size, 60px);
-	flex-shrink: 0;
-	border: none;
-	border-bottom: none;
-}
-
-.wss-layout-expanded .wss-results-products.wss-mixed-dropdown .wss-result-image img {
-	border-radius: var(--wss-border-radius);
-	padding: 0;
-	background: #f9fafb;
-}
-
-.wss-layout-expanded .wss-results-products.wss-mixed-dropdown .wss-result-info {
-	padding: 0;
+/* Mixed mode headers span all grid columns */
+.wss-layout-expanded .wss-results-products .wss-mixed-dropdown-header {
+	grid-column: 1 / -1;
 }
 
 /* Product Card (expanded) */

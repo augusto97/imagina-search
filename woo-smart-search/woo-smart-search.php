@@ -3,7 +3,7 @@
  * Plugin Name:       Woo Smart Search
  * Plugin URI:        https://example.com/woo-smart-search
  * Description:       Ultra-fast search powered by Meilisearch for WooCommerce products, blog posts, pages, and custom post types.
- * Version:           4.4.0
+ * Version:           4.5.0
  * Author:            Imagina
  * Author URI:        https://example.com
  * License:           GPL-2.0+
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Plugin constants.
-define( 'WSS_VERSION', '4.4.0' );
+define( 'WSS_VERSION', '4.5.0' );
 define( 'WSS_PLUGIN_FILE', __FILE__ );
 define( 'WSS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WSS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

@@ -788,6 +788,30 @@
 	}
 }
 
+/* Mixed mode list view: parent toggle cascades to inner grids */
+.wss-mixed-layout.wss-view-list .wss-mixed-section-grid {
+	grid-template-columns: 1fr;
+}
+
+.wss-mixed-layout.wss-view-list .wss-mixed-section-grid .wss-product-card a {
+	display: flex;
+	align-items: stretch;
+}
+
+.wss-mixed-layout.wss-view-list .wss-mixed-section-grid .wss-product-card-image {
+	width: 180px;
+	min-width: 180px;
+	padding-top: 0;
+	height: 180px;
+}
+
+.wss-mixed-layout.wss-view-list .wss-mixed-section-grid .wss-product-card-body {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+}
+
 /* ===== Post Card Styles ===== */
 
 .wss-post-card-excerpt {
