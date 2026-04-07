@@ -14,6 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 ?>
 
+<style>.wss-results-page:not(.wss-ready){opacity:0}</style>
 <div class="wss-results-page">
 
 	<!-- Mobile filter toggle -->
@@ -100,3 +101,4 @@ if ( ! defined( 'ABSPATH' ) ) {
 	</div>
 
 </div>
+<script>setTimeout(function(){var p=document.querySelector('.wss-results-page');if(p)p.classList.add('wss-ready')},2000)</script>

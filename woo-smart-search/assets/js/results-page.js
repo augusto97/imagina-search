@@ -49,6 +49,9 @@
 		}
 
 		dom.page           = page;
+		// Reveal the page now that CSS layout is applied (prevents FOUC).
+		page.style.transition = 'opacity .15s ease-out';
+		page.classList.add( 'wss-ready' );
 		dom.grid           = page.querySelector( '.wss-products-grid' );
 		dom.sidebar        = page.querySelector( '.wss-filters-sidebar' );
 		dom.toolbar        = page.querySelector( '.wss-results-toolbar' );
