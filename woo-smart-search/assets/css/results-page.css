@@ -240,6 +240,7 @@
 	flex: 1 !important;
 	min-width: 0;
 	width: 0; /* Prevents flex overflow in row direction */
+	position: relative;
 }
 
 @media (max-width: 768px) {
@@ -528,21 +529,28 @@
 	cursor: not-allowed;
 }
 
-/* ===== Loading ===== */
+/* ===== Loading (floating overlay — does not push content down) ===== */
 
 .wss-results-loading {
 	display: none;
-	text-align: center;
-	padding: 40px;
-	color: var(--wss-text-secondary, #6b7280);
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 10;
+	background: rgba(255, 255, 255, 0.7);
+	justify-content: center;
+	align-items: center;
+	pointer-events: none;
+	border-radius: var(--wss-border-radius, 8px);
 }
 
 .wss-results-loading.wss-visible {
-	display: block;
+	display: flex;
 }
 
 .wss-results-loading .wss-spinner {
-	display: inline-block;
 	width: 32px;
 	height: 32px;
 	border: 3px solid var(--wss-border-color, #e5e7eb);
