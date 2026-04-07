@@ -85,6 +85,9 @@ class WSS_Loader {
 		// Schedule health check every 5 minutes.
 		$this->schedule_health_check();
 
+		// Schedule periodic re-indexation.
+		$this->schedule_periodic_reindex();
+
 		// Auto-fallback filter for when Meilisearch is down.
 		add_filter( 'wss_use_native_search', array( $this, 'maybe_fallback_to_native' ) );
 
@@ -103,6 +106,24 @@ class WSS_Loader {
 			as_schedule_recurring_action( time() + 300, 300, 'wss_health_check', array(), 'woo-smart-search' );
 		}
 		add_action( 'wss_health_check', array( $this, 'run_health_check' ) );
+	}
+
+	/**
+	 * Schedule periodic re-indexation to catch changes that bypassed hooks.
+	 *
+	 * Runs every 6 hours by default. Catches: direct DB updates, REST API changes
+	 * from external apps, bulk edit plugins, scheduled sales, CSV imports.
+	 */
+	private function schedule_periodic_reindex() {
+		$interval = (int) apply_filters( 'wss_reindex_interval', 6 * HOUR_IN_SECONDS );
+
+		if ( $interval <= 0 ) {
+			return; // Disabled via filter.
+		}
+
+		if ( function_exists( 'as_has_scheduled_action' ) && ! as_has_scheduled_action( 'wss_periodic_reindex' ) ) {
+			as_schedule_recurring_action( time() + $interval, $interval, 'wss_periodic_reindex', array(), 'woo-smart-search' );
+		}
 	}
 
 	/**
