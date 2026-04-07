@@ -108,11 +108,18 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 		$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 
 		if ( ! $exists ) {
-			return array(
-				'success' => false,
-				'message' => __( 'Local search index tables not found. Please deactivate and reactivate the plugin.', 'woo-smart-search' ),
-				'version' => '',
-			);
+			// Auto-create tables if missing (e.g. engine switched without reactivation).
+			self::create_tables();
+
+			// Re-check after creation.
+			$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			if ( ! $exists ) {
+				return array(
+					'success' => false,
+					'message' => __( 'Could not create local search index tables. Check database permissions.', 'woo-smart-search' ),
+					'version' => '',
+				);
+			}
 		}
 
 		return array(
