@@ -180,6 +180,54 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	}
 
 	/**
+	 * Set filterable attributes for an index.
+	 *
+	 * @param string $index_name Index name.
+	 * @param array  $attributes Filterable attribute names.
+	 * @return bool
+	 */
+	public function set_filterable_attributes( string $index_name, array $attributes ): bool {
+		if ( ! isset( $this->index_settings[ $index_name ] ) ) {
+			$this->index_settings[ $index_name ] = array();
+		}
+		$this->index_settings[ $index_name ]['filterableAttributes'] = $attributes;
+		update_option( 'wss_local_index_settings', $this->index_settings );
+		return true;
+	}
+
+	/**
+	 * Set sortable attributes for an index.
+	 *
+	 * @param string $index_name Index name.
+	 * @param array  $attributes Sortable attribute names.
+	 * @return bool
+	 */
+	public function set_sortable_attributes( string $index_name, array $attributes ): bool {
+		if ( ! isset( $this->index_settings[ $index_name ] ) ) {
+			$this->index_settings[ $index_name ] = array();
+		}
+		$this->index_settings[ $index_name ]['sortableAttributes'] = $attributes;
+		update_option( 'wss_local_index_settings', $this->index_settings );
+		return true;
+	}
+
+	/**
+	 * Set displayed attributes for an index.
+	 *
+	 * @param string $index_name Index name.
+	 * @param array  $attributes Displayed attribute names.
+	 * @return bool
+	 */
+	public function set_displayed_attributes( string $index_name, array $attributes ): bool {
+		if ( ! isset( $this->index_settings[ $index_name ] ) ) {
+			$this->index_settings[ $index_name ] = array();
+		}
+		$this->index_settings[ $index_name ]['displayedAttributes'] = $attributes;
+		update_option( 'wss_local_index_settings', $this->index_settings );
+		return true;
+	}
+
+	/**
 	 * Index documents into the local inverted index.
 	 *
 	 * @param string $index_name Index name.
