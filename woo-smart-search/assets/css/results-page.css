@@ -9,14 +9,22 @@
 /* ===== Layout ===== */
 
 .wss-results-page {
-	display: flex;
+	display: flex !important;
 	gap: 30px;
 	max-width: 1200px;
+	width: 100% !important;
 	margin: 0 auto;
 	padding: 20px 0;
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 	font-size: var(--wss-font-size-base, 14px);
 	color: var(--wss-text-color, #1f2937);
+	box-sizing: border-box;
+}
+
+.wss-results-page *,
+.wss-results-page *::before,
+.wss-results-page *::after {
+	box-sizing: border-box;
 }
 
 .wss-results-header {
@@ -228,8 +236,15 @@
 /* ===== Main Content ===== */
 
 .wss-results-main {
-	flex: 1;
+	flex: 1 !important;
 	min-width: 0;
+	width: 0; /* Prevents flex overflow in row direction */
+}
+
+@media (max-width: 768px) {
+	.wss-results-main {
+		width: 100%;
+	}
 }
 
 /* Toolbar */
@@ -433,6 +448,12 @@
 	color: var(--wss-text-secondary, #6b7280);
 }
 
+/* ===== Product Description (hidden in grid, shown in list) ===== */
+
+.wss-product-card-description {
+	display: none;
+}
+
 /* ===== List View ===== */
 
 .wss-products-grid.wss-view-list .wss-product-card a {
@@ -452,6 +473,16 @@
 	display: flex;
 	flex-direction: column;
 	justify-content: center;
+}
+
+.wss-products-grid.wss-view-list .wss-product-card-description {
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	font-size: 0.85em;
+	color: var(--wss-text-secondary, #6b7280);
+	margin-top: 4px;
 }
 
 /* ===== Pagination ===== */
@@ -734,6 +765,10 @@
 
 /* ===== Mixed Mode Sections ===== */
 
+.wss-products-grid.wss-mixed-layout {
+	display: block;
+}
+
 .wss-mixed-section {
 	margin-bottom: 32px;
 }
@@ -762,9 +797,16 @@
 	gap: 16px;
 }
 
+@media (max-width: 992px) {
+	.wss-mixed-section-grid {
+		grid-template-columns: repeat(3, 1fr);
+	}
+}
+
 @media (max-width: 768px) {
 	.wss-mixed-section-grid {
 		grid-template-columns: repeat(2, 1fr);
+		gap: 12px;
 	}
 }
 
@@ -773,6 +815,40 @@
 		grid-template-columns: repeat(2, 1fr);
 		gap: 10px;
 	}
+}
+
+/* Mixed mode list view: parent toggle cascades to inner grids */
+.wss-mixed-layout.wss-view-list .wss-mixed-section-grid {
+	grid-template-columns: 1fr;
+}
+
+.wss-mixed-layout.wss-view-list .wss-mixed-section-grid .wss-product-card a {
+	display: flex;
+	align-items: stretch;
+}
+
+.wss-mixed-layout.wss-view-list .wss-mixed-section-grid .wss-product-card-image {
+	width: 180px;
+	min-width: 180px;
+	padding-top: 0;
+	height: 180px;
+}
+
+.wss-mixed-layout.wss-view-list .wss-mixed-section-grid .wss-product-card-body {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+}
+
+.wss-mixed-layout.wss-view-list .wss-mixed-section-grid .wss-product-card-description {
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	font-size: 0.85em;
+	color: var(--wss-text-secondary, #6b7280);
+	margin-top: 4px;
 }
 
 /* ===== Post Card Styles ===== */

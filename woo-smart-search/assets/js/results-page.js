@@ -357,7 +357,7 @@
 			state.facets  = data.facets || {};
 
 			showLoading( false );
-			renderResults( data.hits || [] );
+			renderResults( ( data.hits || [] ).filter( function ( h ) { return h && h.name && h.name.trim() !== ''; } ) );
 			renderFacets( state.facets );
 			renderActiveFilters();
 			renderPagination();
@@ -389,6 +389,7 @@
 		if ( dom.noResults ) dom.noResults.style.display = 'none';
 
 		dom.grid.classList.toggle( 'wss-view-list', state.view === 'list' );
+		dom.grid.classList.toggle( 'wss-mixed-layout', !!cfg.isMixed );
 
 		var html = '';
 
@@ -407,7 +408,7 @@
 
 			if ( productHits.length ) {
 				html += '<div class="wss-mixed-section">';
-				html += '<h3 class="wss-mixed-section-title">' + escapeHtml( cfg.i18n && cfg.i18n.products ? cfg.i18n.products : 'Products' ) + ' <span class="wss-mixed-section-count">(' + productHits.length + ')</span></h3>';
+				html += '<h3 class="wss-mixed-section-title">Products <span class="wss-mixed-section-count">(' + productHits.length + ')</span></h3>';
 				html += '<div class="wss-mixed-section-grid wss-products-grid' + ( state.view === 'list' ? ' wss-view-list' : '' ) + '">';
 				productHits.forEach( function ( hit ) {
 					html += buildProductCard( hit );
@@ -505,6 +506,9 @@
 				'</div>';
 		}
 
+		// Short description (visible in list view via CSS).
+		var descHtml = hit.description ? '<div class="wss-product-card-description">' + escapeHtml( hit.description ).substring( 0, 120 ) + '</div>' : '';
+
 		return '<div class="wss-product-card" data-id="' + ( hit.id || '' ) + '">' +
 			'<a href="' + escapeHtml( permalink ) + '">' +
 			'<div class="wss-product-card-image">' +
@@ -514,6 +518,7 @@
 			'<div class="wss-product-card-body">' +
 				( category ? '<div class="wss-product-card-category">' + category + '</div>' : '' ) +
 				'<div class="wss-product-card-name">' + name + '</div>' +
+				descHtml +
 				'<div class="wss-product-card-price">' + priceHtml + '</div>' +
 				stockHtml +
 				ratingHtml +

@@ -78,9 +78,11 @@
    ============================================ */
 
 .wss-search-input-container {
-	position: relative;
-	display: flex;
-	align-items: center;
+	position: relative !important;
+	display: flex !important;
+	align-items: center !important;
+	flex-direction: row !important;
+	width: 100% !important;
 }
 
 .wss-search-input {
@@ -101,8 +103,6 @@
 	min-height: auto !important;
 	max-width: none !important;
 	box-shadow: none !important;
-	float: none !important;
-	display: block !important;
 	line-height: normal !important;
 }
 
@@ -138,23 +138,23 @@
 
 .wss-search-icon,
 .wss-search-spinner {
-	position: absolute;
-	left: 12px;
-	top: 50%;
-	transform: translateY(-50%);
+	position: absolute !important;
+	left: 12px !important;
+	top: 50% !important;
+	transform: translateY(-50%) !important;
 	color: var(--wss-text-secondary);
-	display: flex;
+	display: flex !important;
 	align-items: center;
 	pointer-events: none;
 }
 
 .wss-search-clear {
-	position: absolute;
-	right: 6px;
-	top: 50%;
-	transform: translateY(-50%);
-	background: none;
-	border: none;
+	position: absolute !important;
+	right: 6px !important;
+	top: 50% !important;
+	transform: translateY(-50%) !important;
+	background: none !important;
+	border: none !important;
 	cursor: pointer;
 	font-size: 20px;
 	line-height: 1;
@@ -665,15 +665,16 @@
 	}
 
 	.wss-search-wrapper.wss-mobile-open .wss-search-input-container {
-		position: fixed;
-		top: 0;
-		left: 0;
-		right: 0;
+		position: fixed !important;
+		top: 0 !important;
+		left: 0 !important;
+		right: 0 !important;
 		z-index: calc(var(--wss-z-index) + 1);
-		padding: 8px 12px;
-		background: var(--wss-bg-color);
+		padding: 8px 12px !important;
+		background: var(--wss-bg-color) !important;
 		border-bottom: 1px solid var(--wss-border-color);
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+		width: auto !important;
 	}
 }
 
@@ -936,6 +937,11 @@
 	display: grid;
 	grid-template-columns: repeat(3, 1fr);
 	gap: 16px;
+}
+
+/* Mixed mode headers span all grid columns */
+.wss-layout-expanded .wss-results-products .wss-mixed-dropdown-header {
+	grid-column: 1 / -1;
 }
 
 /* Product Card (expanded) */
@@ -1700,12 +1706,12 @@
 
 @media (max-width: 767px) {
 	.wss-search-wrapper.wss-mobile-open .wss-mobile-close-btn {
-		display: flex;
+		display: flex !important;
 	}
 }
 
 .wss-mobile-close-btn {
-	display: none;
+	display: none !important;
 	position: fixed;
 	top: 10px;
 	right: 12px;

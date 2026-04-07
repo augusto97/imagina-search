@@ -637,7 +637,9 @@
 				hideState(errorContainer);
 			}
 
-			var hits = data.hits || [];
+			var hits = (data.hits || []).filter(function (hit) {
+				return hit && hit.name && hit.name.trim() !== '';
+			});
 			var total = data.total || 0;
 			var facets = data.facets || {};
 
@@ -679,7 +681,13 @@
 				return;
 			}
 
-			if (isExpanded && mainHeading) showState(mainHeading);
+			if (isExpanded && mainHeading) {
+				if (config.isMixed) {
+					hideState(mainHeading);
+				} else {
+					showState(mainHeading);
+				}
+			}
 
 			// In mixed mode, group results by content_source with section headers.
 			if (config.isMixed && !isAmazon && !isFalabella) {
