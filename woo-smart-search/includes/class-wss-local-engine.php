@@ -1175,45 +1175,47 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 
 		$charset_collate = $wpdb->get_charset_collate();
 
-		$sql = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wss_index_documents (
-			id bigint(20) NOT NULL AUTO_INCREMENT,
-			index_name varchar(100) NOT NULL DEFAULT 'woo_products',
-			doc_id bigint(20) NOT NULL,
-			doc_data longtext NOT NULL,
-			indexed_at datetime NOT NULL,
-			PRIMARY KEY (id),
-			UNIQUE KEY idx_index_doc (index_name, doc_id),
-			KEY idx_index_name (index_name)
-		) {$charset_collate};
+		// Use direct CREATE TABLE IF NOT EXISTS — more reliable than dbDelta
+		// in contexts where wp-admin/includes/upgrade.php may not be available.
+		$tables = array(
+			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wss_index_documents (
+				id bigint(20) NOT NULL AUTO_INCREMENT,
+				index_name varchar(100) NOT NULL DEFAULT 'woo_products',
+				doc_id bigint(20) NOT NULL,
+				doc_data longtext NOT NULL,
+				indexed_at datetime NOT NULL,
+				PRIMARY KEY (id),
+				UNIQUE KEY idx_index_doc (index_name, doc_id),
+				KEY idx_index_name (index_name)
+			) {$charset_collate}",
+			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wss_index_terms (
+				id bigint(20) NOT NULL AUTO_INCREMENT,
+				term varchar(191) NOT NULL,
+				PRIMARY KEY (id),
+				UNIQUE KEY idx_term (term)
+			) {$charset_collate}",
+			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wss_index_postings (
+				id bigint(20) NOT NULL AUTO_INCREMENT,
+				index_name varchar(100) NOT NULL DEFAULT 'woo_products',
+				term_id bigint(20) NOT NULL,
+				doc_id bigint(20) NOT NULL,
+				tf float NOT NULL DEFAULT 0,
+				PRIMARY KEY (id),
+				KEY idx_term_index (term_id, index_name),
+				KEY idx_doc_index (doc_id, index_name),
+				KEY idx_index_name (index_name)
+			) {$charset_collate}",
+			"CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wss_search_cache (
+				cache_key char(32) NOT NULL,
+				result_data longtext NOT NULL,
+				created_at datetime NOT NULL,
+				PRIMARY KEY (cache_key),
+				KEY idx_created_at (created_at)
+			) {$charset_collate}",
+		);
 
-		CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wss_index_terms (
-			id bigint(20) NOT NULL AUTO_INCREMENT,
-			term varchar(191) NOT NULL,
-			PRIMARY KEY (id),
-			UNIQUE KEY idx_term (term)
-		) {$charset_collate};
-
-		CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wss_index_postings (
-			id bigint(20) NOT NULL AUTO_INCREMENT,
-			index_name varchar(100) NOT NULL DEFAULT 'woo_products',
-			term_id bigint(20) NOT NULL,
-			doc_id bigint(20) NOT NULL,
-			tf float NOT NULL DEFAULT 0,
-			PRIMARY KEY (id),
-			KEY idx_term_index (term_id, index_name),
-			KEY idx_doc_index (doc_id, index_name),
-			KEY idx_index_name (index_name)
-		) {$charset_collate};
-
-		CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wss_search_cache (
-			cache_key char(32) NOT NULL,
-			result_data longtext NOT NULL,
-			created_at datetime NOT NULL,
-			PRIMARY KEY (cache_key),
-			KEY idx_created_at (created_at)
-		) {$charset_collate};";
-
-		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-		dbDelta( $sql );
+		foreach ( $tables as $sql ) {
+			$wpdb->query( $sql ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+		}
 	}
 }
