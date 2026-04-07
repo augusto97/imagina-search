@@ -847,19 +847,14 @@ class WSS_Product_Sync {
 		$exclude_cats = wss_get_option( 'exclude_categories', array() );
 
 		if ( ! empty( $exclude_cats ) ) {
-			$args['category'] = array();
-			$all_cats         = get_terms(
+			$args['tax_query'] = array(
 				array(
-					'taxonomy'   => 'product_cat',
-					'fields'     => 'slugs',
-					'hide_empty' => false,
-					'exclude'    => $exclude_cats,
-				)
+					'taxonomy' => 'product_cat',
+					'field'    => 'term_id',
+					'terms'    => array_map( 'absint', $exclude_cats ),
+					'operator' => 'NOT IN',
+				),
 			);
-
-			if ( ! is_wp_error( $all_cats ) ) {
-				$args['category'] = $all_cats;
-			}
 		}
 
 		return apply_filters( 'wss_product_query_args', $args );

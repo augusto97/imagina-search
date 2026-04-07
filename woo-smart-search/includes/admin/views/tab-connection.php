@@ -190,7 +190,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 						}
 						var info = '';
 						if ( data.version ) {
-							info += 'v' + data.version;
+							info += ( data.engine_type === 'local' ? '' : 'v' ) + data.version;
 						}
 						if ( typeof data.documents !== 'undefined' ) {
 							info += ( info ? ', ' : '' ) + data.documents + ' <?php echo esc_js( __( 'documents', 'woo-smart-search' ) ); ?>';

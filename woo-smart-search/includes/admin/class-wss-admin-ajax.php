@@ -517,10 +517,10 @@ class WSS_Admin_Ajax {
 	public function clear_index() {
 		$this->verify_request();
 
-		$engine = WSS_Meilisearch::get_instance();
+		$engine = wss_get_engine();
 
-		// Fallback: try creating from saved settings if singleton failed.
-		if ( ! $engine ) {
+		// Fallback for Meilisearch: try creating from saved settings if singleton failed.
+		if ( ! $engine && 'meilisearch' === wss_get_option( 'search_engine', 'meilisearch' ) ) {
 			$settings  = get_option( 'wss_settings', array() );
 			$saved_key = isset( $settings['api_key'] ) ? $settings['api_key'] : '';
 			if ( ! empty( $saved_key ) ) {
@@ -534,7 +534,7 @@ class WSS_Admin_Ajax {
 		}
 
 		if ( ! $engine ) {
-			wp_send_json_error( array( 'message' => __( 'Meilisearch is not configured.', 'woo-smart-search' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Search engine is not configured.', 'woo-smart-search' ) ) );
 			return;
 		}
 
@@ -633,9 +633,9 @@ class WSS_Admin_Ajax {
 	public function get_index_stats() {
 		$this->verify_request();
 
-		$engine = WSS_Meilisearch::get_instance();
+		$engine = wss_get_engine();
 		if ( ! $engine ) {
-			wp_send_json_error( array( 'message' => __( 'Meilisearch is not configured.', 'woo-smart-search' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Search engine is not configured.', 'woo-smart-search' ) ) );
 			return;
 		}
 

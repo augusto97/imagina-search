@@ -125,7 +125,7 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 		return array(
 			'success' => true,
 			'message' => __( 'Local search engine is ready.', 'woo-smart-search' ),
-			'version' => 'Local v' . WSS_VERSION,
+			'version' => 'Local ' . WSS_VERSION,
 		);
 	}
 
