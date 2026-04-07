@@ -637,7 +637,9 @@
 				hideState(errorContainer);
 			}
 
-			var hits = data.hits || [];
+			var hits = (data.hits || []).filter(function (hit) {
+				return hit && hit.name && hit.name.trim() !== '';
+			});
 			var total = data.total || 0;
 			var facets = data.facets || {};
 

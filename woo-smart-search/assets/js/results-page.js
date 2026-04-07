@@ -357,7 +357,7 @@
 			state.facets  = data.facets || {};
 
 			showLoading( false );
-			renderResults( data.hits || [] );
+			renderResults( ( data.hits || [] ).filter( function ( h ) { return h && h.name && h.name.trim() !== ''; } ) );
 			renderFacets( state.facets );
 			renderActiveFilters();
 			renderPagination();
