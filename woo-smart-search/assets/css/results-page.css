@@ -18,6 +18,8 @@
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 	font-size: var(--wss-font-size-base, 14px);
 	color: var(--wss-text-color, #1f2937);
+	animation: wssReveal 0.15s ease-out both;
+}
 	box-sizing: border-box;
 }
 
@@ -888,4 +890,10 @@
 	padding: 1px 6px;
 	border-radius: 3px;
 	letter-spacing: 0.5px;
+}
+
+/* ===== Reveal animation to prevent FOUC ===== */
+@keyframes wssReveal {
+	from { opacity: 0; }
+	to   { opacity: 1; }
 }
