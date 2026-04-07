@@ -220,27 +220,7 @@ class WSS_Frontend {
 				'thousandSep'    => wss_is_ecommerce_mode() ? get_option( 'woocommerce_price_thousand_sep', ',' ) : ',',
 				'searchUrl'      => self::get_search_url_template(),
 				'placeholderImg' => WSS_PLUGIN_URL . 'assets/images/placeholder.svg',
-				'i18n'           => array(
-					'placeholder'      => ! empty( $settings['placeholder_text'] )
-						? $settings['placeholder_text']
-						: ( wss_is_ecommerce_mode() ? __( 'Search products...', 'woo-smart-search' ) : __( 'Search...', 'woo-smart-search' ) ),
-					'noResults'        => __( 'No results found for', 'woo-smart-search' ),
-					'viewAll'          => __( 'View all %d results', 'woo-smart-search' ),
-					'viewAllResults'   => __( 'View all results', 'woo-smart-search' ),
-					'error'            => __( 'Connection error, please try again', 'woo-smart-search' ),
-					'inStock'          => __( 'In stock', 'woo-smart-search' ),
-					'outOfStock'       => __( 'Out of stock', 'woo-smart-search' ),
-					'onBackorder'      => __( 'On backorder', 'woo-smart-search' ),
-					'clearSearch'      => __( 'Clear search', 'woo-smart-search' ),
-					'close'            => __( 'Close', 'woo-smart-search' ),
-					'popularSearches'  => __( 'Popular', 'woo-smart-search' ),
-					'suggestions'      => __( 'Suggestions', 'woo-smart-search' ),
-					'products'         => wss_is_ecommerce_mode() ? __( 'Products', 'woo-smart-search' ) : __( 'Results', 'woo-smart-search' ),
-					'categories'       => __( 'Categories', 'woo-smart-search' ),
-					'startTyping'      => wss_is_ecommerce_mode()
-						? __( 'Start typing to search products...', 'woo-smart-search' )
-						: __( 'Start typing to search...', 'woo-smart-search' ),
-				),
+				'i18n'           => self::get_frontend_i18n( $settings ),
 				'widgetLayout'   => $settings['widget_layout'] ?? 'standard',
 				'visibleFacets'  => implode( ',', $settings['visible_facets'] ?? (
 				$is_ecom ? array( 'categories', 'tags', 'price', 'stock', 'attributes' ) :
@@ -421,6 +401,58 @@ class WSS_Frontend {
 				exit;
 			}
 		}
+	}
+
+	/**
+	 * Build the frontend i18n array with admin translation overrides.
+	 *
+	 * @param array $settings Plugin settings.
+	 * @return array
+	 */
+	public static function get_frontend_i18n( array $settings ): array {
+		$t    = $settings['translations'] ?? array();
+		$ecom = wss_is_ecommerce_mode();
+
+		return array(
+			'placeholder'      => ! empty( $t['placeholder'] )
+				? $t['placeholder']
+				: ( ! empty( $settings['placeholder_text'] )
+					? $settings['placeholder_text']
+					: ( $ecom ? __( 'Search products...', 'woo-smart-search' ) : __( 'Search...', 'woo-smart-search' ) ) ),
+			'noResults'        => ! empty( $t['noResults'] ) ? $t['noResults'] : __( 'No results found for', 'woo-smart-search' ),
+			'viewAll'          => ! empty( $t['viewAll'] ) ? $t['viewAll'] : __( 'View all %d results', 'woo-smart-search' ),
+			'viewAllResults'   => ! empty( $t['viewAllResults'] ) ? $t['viewAllResults'] : __( 'View all results', 'woo-smart-search' ),
+			'error'            => ! empty( $t['error'] ) ? $t['error'] : __( 'Connection error, please try again', 'woo-smart-search' ),
+			'inStock'          => ! empty( $t['inStock'] ) ? $t['inStock'] : __( 'In stock', 'woo-smart-search' ),
+			'outOfStock'       => ! empty( $t['outOfStock'] ) ? $t['outOfStock'] : __( 'Out of stock', 'woo-smart-search' ),
+			'onBackorder'      => ! empty( $t['onBackorder'] ) ? $t['onBackorder'] : __( 'On backorder', 'woo-smart-search' ),
+			'clearSearch'      => ! empty( $t['clearSearch'] ) ? $t['clearSearch'] : __( 'Clear search', 'woo-smart-search' ),
+			'close'            => ! empty( $t['close'] ) ? $t['close'] : __( 'Close', 'woo-smart-search' ),
+			'popularSearches'  => ! empty( $t['popularSearches'] ) ? $t['popularSearches'] : __( 'Popular', 'woo-smart-search' ),
+			'suggestions'      => ! empty( $t['suggestions'] ) ? $t['suggestions'] : __( 'Suggestions', 'woo-smart-search' ),
+			'products'         => ! empty( $t['products'] ) ? $t['products'] : ( $ecom ? __( 'Products', 'woo-smart-search' ) : __( 'Results', 'woo-smart-search' ) ),
+			'results'          => ! empty( $t['results'] ) ? $t['results'] : __( 'Results', 'woo-smart-search' ),
+			'content'          => ! empty( $t['content'] ) ? $t['content'] : __( 'Content', 'woo-smart-search' ),
+			'categories'       => ! empty( $t['categories'] ) ? $t['categories'] : __( 'Categories', 'woo-smart-search' ),
+			'startTyping'      => ! empty( $t['startTyping'] ) ? $t['startTyping']
+				: ( $ecom ? __( 'Start typing to search products...', 'woo-smart-search' ) : __( 'Start typing to search...', 'woo-smart-search' ) ),
+			'searchOurStore'   => ! empty( $t['searchOurStore'] ) ? $t['searchOurStore'] : __( 'Search our store', 'woo-smart-search' ),
+			'collections'      => ! empty( $t['collections'] ) ? $t['collections'] : __( 'Collections', 'woo-smart-search' ),
+			'brands'           => ! empty( $t['brands'] ) ? $t['brands'] : __( 'Brands', 'woo-smart-search' ),
+			'relatedBrands'    => ! empty( $t['relatedBrands'] ) ? $t['relatedBrands'] : __( 'Related Brands', 'woo-smart-search' ),
+			'relatedCategories' => ! empty( $t['relatedCategories'] ) ? $t['relatedCategories'] : __( 'Related Categories', 'woo-smart-search' ),
+			'filters'          => ! empty( $t['filters'] ) ? $t['filters'] : __( 'Filters', 'woo-smart-search' ),
+			'resultsFor'       => ! empty( $t['resultsFor'] ) ? $t['resultsFor'] : __( 'Results for "%s"', 'woo-smart-search' ),
+			'noResultsPage'    => ! empty( $t['noResultsPage'] ) ? $t['noResultsPage'] : __( 'No results found matching your search.', 'woo-smart-search' ),
+			'sortRelevance'    => ! empty( $t['sortRelevance'] ) ? $t['sortRelevance'] : __( 'Relevance', 'woo-smart-search' ),
+			'sortPriceLow'     => ! empty( $t['sortPriceLow'] ) ? $t['sortPriceLow'] : __( 'Price: Low to High', 'woo-smart-search' ),
+			'sortPriceHigh'    => ! empty( $t['sortPriceHigh'] ) ? $t['sortPriceHigh'] : __( 'Price: High to Low', 'woo-smart-search' ),
+			'sortNewest'       => ! empty( $t['sortNewest'] ) ? $t['sortNewest'] : __( 'Newest', 'woo-smart-search' ),
+			'sortPopular'      => ! empty( $t['sortPopular'] ) ? $t['sortPopular'] : __( 'Most Popular', 'woo-smart-search' ),
+			'sortRating'       => ! empty( $t['sortRating'] ) ? $t['sortRating'] : __( 'Best Rated', 'woo-smart-search' ),
+			'sortNameAZ'       => ! empty( $t['sortNameAZ'] ) ? $t['sortNameAZ'] : __( 'Name: A–Z', 'woo-smart-search' ),
+			'sortNameZA'       => ! empty( $t['sortNameZA'] ) ? $t['sortNameZA'] : __( 'Name: Z–A', 'woo-smart-search' ),
+		);
 	}
 
 	/**

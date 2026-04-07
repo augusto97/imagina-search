@@ -49,6 +49,8 @@
 		}
 
 		dom.page           = page;
+		// Reveal the page (inline critical CSS already applied the layout).
+		page.classList.add( 'wss-ready' );
 		dom.grid           = page.querySelector( '.wss-products-grid' );
 		dom.sidebar        = page.querySelector( '.wss-filters-sidebar' );
 		dom.toolbar        = page.querySelector( '.wss-results-toolbar' );

@@ -15,6 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 $widget_layout = $settings['widget_layout'] ?? 'standard';
+$i18n          = WSS_Frontend::get_frontend_i18n( $settings );
 ?>
 <div class="wss-search-wrapper wss-layout-<?php echo esc_attr( $widget_layout ); ?>" role="search" aria-label="<?php esc_attr_e( 'Product search', 'woo-smart-search' ); ?>" style="width:<?php echo esc_attr( $width ); ?>">
 	<div class="wss-search-input-container">
@@ -41,7 +42,7 @@ $widget_layout = $settings['widget_layout'] ?? 'standard';
 	<!-- Fullscreen overlay (Shopify-style) -->
 	<div class="wss-fullscreen-overlay" aria-label="<?php esc_attr_e( 'Search', 'woo-smart-search' ); ?>">
 		<div class="wss-fullscreen-header">
-			<h3 class="wss-fullscreen-title"><?php esc_html_e( 'Search our store', 'woo-smart-search' ); ?></h3>
+			<h3 class="wss-fullscreen-title"><?php echo esc_html( $i18n['searchOurStore'] ); ?></h3>
 			<button class="wss-fullscreen-close" type="button" aria-label="<?php esc_attr_e( 'Close', 'woo-smart-search' ); ?>">
 				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
 			</button>
@@ -57,17 +58,17 @@ $widget_layout = $settings['widget_layout'] ?? 'standard';
 			<div class="wss-fullscreen-columns">
 				<div class="wss-fullscreen-col wss-fullscreen-products-col">
 					<div class="wss-fullscreen-col-header">
-						<h4><?php esc_html_e( 'Products', 'woo-smart-search' ); ?></h4>
-						<a href="#" class="wss-view-all wss-fullscreen-view-all"><?php esc_html_e( 'View all', 'woo-smart-search' ); ?> &nearr;</a>
+						<h4><?php echo esc_html( $i18n['products'] ); ?></h4>
+						<a href="#" class="wss-view-all wss-fullscreen-view-all"><?php echo esc_html( $i18n['viewAllResults'] ); ?> &nearr;</a>
 					</div>
 					<div class="wss-results-products"></div>
 				</div>
 				<div class="wss-fullscreen-col wss-fullscreen-categories-col">
-					<h4><?php esc_html_e( 'Collections', 'woo-smart-search' ); ?></h4>
+					<h4><?php echo esc_html( $i18n['collections'] ); ?></h4>
 					<ul class="wss-fullscreen-categories-list"></ul>
 				</div>
 				<div class="wss-fullscreen-col wss-fullscreen-brands-col">
-					<h4><?php esc_html_e( 'Brands', 'woo-smart-search' ); ?></h4>
+					<h4><?php echo esc_html( $i18n['brands'] ); ?></h4>
 					<ul class="wss-fullscreen-brands-list"></ul>
 				</div>
 			</div>
@@ -119,11 +120,11 @@ $widget_layout = $settings['widget_layout'] ?? 'standard';
 				<div class="wss-results-products"></div>
 			</div>
 			<div class="wss-falabella-col wss-falabella-brands-col">
-				<h5 class="wss-column-heading"><?php esc_html_e( 'Related Brands', 'woo-smart-search' ); ?></h5>
+				<h5 class="wss-column-heading"><?php echo esc_html( $i18n['relatedBrands'] ); ?></h5>
 				<ul class="wss-falabella-brands-list"></ul>
 			</div>
 			<div class="wss-falabella-col wss-falabella-categories-col">
-				<h5 class="wss-column-heading"><?php esc_html_e( 'Related Categories', 'woo-smart-search' ); ?></h5>
+				<h5 class="wss-column-heading"><?php echo esc_html( $i18n['relatedCategories'] ); ?></h5>
 				<ul class="wss-falabella-categories-list"></ul>
 			</div>
 		</div>
@@ -154,7 +155,7 @@ $widget_layout = $settings['widget_layout'] ?? 'standard';
 	<!-- Mobile Close Button (improved for touch) -->
 	<button class="wss-mobile-close-btn" type="button" aria-label="<?php esc_attr_e( 'Close', 'woo-smart-search' ); ?>">
 		<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-		<?php esc_html_e( 'Close', 'woo-smart-search' ); ?>
+		<?php echo esc_html( $i18n['close'] ?? __( 'Close', 'woo-smart-search' ) ); ?>
 	</button>
 
 	<!-- Mobile Overlay Backdrop -->

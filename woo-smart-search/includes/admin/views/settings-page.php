@@ -16,6 +16,7 @@ $tabs = array(
 	'indexing'        => __( 'Indexing', 'woo-smart-search' ),
 	'appearance'      => __( 'Widget', 'woo-smart-search' ),
 	'search'          => __( 'Results Page', 'woo-smart-search' ),
+	'translations'    => __( 'Translations', 'woo-smart-search' ),
 	'analytics'       => __( 'Analytics', 'woo-smart-search' ),
 	'logs'            => __( 'Logs', 'woo-smart-search' ),
 );
@@ -82,6 +83,9 @@ if ( $connection_error ) {
 				break;
 			case 'appearance':
 				include __DIR__ . '/tab-appearance.php';
+				break;
+			case 'translations':
+				include __DIR__ . '/tab-translations.php';
 				break;
 			case 'analytics':
 				include __DIR__ . '/tab-analytics.php';
