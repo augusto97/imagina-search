@@ -39,8 +39,25 @@ class WSS_Product_Sync {
 		add_action( 'updated_post_meta', array( $this, 'on_meta_change' ), 10, 4 );
 		add_action( 'added_post_meta', array( $this, 'on_meta_change' ), 10, 4 );
 
+		// WooCommerce REST API hooks (products updated via API, mobile apps, etc.).
+		add_action( 'woocommerce_rest_insert_product_object', array( $this, 'on_rest_product_update' ), 10, 1 );
+		add_action( 'woocommerce_rest_insert_product_variation', array( $this, 'on_rest_variation_update' ), 10, 1 );
+
+		// WooCommerce scheduled sales (sale prices activated/deactivated by cron).
+		add_action( 'woocommerce_scheduled_sales', array( $this, 'on_scheduled_sales' ) );
+
+		// WooCommerce bulk edit (admin bulk actions).
+		add_action( 'woocommerce_product_bulk_edit_save', array( $this, 'on_bulk_edit_save' ), 10, 1 );
+		add_action( 'woocommerce_product_quick_edit_save', array( $this, 'on_bulk_edit_save' ), 10, 1 );
+
+		// WooCommerce CSV import completion.
+		add_action( 'woocommerce_product_import_inserted_product_object', array( $this, 'on_import_product' ), 10, 1 );
+
 		// Bulk sync action (chain pattern).
 		add_action( 'wss_bulk_sync_batch', array( $this, 'process_bulk_sync_batch' ), 10, 1 );
+
+		// Periodic re-indexation.
+		add_action( 'wss_periodic_reindex', array( $this, 'run_periodic_reindex' ) );
 	}
 
 	/**
@@ -195,6 +212,124 @@ class WSS_Product_Sync {
 		if ( $is_tracked ) {
 			$this->schedule_product_update( $object_id );
 		}
+	}
+
+	/**
+	 * Handle WooCommerce REST API product updates.
+	 *
+	 * Catches products updated via REST API, mobile apps, external integrations.
+	 *
+	 * @param WC_Product $product Product object.
+	 */
+	public function on_rest_product_update( $product ) {
+		if ( $product && method_exists( $product, 'get_id' ) ) {
+			$this->schedule_product_update( $product->get_id() );
+		}
+	}
+
+	/**
+	 * Handle WooCommerce REST API variation updates.
+	 *
+	 * Re-indexes the parent product when a variation changes.
+	 *
+	 * @param WC_Product_Variation $variation Variation object.
+	 */
+	public function on_rest_variation_update( $variation ) {
+		if ( $variation && method_exists( $variation, 'get_parent_id' ) ) {
+			$parent_id = $variation->get_parent_id();
+			if ( $parent_id ) {
+				$this->schedule_product_update( $parent_id );
+			}
+		}
+	}
+
+	/**
+	 * Handle WooCommerce scheduled sales.
+	 *
+	 * When WooCommerce cron activates/deactivates scheduled sale prices,
+	 * re-index all affected products.
+	 */
+	public function on_scheduled_sales() {
+		global $wpdb;
+
+		// Find products whose sale just started or ended (modified in the last 2 minutes by the cron).
+		$recently_modified = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"SELECT ID FROM {$wpdb->posts}
+				WHERE post_type = 'product' AND post_status = 'publish'
+				AND post_modified_gmt >= %s",
+				gmdate( 'Y-m-d H:i:s', time() - 120 )
+			)
+		);
+
+		foreach ( $recently_modified as $product_id ) {
+			WSS_Sync_Queue::add( absint( $product_id ), 'update' );
+		}
+	}
+
+	/**
+	 * Handle WooCommerce bulk edit and quick edit saves.
+	 *
+	 * @param WC_Product $product Product object.
+	 */
+	public function on_bulk_edit_save( $product ) {
+		if ( $product && method_exists( $product, 'get_id' ) ) {
+			$this->schedule_product_update( $product->get_id() );
+		}
+	}
+
+	/**
+	 * Handle WooCommerce CSV import product insertion.
+	 *
+	 * @param WC_Product $product Imported product object.
+	 */
+	public function on_import_product( $product ) {
+		if ( $product && method_exists( $product, 'get_id' ) ) {
+			$this->schedule_product_update( $product->get_id() );
+		}
+	}
+
+	/**
+	 * Run periodic re-indexation.
+	 *
+	 * Finds products that may be out of sync (modified after last sync)
+	 * and re-queues them for indexing. Acts as a safety net for changes
+	 * that bypassed WordPress hooks (direct DB updates, external APIs, etc.).
+	 */
+	public function run_periodic_reindex() {
+		global $wpdb;
+
+		$last_reindex = (int) get_option( 'wss_last_periodic_reindex', 0 );
+		$cutoff       = $last_reindex > 0 ? gmdate( 'Y-m-d H:i:s', $last_reindex ) : gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS );
+
+		// Find published products modified since last re-index.
+		$stale_ids = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"SELECT ID FROM {$wpdb->posts}
+				WHERE post_type = 'product' AND post_status = 'publish'
+				AND post_modified_gmt > %s
+				ORDER BY post_modified_gmt ASC
+				LIMIT 500",
+				$cutoff
+			)
+		);
+
+		if ( ! empty( $stale_ids ) ) {
+			foreach ( $stale_ids as $product_id ) {
+				WSS_Sync_Queue::add( absint( $product_id ), 'update' );
+			}
+
+			wss_log(
+				sprintf(
+					/* translators: %d: number of products queued */
+					__( 'Periodic re-index: queued %d products for sync.', 'woo-smart-search' ),
+					count( $stale_ids )
+				),
+				'info'
+			);
+		}
+
+		update_option( 'wss_last_periodic_reindex', time(), false );
 	}
 
 	/**

@@ -85,6 +85,9 @@ class WSS_Loader {
 		// Schedule health check every 5 minutes.
 		$this->schedule_health_check();
 
+		// Schedule periodic re-indexation.
+		$this->schedule_periodic_reindex();
+
 		// Auto-fallback filter for when Meilisearch is down.
 		add_filter( 'wss_use_native_search', array( $this, 'maybe_fallback_to_native' ) );
 
@@ -106,11 +109,36 @@ class WSS_Loader {
 	}
 
 	/**
+	 * Schedule periodic re-indexation to catch changes that bypassed hooks.
+	 *
+	 * Runs every 6 hours by default. Catches: direct DB updates, REST API changes
+	 * from external apps, bulk edit plugins, scheduled sales, CSV imports.
+	 */
+	private function schedule_periodic_reindex() {
+		$interval = (int) apply_filters( 'wss_reindex_interval', 6 * HOUR_IN_SECONDS );
+
+		if ( $interval <= 0 ) {
+			return; // Disabled via filter.
+		}
+
+		if ( function_exists( 'as_has_scheduled_action' ) && ! as_has_scheduled_action( 'wss_periodic_reindex' ) ) {
+			as_schedule_recurring_action( time() + $interval, $interval, 'wss_periodic_reindex', array(), 'woo-smart-search' );
+		}
+	}
+
+	/**
 	 * Run health check on the Meilisearch connection.
 	 *
 	 * Sends email notification on failure and sets transients for fallback.
 	 */
 	public function run_health_check() {
+		// Local engine: always healthy — skip remote health checks.
+		if ( wss_is_local_engine() ) {
+			delete_transient( 'wss_connection_error' );
+			update_option( 'wss_meilisearch_available', true );
+			return;
+		}
+
 		$engine = WSS_Meilisearch::get_instance();
 		if ( ! $engine ) {
 			$this->handle_health_check_failure( __( 'Meilisearch is not configured.', 'woo-smart-search' ) );

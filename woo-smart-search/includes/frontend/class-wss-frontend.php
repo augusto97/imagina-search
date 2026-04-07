@@ -109,11 +109,16 @@ class WSS_Frontend {
 		$settings = $this->get_settings();
 
 		// Direct Meilisearch connection for ultra-fast frontend search.
-		$search_api_key = $settings['search_api_key'] ?? '';
-		$meili_url      = '';
-		$meili_index    = wss_get_option( 'index_name', 'woo_products' );
+		$search_api_key     = $settings['search_api_key'] ?? '';
+		$meili_url          = '';
+		$meili_index        = wss_get_option( 'index_name', 'woo_products' );
+		$local_endpoint_url = '';
+		$engine_type        = wss_get_option( 'search_engine', 'meilisearch' );
 
-		if ( ! empty( $search_api_key ) ) {
+		if ( 'local' === $engine_type ) {
+			// Local engine: use the SHORTINIT search endpoint.
+			$local_endpoint_url = plugins_url( 'search-endpoint.php', WSS_PLUGIN_FILE );
+		} elseif ( ! empty( $search_api_key ) ) {
 			$engine = wss_get_engine();
 			if ( $engine ) {
 				$meili_url = $engine->get_base_url();
@@ -180,6 +185,10 @@ class WSS_Frontend {
 			'wss-search-widget',
 			'wssConfig',
 			array(
+				// Engine type: 'meilisearch' or 'local'.
+				'engineType'     => $engine_type,
+				// Local engine search endpoint (SHORTINIT ultra-fast).
+				'localSearchUrl' => esc_url_raw( $local_endpoint_url ),
 				// Direct Meilisearch (ultra-fast mode) — used when search_api_key is set.
 				'meiliUrl'       => esc_url_raw( $meili_url ),
 				'meiliKey'       => $search_api_key,

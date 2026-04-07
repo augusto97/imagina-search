@@ -41,6 +41,9 @@ class WSS_Post_Sync {
 
 		// Bulk sync action.
 		add_action( 'wss_bulk_post_sync_batch', array( $this, 'process_bulk_sync_batch' ), 10, 1 );
+
+		// Periodic re-indexation for WordPress content.
+		add_action( 'wss_periodic_reindex', array( $this, 'run_periodic_reindex' ) );
 	}
 
 	/**
@@ -610,5 +613,53 @@ class WSS_Post_Sync {
 		}
 
 		wss_log( $message, 'error' );
+	}
+
+	/**
+	 * Run periodic re-indexation for WordPress content.
+	 *
+	 * Finds posts modified since last re-index and re-queues them.
+	 * Acts as a safety net for changes that bypassed WordPress hooks.
+	 */
+	public function run_periodic_reindex() {
+		global $wpdb;
+
+		$last_reindex = (int) get_option( 'wss_last_periodic_reindex_wp', 0 );
+		$cutoff       = $last_reindex > 0 ? gmdate( 'Y-m-d H:i:s', $last_reindex ) : gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS );
+		$post_types   = self::get_configured_post_types();
+
+		if ( empty( $post_types ) ) {
+			return;
+		}
+
+		$type_placeholders = implode( ',', array_fill( 0, count( $post_types ), '%s' ) );
+
+		$stale_ids = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"SELECT ID FROM {$wpdb->posts}
+				WHERE post_type IN ({$type_placeholders}) AND post_status = 'publish'
+				AND post_modified_gmt > %s
+				ORDER BY post_modified_gmt ASC
+				LIMIT 500", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				array_merge( $post_types, array( $cutoff ) )
+			)
+		);
+
+		if ( ! empty( $stale_ids ) ) {
+			foreach ( $stale_ids as $post_id ) {
+				WSS_Sync_Queue::add( absint( $post_id ), 'update' );
+			}
+
+			wss_log(
+				sprintf(
+					/* translators: %d: number of posts queued */
+					__( 'Periodic re-index (WP): queued %d posts for sync.', 'woo-smart-search' ),
+					count( $stale_ids )
+				),
+				'info'
+			);
+		}
+
+		update_option( 'wss_last_periodic_reindex_wp', time(), false );
 	}
 }

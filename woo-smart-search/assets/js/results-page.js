@@ -19,6 +19,9 @@
 		? cfg.meiliUrl + '/indexes/' + encodeURIComponent( cfg.meiliIndex ) + '/search'
 		: '';
 
+	/* ---- Local engine mode ---- */
+	var useLocal = cfg.engineType === 'local' && !!cfg.localSearchUrl;
+
 	/* ---- State ---- */
 	var state = {
 		query:   '',
@@ -230,7 +233,58 @@
 			} );
 		}
 
-		if ( useDirect ) {
+		if ( useLocal ) {
+			// Local engine: SHORTINIT endpoint.
+			var numLimitLocal = parseInt( state.limit, 10 ) || 12;
+			var localParams = 'wss_action=search&q=' + encodeURIComponent( state.query ) +
+				'&limit=' + numLimitLocal +
+				'&page=' + state.page;
+
+			var localFacets = cfg.meilieFacets || ( cfg.isEcommerce || cfg.isMixed
+				? [ 'categories', 'tags', 'stock_status', 'on_sale', 'brand', 'rating' ]
+				: [ 'categories', 'tags', 'post_type', 'author' ] );
+			localParams += '&facets=' + encodeURIComponent( localFacets.join( ',' ) );
+
+			// Build filter combining user filters + content_source restriction.
+			var localCombinedFilter = filterStr;
+			if ( ! cfg.isMixed && cfg.contentSource ) {
+				var localSourceValue = cfg.isEcommerce ? 'woocommerce' : 'wordpress';
+				var localSourceFilter = 'content_source = "' + localSourceValue + '"';
+				localCombinedFilter = localCombinedFilter ? localCombinedFilter + ' AND ' + localSourceFilter : localSourceFilter;
+			}
+			if ( localCombinedFilter ) {
+				localParams += '&filters=' + encodeURIComponent( localCombinedFilter );
+			}
+			if ( state.sort ) {
+				localParams += '&sort=' + encodeURIComponent( state.sort );
+			}
+
+			searchPromise = fetch( cfg.localSearchUrl + '?' + localParams, {
+				signal: state.controller.signal
+			} )
+			.then( function ( res ) {
+				if ( ! res.ok ) throw new Error( 'Local HTTP ' + res.status );
+				return res.json();
+			} )
+			.then( function ( data ) {
+				var hits = ( data.hits || [] ).map( function ( hit ) {
+					var formatted = hit._formatted || {};
+					hit.name_highlighted = formatted.name || hit.name || '';
+					return hit;
+				} );
+				return {
+					hits: hits,
+					total: data.estimatedTotalHits || hits.length,
+					facets: data.facetDistribution || {},
+					processingTimeMs: data.processingTimeMs || 0
+				};
+			} )
+			.catch( function ( err ) {
+				if ( err.name === 'AbortError' ) throw err;
+				console.warn( 'WSS: Local search failed, falling back to WP REST API', err.message );
+				return wpFallbackSearch();
+			} );
+		} else if ( useDirect ) {
 			// Ultra-fast: direct Meilisearch POST, with automatic WP fallback on failure.
 			var numLimit = parseInt( state.limit, 10 ) || 12;
 			var body = {

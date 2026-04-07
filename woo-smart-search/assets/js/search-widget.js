@@ -17,6 +17,9 @@
 		? config.meiliUrl + '/indexes/' + encodeURIComponent(config.meiliIndex) + '/search'
 		: '';
 
+	// Local engine mode: use SHORTINIT endpoint for ultra-fast local search.
+	var useLocal = config.engineType === 'local' && !!config.localSearchUrl;
+
 	/**
 	 * Perform a direct Meilisearch POST search.
 	 * Returns a promise that resolves to the normalized response format.
@@ -59,6 +62,43 @@
 		})
 		.then(function (data) {
 			// Normalize to match the WP REST API response format.
+			var hits = (data.hits || []).map(function (hit) {
+				var formatted = hit._formatted || {};
+				hit.name_highlighted = formatted.name || hit.name || '';
+				return hit;
+			});
+			return {
+				hits: hits,
+				total: data.estimatedTotalHits || hits.length,
+				facets: data.facetDistribution || {},
+				processingTimeMs: data.processingTimeMs || 0
+			};
+		});
+	}
+
+	/**
+	 * Perform a local engine search via the SHORTINIT endpoint.
+	 * Returns a promise that resolves to the normalized response format.
+	 */
+	function localSearch(query, limit, facets, signal) {
+		var params = 'wss_action=search&q=' + encodeURIComponent(query) + '&limit=' + (parseInt(limit, 10) || 8);
+		if (facets && facets.length) {
+			params += '&facets=' + encodeURIComponent(facets.join(','));
+		}
+		// Filter by content_source unless mixed mode.
+		if (!config.isMixed && config.contentSource) {
+			var sourceValue = config.isEcommerce ? 'woocommerce' : 'wordpress';
+			params += '&filters=' + encodeURIComponent('content_source = "' + sourceValue + '"');
+		}
+
+		return fetch(config.localSearchUrl + '?' + params, {
+			signal: signal
+		})
+		.then(function (res) {
+			if (!res.ok) throw new Error('Local HTTP ' + res.status);
+			return res.json();
+		})
+		.then(function (data) {
 			var hits = (data.hits || []).map(function (hit) {
 				var formatted = hit._formatted || {};
 				hit.name_highlighted = formatted.name || hit.name || '';
@@ -541,7 +581,15 @@
 				});
 			}
 
-			if (useDirect) {
+			if (useLocal) {
+				// Local engine: SHORTINIT endpoint (ultra-fast, no WP overhead).
+				searchPromise = localSearch(query, limit, facets, activeController.signal)
+					.catch(function (err) {
+						if (err.name === 'AbortError') throw err;
+						console.warn('WSS: Local search failed, falling back to WP REST API', err.message);
+						return wpFallbackSearch(query, limit, activeController.signal);
+					});
+			} else if (useDirect) {
 				// Ultra-fast: direct Meilisearch POST, with automatic WP fallback on failure.
 				searchPromise = meiliSearch(query, limit, facets, activeController.signal)
 					.catch(function (err) {

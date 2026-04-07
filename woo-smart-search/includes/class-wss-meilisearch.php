@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Class WSS_Meilisearch
  */
-class WSS_Meilisearch {
+class WSS_Meilisearch implements WSS_Search_Engine {
 
 	/**
 	 * Singleton instance.
@@ -559,6 +559,15 @@ class WSS_Meilisearch {
 			$material = 'wss-fallback-' . DB_NAME . DB_USER;
 		}
 		return hash( 'sha256', 'wss-api-key-encryption:' . $material, true );
+	}
+
+	/**
+	 * Get the engine type identifier.
+	 *
+	 * @return string
+	 */
+	public function get_engine_type(): string {
+		return 'meilisearch';
 	}
 
 	/**

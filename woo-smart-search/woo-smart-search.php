@@ -137,12 +137,29 @@ function wss_init() {
 add_action( 'plugins_loaded', 'wss_init' );
 
 /**
- * Get the Meilisearch instance (singleton).
+ * Get the search engine instance (singleton).
  *
- * @return WSS_Meilisearch|null
+ * Returns the configured engine: WSS_Meilisearch or WSS_Local_Engine.
+ *
+ * @return WSS_Search_Engine|null
  */
 function wss_get_engine() {
+	$engine_type = wss_get_option( 'search_engine', 'meilisearch' );
+
+	if ( 'local' === $engine_type ) {
+		return WSS_Local_Engine::get_instance();
+	}
+
 	return WSS_Meilisearch::get_instance();
+}
+
+/**
+ * Check if the local search engine is active.
+ *
+ * @return bool
+ */
+function wss_is_local_engine() {
+	return 'local' === wss_get_option( 'search_engine', 'meilisearch' );
 }
 
 /**

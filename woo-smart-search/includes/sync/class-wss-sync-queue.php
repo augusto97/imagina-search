@@ -23,6 +23,11 @@ class WSS_Sync_Queue {
 	const QUEUE_DELAY = 30;
 
 	/**
+	 * Maximum number of retries for failed items.
+	 */
+	const MAX_RETRIES = 3;
+
+	/**
 	 * Initialize queue processing.
 	 */
 	public function init() {
@@ -146,23 +151,74 @@ class WSS_Sync_Queue {
 					: ( $post_sync ? $post_sync->sync_single_post( $post_id ) : false );
 			}
 
-			$wpdb->update(
-				$table,
-				array(
-					'status'       => $success ? 'completed' : 'failed',
-					'processed_at' => current_time( 'mysql' ),
-				),
-				array( 'id' => $item['id'] ),
-				array( '%s', '%s' ),
-				array( '%d' )
-			);
+			if ( $success ) {
+				$wpdb->update(
+					$table,
+					array(
+						'status'       => 'completed',
+						'processed_at' => current_time( 'mysql' ),
+					),
+					array( 'id' => $item['id'] ),
+					array( '%s', '%s' ),
+					array( '%d' )
+				);
+			} else {
+				$retries = isset( $item['priority'] ) ? (int) $item['priority'] : 0;
+				++$retries;
+
+				if ( $retries < self::MAX_RETRIES ) {
+					// Retry with exponential backoff: reschedule as pending.
+					$backoff_seconds = (int) pow( 5, $retries ); // 5s, 25s, 125s.
+					$wpdb->update(
+						$table,
+						array(
+							'status'       => 'pending',
+							'priority'     => $retries,
+							'scheduled_at' => gmdate( 'Y-m-d H:i:s', time() + $backoff_seconds ),
+						),
+						array( 'id' => $item['id'] ),
+						array( '%s', '%d', '%s' ),
+						array( '%d' )
+					);
+				} else {
+					// Max retries exceeded — mark as permanently failed.
+					$wpdb->update(
+						$table,
+						array(
+							'status'       => 'failed',
+							'priority'     => $retries,
+							'processed_at' => current_time( 'mysql' ),
+						),
+						array( 'id' => $item['id'] ),
+						array( '%s', '%d', '%s' ),
+						array( '%d' )
+					);
+					wss_log(
+						sprintf(
+							/* translators: 1: post ID 2: action */
+							__( 'Sync failed after %3$d retries: post %1$d (%2$s)', 'woo-smart-search' ),
+							$post_id,
+							$action,
+							self::MAX_RETRIES
+						),
+						'error'
+					);
+				}
+			}
 		}
 
 		// Clean old completed entries (older than 24 hours).
+		// Keep failed entries for 7 days for visibility.
 		$wpdb->query(
 			$wpdb->prepare(
-				"DELETE FROM {$table} WHERE status IN ('completed', 'failed') AND processed_at < %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"DELETE FROM {$table} WHERE status = 'completed' AND processed_at < %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS )
+			)
+		);
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$table} WHERE status = 'failed' AND processed_at < %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				gmdate( 'Y-m-d H:i:s', time() - ( 7 * DAY_IN_SECONDS ) )
 			)
 		);
 
