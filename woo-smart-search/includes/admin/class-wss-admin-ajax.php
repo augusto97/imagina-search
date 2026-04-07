@@ -289,6 +289,7 @@ class WSS_Admin_Ajax {
 			$engine     = wss_get_engine();
 			$index_name = wss_get_option( 'index_name', 'woo_products' );
 
+
 			if ( $engine ) {
 				$engine->create_index( $index_name );
 				$this->configure_mixed_index( $engine, $index_name );
@@ -315,6 +316,22 @@ class WSS_Admin_Ajax {
 				$total += $r['total'] ?? 0;
 				$messages[] = $r['message'] ?? '';
 			}
+
+			// Override progress with combined total so the progress bar
+			// reflects ALL content, not just the last sync that overwrote it.
+			update_option(
+				'wss_sync_progress',
+				array(
+					'total'     => $total,
+					'processed' => 0,
+					'batches'   => 0,
+					'current'   => 0,
+					'status'    => 'running',
+					'started'   => time(),
+					'errors'    => 0,
+				),
+				false
+			);
 
 			wp_send_json_success( array(
 				'success' => true,

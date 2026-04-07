@@ -61,6 +61,10 @@
 	line-height: 1.5;
 	color: var(--wss-text-color);
 	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+	float: none;
+	text-align: left;
 }
 
 .wss-search-wrapper *,
@@ -80,19 +84,26 @@
 }
 
 .wss-search-input {
-	width: 100%;
-	height: var(--wss-input-height);
-	padding: 0 40px 0 42px;
-	font-size: var(--wss-font-size-base);
+	width: 100% !important;
+	height: var(--wss-input-height) !important;
+	padding: 0 40px 0 42px !important;
+	font-size: var(--wss-font-size-base) !important;
 	font-family: inherit;
-	color: var(--wss-text-color);
-	background: var(--wss-bg-color);
-	border: 1.5px solid var(--wss-border-color);
-	border-radius: var(--wss-border-radius);
-	outline: none;
+	color: var(--wss-text-color) !important;
+	background: var(--wss-bg-color) !important;
+	border: 1.5px solid var(--wss-border-color) !important;
+	border-radius: var(--wss-border-radius) !important;
+	outline: none !important;
 	transition: border-color 0.2s ease, box-shadow 0.2s ease;
-	-webkit-appearance: none;
-	appearance: none;
+	-webkit-appearance: none !important;
+	appearance: none !important;
+	margin: 0 !important;
+	min-height: auto !important;
+	max-width: none !important;
+	box-shadow: none !important;
+	float: none !important;
+	display: block !important;
+	line-height: normal !important;
 }
 
 /* Hide the native browser clear button on search inputs (we have our own) */
@@ -112,8 +123,8 @@
 }
 
 .wss-search-input:focus {
-	border-color: var(--wss-primary-color);
-	box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+	border-color: var(--wss-primary-color) !important;
+	box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
 }
 
 .wss-search-input::placeholder {
