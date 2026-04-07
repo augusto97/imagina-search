@@ -21,6 +21,30 @@ if ( ! defined( 'ABSPATH' ) ) {
 	<table class="form-table">
 		<tr>
 			<th scope="row">
+				<label for="wss-search-engine"><?php esc_html_e( 'Search Engine', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<select id="wss-search-engine" name="search_engine">
+					<option value="meilisearch" <?php selected( $settings['search_engine'] ?? 'meilisearch', 'meilisearch' ); ?>>
+						Meilisearch (<?php esc_html_e( 'Cloud / Self-hosted', 'woo-smart-search' ); ?>)
+					</option>
+					<option value="local" <?php selected( $settings['search_engine'] ?? 'meilisearch', 'local' ); ?>>
+						<?php esc_html_e( 'Local (MySQL)', 'woo-smart-search' ); ?>
+					</option>
+				</select>
+				<p class="description">
+					<strong>Meilisearch:</strong> <?php esc_html_e( 'Fastest option. Requires an external Meilisearch server (cloud or self-hosted). Best typo tolerance and relevance.', 'woo-smart-search' ); ?><br/>
+					<strong><?php esc_html_e( 'Local:', 'woo-smart-search' ); ?></strong> <?php esc_html_e( 'Zero cost, zero dependencies. Uses an inverted index in your MySQL database. Works on any hosting. Great for stores with up to ~50,000 products.', 'woo-smart-search' ); ?>
+				</p>
+			</td>
+		</tr>
+	</table>
+
+	<!-- Meilisearch settings (shown when engine = meilisearch) -->
+	<div id="wss-meilisearch-settings" style="<?php echo ( $settings['search_engine'] ?? 'meilisearch' ) === 'local' ? 'display:none;' : ''; ?>">
+	<table class="form-table">
+		<tr>
+			<th scope="row">
 				<label for="wss-host"><?php esc_html_e( 'Host', 'woo-smart-search' ); ?></label>
 			</th>
 			<td>
@@ -89,6 +113,29 @@ if ( ! defined( 'ABSPATH' ) ) {
 			</td>
 		</tr>
 	</table>
+	</div><!-- /#wss-meilisearch-settings -->
+
+	<!-- Local engine info (shown when engine = local) -->
+	<div id="wss-local-settings" style="<?php echo ( $settings['search_engine'] ?? 'meilisearch' ) !== 'local' ? 'display:none;' : ''; ?>">
+	<table class="form-table">
+		<tr>
+			<th scope="row"><?php esc_html_e( 'Index Name', 'woo-smart-search' ); ?></th>
+			<td>
+				<input type="text" name="index_name_local" value="<?php echo esc_attr( $settings['index_name'] ?? 'woo_products' ); ?>" class="regular-text" />
+				<p class="description"><?php esc_html_e( 'Identifier for the local search index.', 'woo-smart-search' ); ?></p>
+			</td>
+		</tr>
+		<tr>
+			<th scope="row"><?php esc_html_e( 'Status', 'woo-smart-search' ); ?></th>
+			<td>
+				<p class="description" style="font-size: 13px;">
+					<?php esc_html_e( 'The local engine stores an inverted index in your MySQL database. No external server is needed.', 'woo-smart-search' ); ?>
+					<?php esc_html_e( 'After saving, go to the Sync tab and run a full synchronization to build the local index.', 'woo-smart-search' ); ?>
+				</p>
+			</td>
+		</tr>
+	</table>
+	</div><!-- /#wss-local-settings -->
 
 	<p class="submit">
 		<button type="button" id="wss-test-connection" class="button button-secondary">
@@ -152,5 +199,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 		}
 
 		wssCheckConnectionStatus();
+
+		// Toggle Meilisearch / Local settings visibility.
+		$( '#wss-search-engine' ).on( 'change', function () {
+			var engine = $( this ).val();
+			if ( engine === 'local' ) {
+				$( '#wss-meilisearch-settings' ).hide();
+				$( '#wss-local-settings' ).show();
+			} else {
+				$( '#wss-meilisearch-settings' ).show();
+				$( '#wss-local-settings' ).hide();
+			}
+		} );
 	} );
 </script>

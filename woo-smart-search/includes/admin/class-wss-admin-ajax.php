@@ -66,6 +66,7 @@ class WSS_Admin_Ajax {
 			'text_color', 'border_color', 'font_size', 'border_radius',
 			'placeholder_text', 'custom_css', 'integration_mode',
 			'synonyms', 'stop_words', 'widget_layout', 'content_source',
+			'search_engine',
 		);
 
 		foreach ( $text_fields as $field ) {
@@ -84,6 +85,16 @@ class WSS_Admin_Ajax {
 					$settings[ $field ] = sanitize_text_field( wp_unslash( $_POST[ $field ] ) );
 				}
 			}
+		}
+
+		// Validate search_engine field.
+		if ( isset( $settings['search_engine'] ) && ! in_array( $settings['search_engine'], array( 'meilisearch', 'local' ), true ) ) {
+			$settings['search_engine'] = 'meilisearch';
+		}
+
+		// Handle local engine index name from its own field.
+		if ( isset( $_POST['index_name_local'] ) && 'local' === ( $settings['search_engine'] ?? 'meilisearch' ) ) {
+			$settings['index_name'] = preg_replace( '/[^a-zA-Z0-9_\-]/', '', sanitize_text_field( wp_unslash( $_POST['index_name_local'] ) ) );
 		}
 
 		// Handle API key encryption.
@@ -186,8 +197,9 @@ class WSS_Admin_Ajax {
 		// Invalidate cached CSS variables.
 		delete_transient( 'wss_css_vars_' . WSS_VERSION );
 
-		// Reset Meilisearch singleton so it picks up new config.
+		// Reset engine singletons so they pick up new config.
 		WSS_Meilisearch::reset();
+		WSS_Local_Engine::reset();
 
 		// Update Meilisearch filterable attributes (only in ecommerce mode).
 		if ( wss_is_ecommerce_mode() ) {
@@ -685,21 +697,48 @@ class WSS_Admin_Ajax {
 	}
 
 	/**
-	 * Get the current Meilisearch connection status.
+	 * Get the current search engine connection status.
 	 *
 	 * Returns status (connected, error, not_configured), version, and document count.
 	 */
 	public function get_connection_status() {
 		$this->verify_request();
 
+		$engine_type = wss_get_option( 'search_engine', 'meilisearch' );
+
+		// Local engine: always available.
+		if ( 'local' === $engine_type ) {
+			$engine     = WSS_Local_Engine::get_instance();
+			$result     = $engine->test_connection();
+			$index_name = wss_get_option( 'index_name', 'woo_products' );
+			$stats      = $engine->get_index_stats( $index_name );
+			$doc_count  = isset( $stats['numberOfDocuments'] ) ? (int) $stats['numberOfDocuments'] : 0;
+
+			if ( ! $result['success'] ) {
+				wp_send_json_success( array(
+					'status'  => 'error',
+					'message' => $result['message'],
+				) );
+				return;
+			}
+
+			wp_send_json_success( array(
+				'status'         => 'connected',
+				'version'        => $result['version'],
+				'documents'      => $doc_count,
+				'restricted_key' => false,
+				'engine_type'    => 'local',
+			) );
+			return;
+		}
+
+		// Meilisearch engine.
 		$error = get_transient( 'wss_connection_error' );
 		if ( $error ) {
-			wp_send_json_success(
-				array(
-					'status'  => 'error',
-					'message' => $error,
-				)
-			);
+			wp_send_json_success( array(
+				'status'  => 'error',
+				'message' => $error,
+			) );
 			return;
 		}
 
@@ -707,7 +746,7 @@ class WSS_Admin_Ajax {
 
 		// Fallback: if get_instance() returned null, try creating from saved settings directly.
 		if ( ! $engine ) {
-			$settings = get_option( 'wss_settings', array() );
+			$settings  = get_option( 'wss_settings', array() );
 			$saved_key = isset( $settings['api_key'] ) ? $settings['api_key'] : '';
 
 			if ( ! empty( $saved_key ) ) {
@@ -721,23 +760,19 @@ class WSS_Admin_Ajax {
 		}
 
 		if ( ! $engine ) {
-			wp_send_json_success(
-				array(
-					'status'  => 'not_configured',
-					'message' => __( 'Meilisearch is not configured.', 'woo-smart-search' ),
-				)
-			);
+			wp_send_json_success( array(
+				'status'  => 'not_configured',
+				'message' => __( 'Meilisearch is not configured.', 'woo-smart-search' ),
+			) );
 			return;
 		}
 
 		$result = $engine->test_connection();
 		if ( ! $result['success'] ) {
-			wp_send_json_success(
-				array(
-					'status'  => 'error',
-					'message' => $result['message'],
-				)
-			);
+			wp_send_json_success( array(
+				'status'  => 'error',
+				'message' => $result['message'],
+			) );
 			return;
 		}
 
@@ -747,13 +782,12 @@ class WSS_Admin_Ajax {
 		$stats      = $engine->get_index_stats( $index_name );
 		$doc_count  = isset( $stats['numberOfDocuments'] ) ? (int) $stats['numberOfDocuments'] : 0;
 
-		wp_send_json_success(
-			array(
-				'status'         => 'connected',
-				'version'        => isset( $result['version'] ) ? $result['version'] : '',
-				'documents'      => $doc_count,
-				'restricted_key' => ! empty( $result['restricted_key'] ),
-			)
-		);
+		wp_send_json_success( array(
+			'status'         => 'connected',
+			'version'        => isset( $result['version'] ) ? $result['version'] : '',
+			'documents'      => $doc_count,
+			'restricted_key' => ! empty( $result['restricted_key'] ),
+			'engine_type'    => 'meilisearch',
+		) );
 	}
 }

@@ -22,6 +22,9 @@ class WSS_Activator {
 		self::set_default_options();
 		self::maybe_create_results_page();
 
+		// Create local search engine tables.
+		WSS_Local_Engine::create_tables();
+
 		flush_rewrite_rules();
 		set_transient( 'wss_activation_redirect', true, 30 );
 	}
@@ -135,6 +138,7 @@ class WSS_Activator {
 			'content_source'            => 'auto',
 			'wp_post_types'             => array( 'post' ),
 			'wp_custom_fields'          => array(),
+			'search_engine'             => 'meilisearch',
 		);
 
 		$existing = get_option( 'wss_settings', array() );

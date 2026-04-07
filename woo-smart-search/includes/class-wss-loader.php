@@ -111,6 +111,13 @@ class WSS_Loader {
 	 * Sends email notification on failure and sets transients for fallback.
 	 */
 	public function run_health_check() {
+		// Local engine: always healthy — skip remote health checks.
+		if ( wss_is_local_engine() ) {
+			delete_transient( 'wss_connection_error' );
+			update_option( 'wss_meilisearch_available', true );
+			return;
+		}
+
 		$engine = WSS_Meilisearch::get_instance();
 		if ( ! $engine ) {
 			$this->handle_health_check_failure( __( 'Meilisearch is not configured.', 'woo-smart-search' ) );
