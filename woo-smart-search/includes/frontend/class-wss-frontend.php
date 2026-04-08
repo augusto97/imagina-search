@@ -222,6 +222,12 @@ class WSS_Frontend {
 				'placeholderImg' => WSS_PLUGIN_URL . 'assets/images/placeholder.svg',
 				'i18n'           => self::get_frontend_i18n( $settings ),
 				'widgetLayout'   => $settings['widget_layout'] ?? 'standard',
+				'resultsLayout'  => $settings['results_layout'] ?? 'default',
+				'resultsColumns' => (int) ( $settings['results_columns'] ?? 3 ),
+				'resultsPerPage' => (int) ( $settings['results_per_page'] ?? 20 ),
+				'rpImageRatio'   => $settings['rp_image_ratio'] ?? '1:1',
+				'rpImageFit'     => $settings['rp_image_fit'] ?? 'cover',
+				'rpCardShadow'   => $settings['rp_card_shadow'] ?? 'medium',
 				'visibleFacets'  => implode( ',', $settings['visible_facets'] ?? (
 				$is_ecom ? array( 'categories', 'tags', 'price', 'stock', 'attributes' ) :
 				( $is_mixed ? array( 'categories', 'tags', 'price', 'stock', 'attributes', 'post_type', 'author' ) :
@@ -235,6 +241,12 @@ class WSS_Frontend {
 		$custom_css = $settings['custom_css'] ?? '';
 		if ( ! empty( $custom_css ) ) {
 			wp_add_inline_style( 'wss-search-widget', $custom_css );
+		}
+
+		// Results page custom CSS (added to widget stylesheet so it's always available).
+		$rp_custom_css = $settings['rp_custom_css'] ?? '';
+		if ( ! empty( $rp_custom_css ) ) {
+			wp_add_inline_style( 'wss-search-widget', $rp_custom_css );
 		}
 	}
 
@@ -297,6 +309,25 @@ class WSS_Frontend {
 				'--wss-highlight-text'  => $settings['highlight_text'] ?? '#92400e',
 				'--wss-font-size-base'  => ( $settings['font_size'] ?? '14' ) . 'px',
 				'--wss-border-radius'   => ( $settings['border_radius'] ?? '8' ) . 'px',
+				// Results page variables.
+				'--wss-rp-card-bg'      => $settings['rp_card_bg'] ?? '#ffffff',
+				'--wss-rp-card-border'  => $settings['rp_card_border'] ?? '#e5e7eb',
+				'--wss-rp-card-radius'  => ( $settings['rp_card_radius'] ?? '8' ) . 'px',
+				'--wss-rp-price-color'  => $settings['rp_price_color'] ?? '#1f2937',
+				'--wss-rp-sale-color'   => $settings['rp_sale_color'] ?? '#dc2626',
+				'--wss-rp-badge-bg'     => $settings['rp_badge_bg'] ?? '#ef4444',
+				'--wss-rp-badge-text'   => $settings['rp_badge_text'] ?? '#ffffff',
+				'--wss-rp-stars-color'  => $settings['rp_stars_color'] ?? '#f59e0b',
+				'--wss-rp-button-bg'    => $settings['rp_button_bg'] ?? '#2563eb',
+				'--wss-rp-button-text'  => $settings['rp_button_text'] ?? '#ffffff',
+				'--wss-rp-sidebar-bg'   => $settings['rp_sidebar_bg'] ?? '#ffffff',
+				'--wss-rp-toolbar-bg'   => $settings['rp_toolbar_bg'] ?? '#ffffff',
+				'--wss-rp-page-bg'      => $settings['rp_page_bg'] ?? '#f9fafb',
+				'--wss-rp-card-gap'     => ( $settings['rp_card_gap'] ?? '20' ) . 'px',
+				'--wss-rp-name-size'    => ( $settings['rp_name_size'] ?? '14' ) . 'px',
+				'--wss-rp-price-size'   => ( $settings['rp_price_size'] ?? '16' ) . 'px',
+				'--wss-rp-name-lines'   => $settings['rp_name_lines'] ?? '2',
+				'--wss-rp-columns'      => $settings['results_columns'] ?? '3',
 			);
 
 			if ( 'dark' === $theme ) {
@@ -452,6 +483,9 @@ class WSS_Frontend {
 			'sortRating'       => ! empty( $t['sortRating'] ) ? $t['sortRating'] : __( 'Best Rated', 'woo-smart-search' ),
 			'sortNameAZ'       => ! empty( $t['sortNameAZ'] ) ? $t['sortNameAZ'] : __( 'Name: A–Z', 'woo-smart-search' ),
 			'sortNameZA'       => ! empty( $t['sortNameZA'] ) ? $t['sortNameZA'] : __( 'Name: Z–A', 'woo-smart-search' ),
+			'addToCart'        => ! empty( $t['addToCart'] ) ? $t['addToCart'] : __( 'Add to Cart', 'woo-smart-search' ),
+			'freeShipping'     => ! empty( $t['freeShipping'] ) ? $t['freeShipping'] : __( 'Free shipping', 'woo-smart-search' ),
+			'sold'             => ! empty( $t['sold'] ) ? $t['sold'] : __( 'sold', 'woo-smart-search' ),
 		);
 	}
 

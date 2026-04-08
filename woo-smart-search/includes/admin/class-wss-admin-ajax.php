@@ -69,11 +69,20 @@ class WSS_Admin_Ajax {
 			'placeholder_text', 'custom_css', 'integration_mode',
 			'synonyms', 'stop_words', 'widget_layout', 'content_source',
 			'search_engine',
+			// Results page appearance.
+			'results_layout', 'results_columns',
+			'rp_card_bg', 'rp_card_border', 'rp_card_radius', 'rp_card_shadow',
+			'rp_price_color', 'rp_sale_color', 'rp_badge_bg', 'rp_badge_text',
+			'rp_stars_color', 'rp_button_bg', 'rp_button_text',
+			'rp_sidebar_bg', 'rp_toolbar_bg', 'rp_page_bg',
+			'rp_image_ratio', 'rp_image_fit', 'rp_card_gap',
+			'rp_name_size', 'rp_price_size', 'rp_name_lines',
+			'rp_custom_css',
 		);
 
 		foreach ( $text_fields as $field ) {
 			if ( isset( $_POST[ $field ] ) ) {
-				if ( 'custom_css' === $field ) {
+				if ( 'custom_css' === $field || 'rp_custom_css' === $field ) {
 					// Preserve newlines but strip HTML tags and potential injections.
 					$settings[ $field ] = wp_strip_all_tags( wp_unslash( $_POST[ $field ] ) );
 				} elseif ( 'protocol' === $field ) {
@@ -92,6 +101,11 @@ class WSS_Admin_Ajax {
 		// Validate search_engine field.
 		if ( isset( $settings['search_engine'] ) && ! in_array( $settings['search_engine'], array( 'meilisearch', 'local' ), true ) ) {
 			$settings['search_engine'] = 'meilisearch';
+		}
+
+		// Validate results_layout field.
+		if ( isset( $settings['results_layout'] ) && ! in_array( $settings['results_layout'], array( 'default', 'amazon', 'temu', 'mercadolibre', 'aliexpress', 'shopify' ), true ) ) {
+			$settings['results_layout'] = 'default';
 		}
 
 		// Handle local engine index name from its own field.
@@ -206,6 +220,7 @@ class WSS_Admin_Ajax {
 				'relatedBrands', 'relatedCategories', 'filters', 'resultsFor',
 				'noResultsPage', 'sortRelevance', 'sortPriceLow', 'sortPriceHigh',
 				'sortNewest', 'sortPopular', 'sortRating', 'sortNameAZ', 'sortNameZA',
+				'addToCart', 'freeShipping', 'sold',
 			);
 			$clean = array();
 			foreach ( $raw as $key => $value ) {
