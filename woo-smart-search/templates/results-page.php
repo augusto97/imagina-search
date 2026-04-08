@@ -13,7 +13,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-<?php
 $wss_settings    = get_option( 'wss_settings', array() );
 $i18n            = WSS_Frontend::get_frontend_i18n( $wss_settings );
 $results_layout  = $wss_settings['results_layout'] ?? 'default';
