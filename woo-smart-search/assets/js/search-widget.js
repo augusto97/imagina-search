@@ -542,6 +542,8 @@
 		/* ---- Search ---- */
 
 		function performSearch(query) {
+			// Enforce max query length.
+			if (query.length > 100) query = query.substring(0, 100);
 			lastQuery = query;
 
 			if (cache[query]) {

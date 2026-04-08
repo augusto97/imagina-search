@@ -108,6 +108,51 @@ if ( ! function_exists( 'wss_tr' ) ) {
 		</tr>
 	</table>
 
+	<!-- Facets / Filters -->
+	<h2><?php esc_html_e( 'Facets &amp; Filters', 'woo-smart-search' ); ?></h2>
+	<table class="form-table">
+		<tr>
+			<th scope="row"><label for="wss-tr-tags"><?php esc_html_e( 'Tags', 'woo-smart-search' ); ?></label></th>
+			<td><input type="text" id="wss-tr-tags" name="translations[tags]" class="regular-text" value="<?php echo esc_attr( wss_tr( $t, 'tags' ) ); ?>" placeholder="Tags" /></td>
+		</tr>
+		<tr>
+			<th scope="row"><label for="wss-tr-stock"><?php esc_html_e( 'Stock', 'woo-smart-search' ); ?></label></th>
+			<td><input type="text" id="wss-tr-stock" name="translations[stock]" class="regular-text" value="<?php echo esc_attr( wss_tr( $t, 'stock' ) ); ?>" placeholder="Stock" /></td>
+		</tr>
+		<tr>
+			<th scope="row"><label for="wss-tr-brand"><?php esc_html_e( 'Brand', 'woo-smart-search' ); ?></label></th>
+			<td><input type="text" id="wss-tr-brand" name="translations[brand]" class="regular-text" value="<?php echo esc_attr( wss_tr( $t, 'brand' ) ); ?>" placeholder="Brand" /></td>
+		</tr>
+		<tr>
+			<th scope="row"><label for="wss-tr-rating"><?php esc_html_e( 'Rating', 'woo-smart-search' ); ?></label></th>
+			<td><input type="text" id="wss-tr-rating" name="translations[rating]" class="regular-text" value="<?php echo esc_attr( wss_tr( $t, 'rating' ) ); ?>" placeholder="Rating" /></td>
+		</tr>
+		<tr>
+			<th scope="row"><label for="wss-tr-price"><?php esc_html_e( 'Price', 'woo-smart-search' ); ?></label></th>
+			<td><input type="text" id="wss-tr-price" name="translations[price]" class="regular-text" value="<?php echo esc_attr( wss_tr( $t, 'price' ) ); ?>" placeholder="Price" /></td>
+		</tr>
+		<tr>
+			<th scope="row"><label for="wss-tr-priceMin"><?php esc_html_e( 'Price min placeholder', 'woo-smart-search' ); ?></label></th>
+			<td><input type="text" id="wss-tr-priceMin" name="translations[priceMin]" class="regular-text" value="<?php echo esc_attr( wss_tr( $t, 'priceMin' ) ); ?>" placeholder="Min" /></td>
+		</tr>
+		<tr>
+			<th scope="row"><label for="wss-tr-priceMax"><?php esc_html_e( 'Price max placeholder', 'woo-smart-search' ); ?></label></th>
+			<td><input type="text" id="wss-tr-priceMax" name="translations[priceMax]" class="regular-text" value="<?php echo esc_attr( wss_tr( $t, 'priceMax' ) ); ?>" placeholder="Max" /></td>
+		</tr>
+		<tr>
+			<th scope="row"><label for="wss-tr-contentType"><?php esc_html_e( 'Content Type', 'woo-smart-search' ); ?></label></th>
+			<td><input type="text" id="wss-tr-contentType" name="translations[contentType]" class="regular-text" value="<?php echo esc_attr( wss_tr( $t, 'contentType' ) ); ?>" placeholder="Content Type" /></td>
+		</tr>
+		<tr>
+			<th scope="row"><label for="wss-tr-author"><?php esc_html_e( 'Author', 'woo-smart-search' ); ?></label></th>
+			<td><input type="text" id="wss-tr-author" name="translations[author]" class="regular-text" value="<?php echo esc_attr( wss_tr( $t, 'author' ) ); ?>" placeholder="Author" /></td>
+		</tr>
+		<tr>
+			<th scope="row"><label for="wss-tr-clearAll"><?php esc_html_e( 'Clear all filters', 'woo-smart-search' ); ?></label></th>
+			<td><input type="text" id="wss-tr-clearAll" name="translations[clearAll]" class="regular-text" value="<?php echo esc_attr( wss_tr( $t, 'clearAll' ) ); ?>" placeholder="Clear all" /></td>
+		</tr>
+	</table>
+
 	<!-- Results Page -->
 	<h2><?php esc_html_e( 'Results Page', 'woo-smart-search' ); ?></h2>
 	<table class="form-table">
@@ -119,8 +164,26 @@ if ( ! function_exists( 'wss_tr' ) ) {
 			</td>
 		</tr>
 		<tr>
+			<th scope="row"><label for="wss-tr-xResults"><?php esc_html_e( 'Results count', 'woo-smart-search' ); ?></label></th>
+			<td>
+				<input type="text" id="wss-tr-xResults" name="translations[xResults]" class="regular-text" value="<?php echo esc_attr( wss_tr( $t, 'xResults' ) ); ?>" placeholder="<?php esc_attr_e( '%d results', 'woo-smart-search' ); ?>" />
+				<p class="description"><?php esc_html_e( 'Use %d for the number. Example: %d resultados', 'woo-smart-search' ); ?></p>
+			</td>
+		</tr>
+		<tr>
+			<th scope="row"><label for="wss-tr-xProducts"><?php esc_html_e( 'Products count', 'woo-smart-search' ); ?></label></th>
+			<td>
+				<input type="text" id="wss-tr-xProducts" name="translations[xProducts]" class="regular-text" value="<?php echo esc_attr( wss_tr( $t, 'xProducts' ) ); ?>" placeholder="<?php esc_attr_e( '%d products', 'woo-smart-search' ); ?>" />
+				<p class="description"><?php esc_html_e( 'Use %d for the number. Example: %d productos', 'woo-smart-search' ); ?></p>
+			</td>
+		</tr>
+		<tr>
 			<th scope="row"><label for="wss-tr-noResultsPage"><?php esc_html_e( 'No results message', 'woo-smart-search' ); ?></label></th>
 			<td><input type="text" id="wss-tr-noResultsPage" name="translations[noResultsPage]" class="regular-text" value="<?php echo esc_attr( wss_tr( $t, 'noResultsPage' ) ); ?>" placeholder="No results found matching your search." /></td>
+		</tr>
+		<tr>
+			<th scope="row"><label for="wss-tr-errorLoading"><?php esc_html_e( 'Error loading', 'woo-smart-search' ); ?></label></th>
+			<td><input type="text" id="wss-tr-errorLoading" name="translations[errorLoading]" class="regular-text" value="<?php echo esc_attr( wss_tr( $t, 'errorLoading' ) ); ?>" placeholder="Error loading results. Please try again." /></td>
 		</tr>
 		<tr>
 			<th scope="row"><label for="wss-tr-filters"><?php esc_html_e( 'Filters button', 'woo-smart-search' ); ?></label></th>

@@ -70,6 +70,39 @@ class WSS_Post_Sync {
 	}
 
 	/**
+	 * Build the base WP_Query args with category exclusions applied.
+	 *
+	 * @param array $post_types Post types to query.
+	 * @return array WP_Query args.
+	 */
+	private static function build_query_args( array $post_types ): array {
+		$args = array(
+			'post_type'   => $post_types,
+			'post_status' => 'publish',
+		);
+
+		$exclude_taxonomies = wss_get_option( 'exclude_taxonomies', array() );
+		if ( ! empty( $exclude_taxonomies ) && is_array( $exclude_taxonomies ) ) {
+			$tax_query = array( 'relation' => 'AND' );
+			foreach ( $exclude_taxonomies as $tax_slug => $term_ids ) {
+				if ( ! empty( $term_ids ) && is_array( $term_ids ) && taxonomy_exists( $tax_slug ) ) {
+					$tax_query[] = array(
+						'taxonomy' => sanitize_key( $tax_slug ),
+						'field'    => 'term_id',
+						'terms'    => array_map( 'absint', $term_ids ),
+						'operator' => 'NOT IN',
+					);
+				}
+			}
+			if ( count( $tax_query ) > 1 ) {
+				$args['tax_query'] = $tax_query;
+			}
+		}
+
+		return $args;
+	}
+
+	/**
 	 * Handle save_post hook.
 	 *
 	 * @param int     $post_id Post ID.
@@ -238,14 +271,12 @@ class WSS_Post_Sync {
 		}
 
 		// Count total posts.
-		$post_types = self::get_configured_post_types();
-		$count_query = new WP_Query( array(
-			'post_type'      => $post_types,
-			'post_status'    => 'publish',
-			'posts_per_page' => 1,
-			'fields'         => 'ids',
-			'no_found_rows'  => false,
-		) );
+		$post_types  = self::get_configured_post_types();
+		$count_args  = self::build_query_args( $post_types );
+		$count_args['posts_per_page'] = 1;
+		$count_args['fields']         = 'ids';
+		$count_args['no_found_rows']  = false;
+		$count_query = new WP_Query( $count_args );
 		$total = (int) $count_query->found_posts;
 
 		if ( 0 === $total ) {
@@ -328,16 +359,14 @@ class WSS_Post_Sync {
 		$index_name = wss_get_option( 'index_name', 'woo_products' );
 		$post_types = self::get_configured_post_types();
 
-		$query = new WP_Query( array(
-			'post_type'      => $post_types,
-			'post_status'    => 'publish',
-			'posts_per_page' => $batch_size,
-			'paged'          => $page,
-			'orderby'        => 'ID',
-			'order'          => 'ASC',
-			'fields'         => 'ids',
-			'no_found_rows'  => true,
-		) );
+		$query_args = self::build_query_args( $post_types );
+		$query_args['posts_per_page'] = $batch_size;
+		$query_args['paged']          = $page;
+		$query_args['orderby']        = 'ID';
+		$query_args['order']          = 'ASC';
+		$query_args['fields']         = 'ids';
+		$query_args['no_found_rows']  = true;
+		$query = new WP_Query( $query_args );
 
 		$post_ids = $query->posts;
 
@@ -537,6 +566,24 @@ class WSS_Post_Sync {
 		$index_name = wss_get_option( 'index_name', 'woo_products' );
 
 		$should_index = 'publish' === get_post_status( $post_id );
+
+		// Check excluded taxonomies.
+		if ( $should_index ) {
+			$exclude_taxonomies = wss_get_option( 'exclude_taxonomies', array() );
+			if ( ! empty( $exclude_taxonomies ) && is_array( $exclude_taxonomies ) ) {
+				foreach ( $exclude_taxonomies as $tax_slug => $term_ids ) {
+					if ( empty( $term_ids ) || ! is_array( $term_ids ) || ! taxonomy_exists( $tax_slug ) ) {
+						continue;
+					}
+					$post_terms = wp_get_object_terms( $post_id, $tax_slug, array( 'fields' => 'ids' ) );
+					if ( ! is_wp_error( $post_terms ) && ! empty( array_intersect( $post_terms, $term_ids ) ) ) {
+						$should_index = false;
+						break;
+					}
+				}
+			}
+		}
+
 		$should_index = apply_filters( 'wss_should_index_post', $should_index, $post );
 
 		if ( ! $should_index ) {

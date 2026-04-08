@@ -16,8 +16,8 @@ $is_ecommerce = wss_is_ecommerce_mode();
 $is_mixed     = 'mixed' === wss_get_content_source();
 $last_sync     = wss_get_option( 'last_sync', 0 );
 
+// Determine content counts and labels.
 if ( $is_mixed ) {
-	// Mixed mode: count both products and posts.
 	$product_count = wp_count_posts( 'product' );
 	$published     = isset( $product_count->publish ) ? (int) $product_count->publish : 0;
 
@@ -32,28 +32,10 @@ if ( $is_mixed ) {
 		return $obj ? $obj->labels->name : $pt;
 	}, $post_types );
 	$content_label = __( 'Products', 'woo-smart-search' ) . ' + ' . implode( ', ', $type_labels );
-	$categories    = array();
-	$meta_keys     = array();
 } elseif ( $is_ecommerce ) {
 	$product_count = wp_count_posts( 'product' );
 	$published     = isset( $product_count->publish ) ? (int) $product_count->publish : 0;
 	$content_label = __( 'WooCommerce Products', 'woo-smart-search' );
-
-	$categories = get_terms(
-		array(
-			'taxonomy'   => 'product_cat',
-			'hide_empty' => false,
-		)
-	);
-
-	// Get available meta keys for custom fields.
-	global $wpdb;
-	$meta_keys = $wpdb->get_col(
-		"SELECT DISTINCT meta_key FROM {$wpdb->postmeta} pm
-		 INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
-		 WHERE p.post_type = 'product' AND pm.meta_key NOT LIKE '\_%'
-		 ORDER BY meta_key LIMIT 100"
-	);
 } else {
 	$post_types = WSS_Post_Sync::get_configured_post_types();
 	$published  = 0;
@@ -66,8 +48,59 @@ if ( $is_mixed ) {
 		return $obj ? $obj->labels->name : $pt;
 	}, $post_types );
 	$content_label = implode( ', ', $type_labels );
-	$categories    = array();
-	$meta_keys     = array();
+}
+
+// Product categories (for ecommerce / mixed).
+$product_categories = array();
+if ( $is_ecommerce || $is_mixed ) {
+	$product_categories = get_terms( array(
+		'taxonomy'   => 'product_cat',
+		'hide_empty' => false,
+	) );
+	if ( is_wp_error( $product_categories ) ) {
+		$product_categories = array();
+	}
+}
+
+// Discover all public taxonomies for configured WP post types (for wordpress / mixed).
+$wp_taxonomies = array();
+if ( ! $is_ecommerce || $is_mixed ) {
+	$configured_pts = class_exists( 'WSS_Post_Sync' ) ? WSS_Post_Sync::get_configured_post_types() : array( 'post' );
+	// WooCommerce taxonomies to skip (handled separately above).
+	$skip_taxonomies = array( 'product_cat', 'product_tag', 'product_type', 'product_visibility', 'product_shipping_class', 'post_format' );
+	$seen = array();
+	foreach ( $configured_pts as $pt ) {
+		$taxonomies = get_object_taxonomies( $pt, 'objects' );
+		foreach ( $taxonomies as $tax_slug => $tax_obj ) {
+			if ( ! $tax_obj->public || in_array( $tax_slug, $skip_taxonomies, true ) || isset( $seen[ $tax_slug ] ) ) {
+				continue;
+			}
+			$seen[ $tax_slug ] = true;
+			$terms = get_terms( array(
+				'taxonomy'   => $tax_slug,
+				'hide_empty' => false,
+			) );
+			if ( is_wp_error( $terms ) || empty( $terms ) ) {
+				continue;
+			}
+			$wp_taxonomies[ $tax_slug ] = array(
+				'label' => $tax_obj->labels->name,
+				'terms' => $terms,
+			);
+		}
+	}
+}
+
+// Product meta keys (for ecommerce / mixed).
+$product_meta_keys = array();
+if ( $is_ecommerce || $is_mixed ) {
+	global $wpdb;
+	$product_meta_keys = $wpdb->get_col(
+		"SELECT DISTINCT meta_key FROM {$wpdb->postmeta} pm
+		 INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+		 WHERE p.post_type = 'product' AND pm.meta_key NOT LIKE '\_%'
+		 ORDER BY meta_key LIMIT 100"
+	);
 }
 ?>
 <div class="wss-sync-section">
@@ -148,45 +181,83 @@ if ( $is_mixed ) {
 		</tr>
 		<tr>
 			<th scope="row">
-				<label for="wss-exclude-cats"><?php esc_html_e( 'Exclude Categories', 'woo-smart-search' ); ?></label>
+				<label for="wss-exclude-cats"><?php esc_html_e( 'Exclude Product Categories', 'woo-smart-search' ); ?></label>
 			</th>
 			<td>
 				<select id="wss-exclude-cats" name="exclude_categories[]" multiple class="wss-select-multi">
 					<?php
 					$excluded = $settings['exclude_categories'] ?? array();
-					if ( ! is_wp_error( $categories ) ) :
-						foreach ( $categories as $cat ) :
-							?>
-							<option value="<?php echo esc_attr( $cat->term_id ); ?>" <?php echo in_array( (int) $cat->term_id, $excluded, true ) ? 'selected' : ''; ?>>
-								<?php echo esc_html( $cat->name ); ?>
-							</option>
-							<?php
-						endforeach;
-					endif;
-					?>
+					foreach ( $product_categories as $cat ) :
+						?>
+						<option value="<?php echo esc_attr( $cat->term_id ); ?>" <?php echo in_array( (int) $cat->term_id, $excluded, true ) ? 'selected' : ''; ?>>
+							<?php echo esc_html( $cat->name ); ?>
+						</option>
+					<?php endforeach; ?>
 				</select>
 				<p class="description"><?php esc_html_e( 'Products in these categories will not be indexed.', 'woo-smart-search' ); ?></p>
 			</td>
 		</tr>
 		<tr>
 			<th scope="row">
-				<label for="wss-custom-fields"><?php esc_html_e( 'Custom Fields', 'woo-smart-search' ); ?></label>
+				<label for="wss-custom-fields"><?php esc_html_e( 'Product Custom Fields', 'woo-smart-search' ); ?></label>
 			</th>
 			<td>
 				<select id="wss-custom-fields" name="custom_fields[]" multiple class="wss-select-multi">
 					<?php
 					$selected_fields = $settings['custom_fields'] ?? array();
-					foreach ( $meta_keys as $key ) :
+					foreach ( $product_meta_keys as $key ) :
 						?>
 						<option value="<?php echo esc_attr( $key ); ?>" <?php echo in_array( $key, $selected_fields, true ) ? 'selected' : ''; ?>>
 							<?php echo esc_html( $key ); ?>
 						</option>
 					<?php endforeach; ?>
 				</select>
-				<p class="description"><?php esc_html_e( 'Custom meta fields / ACF fields to include in the index.', 'woo-smart-search' ); ?></p>
+				<p class="description"><?php esc_html_e( 'Product meta fields / ACF fields to include in the index.', 'woo-smart-search' ); ?></p>
 			</td>
 		</tr>
 		<?php endif; ?>
+
+		<?php
+		if ( ! empty( $wp_taxonomies ) ) :
+			$exclude_tax_settings = $settings['exclude_taxonomies'] ?? array();
+			foreach ( $wp_taxonomies as $tax_slug => $tax_data ) :
+				$saved_ids = isset( $exclude_tax_settings[ $tax_slug ] ) ? array_map( 'intval', $exclude_tax_settings[ $tax_slug ] ) : array();
+		?>
+		<tr>
+			<th scope="row">
+				<label for="wss-exclude-tax-<?php echo esc_attr( $tax_slug ); ?>">
+					<?php
+					printf(
+						/* translators: %s: taxonomy name */
+						esc_html__( 'Exclude %s', 'woo-smart-search' ),
+						esc_html( $tax_data['label'] )
+					);
+					?>
+				</label>
+			</th>
+			<td>
+				<select id="wss-exclude-tax-<?php echo esc_attr( $tax_slug ); ?>" name="exclude_taxonomies[<?php echo esc_attr( $tax_slug ); ?>][]" multiple class="wss-select-multi">
+					<?php foreach ( $tax_data['terms'] as $term ) : ?>
+						<option value="<?php echo esc_attr( $term->term_id ); ?>" <?php echo in_array( (int) $term->term_id, $saved_ids, true ) ? 'selected' : ''; ?>>
+							<?php echo esc_html( $term->name ); ?>
+						</option>
+					<?php endforeach; ?>
+				</select>
+				<p class="description">
+					<?php
+					printf(
+						/* translators: %s: taxonomy name */
+						esc_html__( 'Content with these %s will not be indexed.', 'woo-smart-search' ),
+						esc_html( strtolower( $tax_data['label'] ) )
+					);
+					?>
+				</p>
+			</td>
+		</tr>
+		<?php
+			endforeach;
+		endif;
+		?>
 	</table>
 
 	<p class="submit">

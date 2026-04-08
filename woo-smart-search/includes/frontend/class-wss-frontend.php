@@ -486,6 +486,22 @@ class WSS_Frontend {
 			'addToCart'        => ! empty( $t['addToCart'] ) ? $t['addToCart'] : __( 'Add to Cart', 'woo-smart-search' ),
 			'freeShipping'     => ! empty( $t['freeShipping'] ) ? $t['freeShipping'] : __( 'Free shipping', 'woo-smart-search' ),
 			'sold'             => ! empty( $t['sold'] ) ? $t['sold'] : __( 'sold', 'woo-smart-search' ),
+			// Facet / filter labels.
+			'tags'             => ! empty( $t['tags'] ) ? $t['tags'] : __( 'Tags', 'woo-smart-search' ),
+			'stock'            => ! empty( $t['stock'] ) ? $t['stock'] : __( 'Stock', 'woo-smart-search' ),
+			'brand'            => ! empty( $t['brand'] ) ? $t['brand'] : __( 'Brand', 'woo-smart-search' ),
+			'rating'           => ! empty( $t['rating'] ) ? $t['rating'] : __( 'Rating', 'woo-smart-search' ),
+			'price'            => ! empty( $t['price'] ) ? $t['price'] : __( 'Price', 'woo-smart-search' ),
+			'contentType'      => ! empty( $t['contentType'] ) ? $t['contentType'] : __( 'Content Type', 'woo-smart-search' ),
+			'author'           => ! empty( $t['author'] ) ? $t['author'] : __( 'Author', 'woo-smart-search' ),
+			'onSale'           => ! empty( $t['onSale'] ) ? $t['onSale'] : __( 'On Sale', 'woo-smart-search' ),
+			'priceMin'         => ! empty( $t['priceMin'] ) ? $t['priceMin'] : __( 'Min', 'woo-smart-search' ),
+			'priceMax'         => ! empty( $t['priceMax'] ) ? $t['priceMax'] : __( 'Max', 'woo-smart-search' ),
+			'clearAll'         => ! empty( $t['clearAll'] ) ? $t['clearAll'] : __( 'Clear all', 'woo-smart-search' ),
+			// Results count patterns.
+			'xResults'         => ! empty( $t['xResults'] ) ? $t['xResults'] : __( '%d results', 'woo-smart-search' ),
+			'xProducts'        => ! empty( $t['xProducts'] ) ? $t['xProducts'] : __( '%d products', 'woo-smart-search' ),
+			'errorLoading'     => ! empty( $t['errorLoading'] ) ? $t['errorLoading'] : __( 'Error loading results. Please try again.', 'woo-smart-search' ),
 		);
 	}
 
