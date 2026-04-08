@@ -36,7 +36,49 @@ require_once ABSPATH . WPINC . '/kses.php';
 // Set JSON headers.
 header( 'Content-Type: application/json; charset=utf-8' );
 header( 'X-Content-Type-Options: nosniff' );
-header( 'Access-Control-Allow-Origin: *' );
+
+// Restrict CORS to same-origin only (no wildcard).
+$origin = isset( $_SERVER['HTTP_ORIGIN'] ) ? $_SERVER['HTTP_ORIGIN'] : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+$site_url = $wpdb->get_var( "SELECT option_value FROM {$wpdb->options} WHERE option_name = 'siteurl' LIMIT 1" );
+if ( $site_url && $origin ) {
+	// Only allow requests from the same site.
+	$site_host   = parse_url( $site_url, PHP_URL_HOST );
+	$origin_host = parse_url( $origin, PHP_URL_HOST );
+	if ( $site_host && $origin_host && $site_host === $origin_host ) {
+		header( 'Access-Control-Allow-Origin: ' . $origin );
+	}
+}
+
+// Rate limiting: simple IP-based throttle (max 60 requests per minute).
+$wss_client_ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? preg_replace( '/[^0-9a-fA-F.:\/]/', '', $_SERVER['REMOTE_ADDR'] ) : '127.0.0.1'; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+$wss_rate_key   = 'wss_rl_' . md5( $wss_client_ip );
+$wss_rate_limit = 60;
+$wss_rate_row   = $wpdb->get_row( $wpdb->prepare(
+	"SELECT option_value, UNIX_TIMESTAMP() AS now_ts FROM {$wpdb->options} WHERE option_name = %s LIMIT 1",
+	'_transient_' . $wss_rate_key
+) );
+$wss_rate_count = 0;
+if ( $wss_rate_row ) {
+	$rate_data = @json_decode( $wss_rate_row->option_value, true );
+	if ( is_array( $rate_data ) && isset( $rate_data['c'], $rate_data['t'] ) ) {
+		if ( ( $wss_rate_row->now_ts - $rate_data['t'] ) < 60 ) {
+			$wss_rate_count = (int) $rate_data['c'];
+		}
+	}
+}
+if ( $wss_rate_count >= $wss_rate_limit ) {
+	http_response_code( 429 );
+	header( 'Retry-After: 60' );
+	echo '{"error":"Rate limit exceeded"}';
+	exit;
+}
+// Update counter.
+$new_rate = wp_json_encode( array( 'c' => $wss_rate_count + 1, 't' => time() ) );
+$wpdb->query( $wpdb->prepare(
+	"INSERT INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, 'no')
+	 ON DUPLICATE KEY UPDATE option_value = %s",
+	'_transient_' . $wss_rate_key, $new_rate, $new_rate
+) );
 
 // Parse request parameters.
 $query      = isset( $_GET['q'] ) ? trim( stripslashes( $_GET['q'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification, WordPress.Security.ValidatedSanitizedInput
@@ -46,6 +88,19 @@ $offset     = ( $page - 1 ) * $limit;
 $filter_str = isset( $_GET['filters'] ) ? stripslashes( $_GET['filters'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification, WordPress.Security.ValidatedSanitizedInput
 $sort       = isset( $_GET['sort'] ) ? stripslashes( $_GET['sort'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification, WordPress.Security.ValidatedSanitizedInput
 $facets_str = isset( $_GET['facets'] ) ? stripslashes( $_GET['facets'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification, WordPress.Security.ValidatedSanitizedInput
+
+// Sanitize filter string — strip dangerous characters (only allow field names, operators, values).
+$filter_str = preg_replace( '/[^\w\s=<>!"\'\-.,()&\/]/u', '', $filter_str );
+
+// Sanitize sort — only allow "field:direction" format.
+if ( ! empty( $sort ) && ! preg_match( '/^[a-zA-Z_][a-zA-Z0-9_.]*:(asc|desc)$/i', $sort ) ) {
+	$sort = '';
+}
+
+// Sanitize facets — only allow comma-separated alphanumeric field names.
+if ( ! empty( $facets_str ) ) {
+	$facets_str = preg_replace( '/[^a-zA-Z0-9_.,]/', '', $facets_str );
+}
 
 if ( '' === $query || strlen( $query ) < 2 ) {
 	echo wp_json_encode( array(
@@ -59,11 +114,11 @@ if ( '' === $query || strlen( $query ) < 2 ) {
 }
 
 // Sanitize query — strip HTML and limit length.
-$query = substr( strip_tags( $query ), 0, 200 );
+$query = substr( strip_tags( $query ), 0, 100 );
 
 // Load plugin constants and the local engine.
 if ( ! defined( 'WSS_VERSION' ) ) {
-	define( 'WSS_VERSION', '4.9.2' );
+	define( 'WSS_VERSION', '5.1.0' );
 }
 if ( ! defined( 'WSS_PLUGIN_DIR' ) ) {
 	define( 'WSS_PLUGIN_DIR', dirname( __FILE__ ) . '/' );
@@ -135,7 +190,8 @@ if ( ! function_exists( 'update_option' ) ) {
 if ( ! function_exists( 'maybe_unserialize' ) ) {
 	function maybe_unserialize( $data ) {
 		if ( is_serialized( $data ) ) {
-			return @unserialize( $data );
+			// Prevent PHP object injection — only allow scalar/array types.
+			return @unserialize( $data, array( 'allowed_classes' => false ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions
 		}
 		return $data;
 	}

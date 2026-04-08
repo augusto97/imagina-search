@@ -106,7 +106,7 @@
 	function readUrlParams() {
 		var params = new URLSearchParams( window.location.search );
 
-		state.query    = params.get( 'q' ) || params.get( 's' ) || '';
+		state.query    = ( params.get( 'q' ) || params.get( 's' ) || '' ).substring( 0, 100 );
 		state.page     = parseInt( params.get( 'paged' ) || '1', 10 );
 		state.sort     = params.get( 'sort' ) || '';
 		state.view     = params.get( 'view' ) || 'grid';
@@ -397,7 +397,7 @@
 			showLoading( false );
 			if ( dom.noResults ) {
 				dom.noResults.style.display = 'block';
-				dom.noResults.innerHTML = '<p>Error loading results. Please try again.</p>';
+				dom.noResults.innerHTML = '<p>' + escapeHtml( ( cfg.i18n || {} ).errorLoading || 'Error loading results. Please try again.' ) + '</p>';
 			}
 			console.error( 'WSS Results:', err );
 		} );
@@ -642,7 +642,8 @@
 		if ( ! dom.sidebar ) return;
 
 		// Keep mobile close button.
-		var closeHtml = '<div class="wss-filter-panel-close"><button type="button" aria-label="Close">&times;</button></div>';
+		var i = cfg.i18n || {};
+		var closeHtml = '<div class="wss-filter-panel-close"><button type="button" aria-label="' + escapeHtml( i.close || 'Close' ) + '">&times;</button></div>';
 		var html = closeHtml;
 
 		// Determine which facets are visible from config (admin-friendly keys).
@@ -658,12 +659,12 @@
 
 		// Categories (always available).
 		if ( isFacetVisible( 'categories' ) && facets.categories ) {
-			html += buildCheckboxFilter( 'categories', 'Categories', facets.categories );
+			html += buildCheckboxFilter( 'categories', i.categories || 'Categories', facets.categories );
 		}
 
 		// Tags (available in all modes — products and posts both have tags).
 		if ( isFacetVisible( 'tags' ) && facets.tags && Object.keys( facets.tags ).length ) {
-			html += buildCheckboxFilter( 'tags', 'Tags', facets.tags );
+			html += buildCheckboxFilter( 'tags', i.tags || 'Tags', facets.tags );
 		}
 
 		// Price slider — ecommerce/mixed only (WP posts don't have prices).
@@ -673,12 +674,12 @@
 
 		// Stock status — ecommerce/mixed only.
 		if ( hasEcommerce && isFacetVisible( 'stock' ) && facets.stock_status ) {
-			html += buildCheckboxFilter( 'stock_status', 'Stock', facets.stock_status );
+			html += buildCheckboxFilter( 'stock_status', i.stock || 'Stock', facets.stock_status );
 		}
 
 		// Brand — ecommerce/mixed only.
 		if ( hasEcommerce && isFacetVisible( 'brands' ) && facets.brand && Object.keys( facets.brand ).length ) {
-			html += buildCheckboxFilter( 'brand', 'Brand', facets.brand );
+			html += buildCheckboxFilter( 'brand', i.brand || 'Brand', facets.brand );
 		}
 
 		// Rating — ecommerce/mixed only.
@@ -688,12 +689,12 @@
 
 		// Post type (WordPress content / mixed mode).
 		if ( hasWordpress && isFacetVisible( 'post_type' ) && facets.post_type && Object.keys( facets.post_type ).length ) {
-			html += buildCheckboxFilter( 'post_type', 'Content Type', facets.post_type );
+			html += buildCheckboxFilter( 'post_type', i.contentType || 'Content Type', facets.post_type );
 		}
 
 		// Author (WordPress content / mixed mode).
 		if ( hasWordpress && isFacetVisible( 'author' ) && facets.author && Object.keys( facets.author ).length ) {
-			html += buildCheckboxFilter( 'author', 'Author', facets.author );
+			html += buildCheckboxFilter( 'author', i.author || 'Author', facets.author );
 		}
 
 		// Dynamic product attributes (attributes.Color, attributes.Size, etc.) — ecommerce/mixed only.
@@ -766,24 +767,26 @@
 	}
 
 	function buildPriceFilter() {
+		var i = cfg.i18n || {};
 		return '<div class="wss-filter-group" data-filter="price">' +
 			'<button class="wss-filter-group-header" type="button">' +
-			'<span>Price</span>' +
+			'<span>' + escapeHtml( i.price || 'Price' ) + '</span>' +
 			'<span class="wss-chevron">&#9660;</span>' +
 			'</button>' +
 			'<div class="wss-filter-group-body">' +
 			'<div class="wss-price-slider-wrap">' +
 			'<div class="wss-price-inputs">' +
-			'<input type="number" class="wss-price-min" placeholder="Min" value="' + ( state.priceMin !== null ? state.priceMin : '' ) + '" min="0" step="1" />' +
+			'<input type="number" class="wss-price-min" placeholder="' + escapeHtml( i.priceMin || 'Min' ) + '" value="' + ( state.priceMin !== null ? state.priceMin : '' ) + '" min="0" step="1" />' +
 			'<span class="wss-price-sep">–</span>' +
-			'<input type="number" class="wss-price-max" placeholder="Max" value="' + ( state.priceMax !== null ? state.priceMax : '' ) + '" min="0" step="1" />' +
+			'<input type="number" class="wss-price-max" placeholder="' + escapeHtml( i.priceMax || 'Max' ) + '" value="' + ( state.priceMax !== null ? state.priceMax : '' ) + '" min="0" step="1" />' +
 			'</div></div></div></div>';
 	}
 
 	function buildRatingFilter( values ) {
+		var i = cfg.i18n || {};
 		var html = '<div class="wss-filter-group wss-rating-filter" data-filter="rating">' +
 			'<button class="wss-filter-group-header" type="button">' +
-			'<span>Rating</span>' +
+			'<span>' + escapeHtml( i.rating || 'Rating' ) + '</span>' +
 			'<span class="wss-chevron">&#9660;</span>' +
 			'</button><div class="wss-filter-group-body">';
 
@@ -895,7 +898,7 @@
 		}
 
 		if ( hasFilters ) {
-			tags.push( '<button class="wss-clear-all-filters" type="button">Clear all</button>' );
+			tags.push( '<button class="wss-clear-all-filters" type="button">' + escapeHtml( ( cfg.i18n || {} ).clearAll || 'Clear all' ) + '</button>' );
 		}
 
 		dom.activeFilters.innerHTML = tags.join( '' );
@@ -1015,8 +1018,9 @@
 
 	function updateResultsCount() {
 		if ( dom.resultsCount ) {
-			var label = cfg.isMixed ? ' results' : ( cfg.isEcommerce ? ' products' : ' results' );
-			dom.resultsCount.textContent = state.total + label;
+			var i = cfg.i18n || {};
+			var pattern = cfg.isMixed ? ( i.xResults || '%d results' ) : ( cfg.isEcommerce ? ( i.xProducts || '%d products' ) : ( i.xResults || '%d results' ) );
+			dom.resultsCount.textContent = pattern.replace( '%d', state.total );
 		}
 	}
 

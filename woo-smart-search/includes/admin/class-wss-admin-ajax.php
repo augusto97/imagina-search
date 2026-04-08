@@ -170,6 +170,24 @@ class WSS_Admin_Ajax {
 			$settings['exclude_categories'] = array();
 		}
 
+		// Dynamic taxonomy exclusions (exclude_taxonomies[taxonomy_slug][] = term_ids).
+		if ( 'indexing' === $submitted_tab ) {
+			if ( isset( $_POST['exclude_taxonomies'] ) && is_array( $_POST['exclude_taxonomies'] ) ) {
+				$clean_tax = array();
+				foreach ( $_POST['exclude_taxonomies'] as $tax_slug => $term_ids ) {
+					$safe_slug = sanitize_key( $tax_slug );
+					if ( is_array( $term_ids ) ) {
+						$clean_tax[ $safe_slug ] = array_map( 'absint', $term_ids );
+					}
+				}
+				$settings['exclude_taxonomies'] = $clean_tax;
+			} else {
+				$settings['exclude_taxonomies'] = array();
+			}
+			// Clean up legacy key.
+			unset( $settings['exclude_wp_categories'] );
+		}
+
 		if ( isset( $_POST['custom_fields'] ) && is_array( $_POST['custom_fields'] ) ) {
 			$settings['custom_fields'] = array_map( 'sanitize_text_field', wp_unslash( $_POST['custom_fields'] ) );
 		} elseif ( 'indexing' === $submitted_tab ) {
@@ -221,6 +239,11 @@ class WSS_Admin_Ajax {
 				'noResultsPage', 'sortRelevance', 'sortPriceLow', 'sortPriceHigh',
 				'sortNewest', 'sortPopular', 'sortRating', 'sortNameAZ', 'sortNameZA',
 				'addToCart', 'freeShipping', 'sold',
+				// Facet / filter labels.
+				'tags', 'stock', 'brand', 'rating', 'price', 'priceMin', 'priceMax',
+				'contentType', 'author', 'onSale', 'clearAll',
+				// Results count patterns.
+				'xResults', 'xProducts', 'errorLoading',
 			);
 			$clean = array();
 			foreach ( $raw as $key => $value ) {

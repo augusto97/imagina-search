@@ -117,7 +117,7 @@ $meta_keys       = $wpdb->get_col(
 			</tr>
 			<tr>
 				<th scope="row">
-					<label for="wss-wp-custom-fields"><?php esc_html_e( 'Custom Fields', 'woo-smart-search' ); ?></label>
+					<label for="wss-wp-custom-fields"><?php esc_html_e( 'Post Custom Fields', 'woo-smart-search' ); ?></label>
 				</th>
 				<td>
 					<select id="wss-wp-custom-fields" name="wp_custom_fields[]" multiple class="wss-select-multi">

@@ -61,12 +61,18 @@ class WSS_Rest_Api {
 					'filters' => array(
 						'default'           => '',
 						'type'              => 'string',
-						// No sanitize_callback: sanitize_text_field converts & to &amp;
-						// breaking filter values. Security handled by sanitize_filter_string().
+						'sanitize_callback' => function( $value ) {
+							// Strip dangerous characters while preserving & for filter values.
+							return preg_replace( '/[^\w\s=<>!"\'\-.,()&\/]/u', '', $value );
+						},
 					),
 					'sort'    => array(
 						'default'           => '',
 						'type'              => 'string',
+						'validate_callback' => function( $value ) {
+							// Only allow "field:direction" format or empty.
+							return empty( $value ) || preg_match( '/^[a-zA-Z_][a-zA-Z0-9_.]*:(asc|desc)$/i', $value );
+						},
 						'sanitize_callback' => 'sanitize_text_field',
 					),
 					'facets'  => array(
@@ -160,6 +166,9 @@ class WSS_Rest_Api {
 		}
 
 		$query = $request->get_param( 'q' );
+
+		// Limit query length.
+		$query = mb_substr( $query, 0, 100 );
 
 		// Minimum query length.
 		if ( mb_strlen( $query ) < 2 ) {

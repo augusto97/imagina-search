@@ -959,16 +959,19 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	 */
 	private function highlight_text( string $text, array $tokens ): string {
 		if ( empty( $tokens ) ) {
-			return $text;
+			return htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' );
 		}
+
+		// Escape HTML first to prevent XSS, then add highlight marks.
+		$safe = htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' );
 
 		$patterns = array();
 		foreach ( $tokens as $token ) {
-			$patterns[] = preg_quote( $token, '/' );
+			$patterns[] = preg_quote( htmlspecialchars( $token, ENT_QUOTES, 'UTF-8' ), '/' );
 		}
 		$regex = '/(' . implode( '|', $patterns ) . ')/iu';
 
-		return preg_replace( $regex, '<mark>$1</mark>', $text );
+		return preg_replace( $regex, '<mark>$1</mark>', $safe );
 	}
 
 	/**
