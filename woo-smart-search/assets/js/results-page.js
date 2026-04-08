@@ -23,15 +23,16 @@
 	var useLocal = cfg.engineType === 'local' && !!cfg.localSearchUrl;
 
 	/* ---- State ---- */
+	var defaultView = ( layout === 'mercadolibre' ) ? 'list' : 'grid';
 	var state = {
 		query:   '',
 		page:    1,
-		limit:   12,
+		limit:   cfg.resultsPerPage || 12,
 		sort:    '',
 		filters: {},          // { categories: ['Cat A'], stock_status: ['instock'], ... }
 		priceMin: null,
 		priceMax: null,
-		view:    'grid',      // 'grid' or 'list'
+		view:    defaultView,      // 'grid' or 'list'
 		total:   0,
 		facets:  {},
 		loading: false,
@@ -40,6 +41,9 @@
 
 	/* ---- DOM refs (set on init) ---- */
 	var dom = {};
+
+	/* ---- Layout config ---- */
+	var layout = cfg.resultsLayout || 'default';
 
 	/* ---- Init ---- */
 	function init() {
@@ -51,6 +55,28 @@
 		dom.page           = page;
 		// Reveal the page (inline critical CSS already applied the layout).
 		page.classList.add( 'wss-ready' );
+
+		// Apply layout class (may already be set via PHP, but ensure JS also sets it).
+		if ( layout !== 'default' && ! page.classList.contains( 'wss-layout-' + layout ) ) {
+			page.classList.add( 'wss-layout-' + layout );
+		}
+
+		// Apply image ratio utility class.
+		var imgRatio = cfg.rpImageRatio || '1:1';
+		if ( imgRatio !== '1:1' ) {
+			page.classList.add( 'wss-img-ratio-' + imgRatio.replace( ':', '-' ) );
+		}
+
+		// Apply image fit utility class.
+		var imgFit = cfg.rpImageFit || 'cover';
+		if ( imgFit === 'contain' ) {
+			page.classList.add( 'wss-img-fit-contain' );
+		}
+
+		// Apply card shadow utility class.
+		var cardShadow = cfg.rpCardShadow || 'medium';
+		page.classList.add( 'wss-shadow-' + cardShadow );
+
 		dom.grid           = page.querySelector( '.wss-products-grid' );
 		dom.sidebar        = page.querySelector( '.wss-filters-sidebar' );
 		dom.toolbar        = page.querySelector( '.wss-results-toolbar' );
@@ -473,11 +499,14 @@
 
 		// Price.
 		var priceHtml = '';
+		var isOnSale = false;
+		var discountPercent = 0;
 		if ( typeof hit.price !== 'undefined' ) {
 			if ( hit.on_sale && hit.regular_price > hit.price ) {
-				var discount = Math.round( ( 1 - hit.price / hit.regular_price ) * 100 );
-				saleBadge = '<span class="wss-sale-badge">-' + discount + '%</span>';
-				priceHtml = '<span class="wss-price-current">' + formatPrice( hit.price ) + '</span>' +
+				isOnSale = true;
+				discountPercent = Math.round( ( 1 - hit.price / hit.regular_price ) * 100 );
+				saleBadge = '<span class="wss-sale-badge">-' + discountPercent + '%</span>';
+				priceHtml = '<span class="wss-price-current wss-on-sale">' + formatPrice( hit.price ) + '</span>' +
 					'<span class="wss-price-regular">' + formatPrice( hit.regular_price ) + '</span>';
 			} else if ( hit.price_min && hit.price_max && hit.price_min !== hit.price_max ) {
 				priceHtml = '<span class="wss-price-range">' +
@@ -511,10 +540,36 @@
 		// Short description (visible in list view via CSS).
 		var descHtml = hit.description ? '<div class="wss-product-card-description">' + escapeHtml( hit.description ).substring( 0, 120 ) + '</div>' : '';
 
+		// Discount badge (separate from sale badge, positioned by layout CSS).
+		var discountBadgeHtml = '';
+		if ( isOnSale && discountPercent > 0 ) {
+			discountBadgeHtml = '<span class="wss-discount-badge">-' + discountPercent + '%</span>';
+		}
+
+		// Sold/orders count (shown by specific layouts).
+		var soldHtml = '';
+		if ( hit.total_sales && hit.total_sales > 0 ) {
+			var soldText = hit.total_sales >= 1000
+				? ( Math.floor( hit.total_sales / 1000 ) + 'k+ ' + ( cfg.i18n ? cfg.i18n.sold || 'sold' : 'sold' ) )
+				: ( hit.total_sales + ' ' + ( cfg.i18n ? cfg.i18n.sold || 'sold' : 'sold' ) );
+			soldHtml = '<div class="wss-product-card-sold">' + escapeHtml( soldText ) + '</div>';
+		}
+
+		// Shipping badge (shown by specific layouts).
+		var shippingHtml = '<div class="wss-product-card-shipping">' +
+			escapeHtml( cfg.i18n ? cfg.i18n.freeShipping || 'Free shipping' : 'Free shipping' ) + '</div>';
+
+		// Add to Cart button (shown by specific layouts).
+		var addToCartText = cfg.i18n ? cfg.i18n.addToCart || 'Add to Cart' : 'Add to Cart';
+		var actionsHtml = '<div class="wss-product-card-actions">' +
+			'<a href="' + escapeHtml( permalink ) + '" class="wss-add-to-cart-btn">' + escapeHtml( addToCartText ) + '</a>' +
+			'</div>';
+
 		return '<div class="wss-product-card" data-id="' + ( hit.id || '' ) + '">' +
 			'<a href="' + escapeHtml( permalink ) + '">' +
 			'<div class="wss-product-card-image">' +
 				saleBadge +
+				discountBadgeHtml +
 				'<img src="' + escapeHtml( imgSrc ) + '" alt="' + escapeHtml( hit.name || '' ) + '" loading="lazy" />' +
 			'</div>' +
 			'<div class="wss-product-card-body">' +
@@ -524,8 +579,12 @@
 				'<div class="wss-product-card-price">' + priceHtml + '</div>' +
 				stockHtml +
 				ratingHtml +
+				soldHtml +
+				shippingHtml +
 			'</div>' +
-			'</a></div>';
+			'</a>' +
+			actionsHtml +
+			'</div>';
 	}
 
 	/**

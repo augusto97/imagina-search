@@ -60,6 +60,36 @@ if ( ! defined( 'ABSPATH' ) ) {
 		</tr>
 		<tr>
 			<th scope="row">
+				<label for="wss-results-layout"><?php esc_html_e( 'Results Page Layout', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<select id="wss-results-layout" name="results_layout">
+					<option value="default" <?php selected( $settings['results_layout'] ?? 'default', 'default' ); ?>><?php esc_html_e( 'Default — Clean grid with sidebar filters', 'woo-smart-search' ); ?></option>
+					<option value="amazon" <?php selected( $settings['results_layout'] ?? '', 'amazon' ); ?>><?php esc_html_e( 'Amazon — Prominent ratings, compact cards, Add to Cart buttons', 'woo-smart-search' ); ?></option>
+					<option value="temu" <?php selected( $settings['results_layout'] ?? '', 'temu' ); ?>><?php esc_html_e( 'Temu — Vibrant discount badges, large images, dense grid', 'woo-smart-search' ); ?></option>
+					<option value="mercadolibre" <?php selected( $settings['results_layout'] ?? '', 'mercadolibre' ); ?>><?php esc_html_e( 'MercadoLibre — List-first view, spacious cards, shipping badges', 'woo-smart-search' ); ?></option>
+					<option value="aliexpress" <?php selected( $settings['results_layout'] ?? '', 'aliexpress' ); ?>><?php esc_html_e( 'AliExpress — Dense multi-column grid, orders count, big discounts', 'woo-smart-search' ); ?></option>
+					<option value="shopify" <?php selected( $settings['results_layout'] ?? '', 'shopify' ); ?>><?php esc_html_e( 'Shopify — Minimal, elegant, wide spacing, large images', 'woo-smart-search' ); ?></option>
+				</select>
+				<p class="description"><?php esc_html_e( 'Choose the visual style for the search results page. Each layout is inspired by major e-commerce platforms.', 'woo-smart-search' ); ?></p>
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
+				<label for="wss-results-columns"><?php esc_html_e( 'Grid Columns', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<select id="wss-results-columns" name="results_columns">
+					<option value="2" <?php selected( $settings['results_columns'] ?? '3', '2' ); ?>>2</option>
+					<option value="3" <?php selected( $settings['results_columns'] ?? '3', '3' ); ?>>3</option>
+					<option value="4" <?php selected( $settings['results_columns'] ?? '3', '4' ); ?>>4</option>
+					<option value="5" <?php selected( $settings['results_columns'] ?? '3', '5' ); ?>>5</option>
+				</select>
+				<p class="description"><?php esc_html_e( 'Number of columns in grid view on desktop.', 'woo-smart-search' ); ?></p>
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
 				<label for="wss-per-page"><?php esc_html_e( 'Results Per Page', 'woo-smart-search' ); ?></label>
 			</th>
 			<td>
@@ -197,6 +227,204 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<td>
 				<textarea id="wss-stop-words" name="stop_words" rows="3" class="large-text code"><?php echo esc_textarea( $settings['stop_words'] ?? '' ); ?></textarea>
 				<p class="description"><?php esc_html_e( 'Comma-separated list of words to ignore in searches.', 'woo-smart-search' ); ?></p>
+			</td>
+		</tr>
+	</table>
+
+	<h2 class="title"><?php esc_html_e( 'Results Page Appearance', 'woo-smart-search' ); ?></h2>
+	<p class="description" style="margin-bottom: 15px;"><?php esc_html_e( 'Customize colors and styles for the search results page. These settings are independent from the search widget.', 'woo-smart-search' ); ?></p>
+
+	<table class="form-table">
+		<tr>
+			<th scope="row">
+				<label for="wss-rp-card-bg"><?php esc_html_e( 'Card Background', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<input type="color" id="wss-rp-card-bg" name="rp_card_bg" value="<?php echo esc_attr( $settings['rp_card_bg'] ?? '#ffffff' ); ?>" />
+				<p class="description"><?php esc_html_e( 'Background color for product/post cards.', 'woo-smart-search' ); ?></p>
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
+				<label for="wss-rp-card-border"><?php esc_html_e( 'Card Border Color', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<input type="color" id="wss-rp-card-border" name="rp_card_border" value="<?php echo esc_attr( $settings['rp_card_border'] ?? '#e5e7eb' ); ?>" />
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
+				<label for="wss-rp-card-radius"><?php esc_html_e( 'Card Border Radius (px)', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<input type="number" id="wss-rp-card-radius" name="rp_card_radius" value="<?php echo esc_attr( $settings['rp_card_radius'] ?? '8' ); ?>" class="small-text" min="0" max="30" />
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
+				<label for="wss-rp-card-shadow"><?php esc_html_e( 'Card Hover Shadow', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<select id="wss-rp-card-shadow" name="rp_card_shadow">
+					<option value="none" <?php selected( $settings['rp_card_shadow'] ?? 'medium', 'none' ); ?>><?php esc_html_e( 'None', 'woo-smart-search' ); ?></option>
+					<option value="subtle" <?php selected( $settings['rp_card_shadow'] ?? '', 'subtle' ); ?>><?php esc_html_e( 'Subtle', 'woo-smart-search' ); ?></option>
+					<option value="medium" <?php selected( $settings['rp_card_shadow'] ?? 'medium', 'medium' ); ?>><?php esc_html_e( 'Medium', 'woo-smart-search' ); ?></option>
+					<option value="strong" <?php selected( $settings['rp_card_shadow'] ?? '', 'strong' ); ?>><?php esc_html_e( 'Strong', 'woo-smart-search' ); ?></option>
+				</select>
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
+				<label for="wss-rp-price-color"><?php esc_html_e( 'Price Color', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<input type="color" id="wss-rp-price-color" name="rp_price_color" value="<?php echo esc_attr( $settings['rp_price_color'] ?? '#1f2937' ); ?>" />
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
+				<label for="wss-rp-sale-color"><?php esc_html_e( 'Sale Price Color', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<input type="color" id="wss-rp-sale-color" name="rp_sale_color" value="<?php echo esc_attr( $settings['rp_sale_color'] ?? '#dc2626' ); ?>" />
+				<p class="description"><?php esc_html_e( 'Color for discounted prices.', 'woo-smart-search' ); ?></p>
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
+				<label for="wss-rp-badge-bg"><?php esc_html_e( 'Sale Badge Background', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<input type="color" id="wss-rp-badge-bg" name="rp_badge_bg" value="<?php echo esc_attr( $settings['rp_badge_bg'] ?? '#ef4444' ); ?>" />
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
+				<label for="wss-rp-badge-text"><?php esc_html_e( 'Sale Badge Text', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<input type="color" id="wss-rp-badge-text" name="rp_badge_text" value="<?php echo esc_attr( $settings['rp_badge_text'] ?? '#ffffff' ); ?>" />
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
+				<label for="wss-rp-stars-color"><?php esc_html_e( 'Rating Stars Color', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<input type="color" id="wss-rp-stars-color" name="rp_stars_color" value="<?php echo esc_attr( $settings['rp_stars_color'] ?? '#f59e0b' ); ?>" />
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
+				<label for="wss-rp-button-bg"><?php esc_html_e( 'Button Background', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<input type="color" id="wss-rp-button-bg" name="rp_button_bg" value="<?php echo esc_attr( $settings['rp_button_bg'] ?? '#2563eb' ); ?>" />
+				<p class="description"><?php esc_html_e( 'Background for Add to Cart and action buttons (layouts that include them).', 'woo-smart-search' ); ?></p>
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
+				<label for="wss-rp-button-text"><?php esc_html_e( 'Button Text Color', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<input type="color" id="wss-rp-button-text" name="rp_button_text" value="<?php echo esc_attr( $settings['rp_button_text'] ?? '#ffffff' ); ?>" />
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
+				<label for="wss-rp-sidebar-bg"><?php esc_html_e( 'Sidebar Background', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<input type="color" id="wss-rp-sidebar-bg" name="rp_sidebar_bg" value="<?php echo esc_attr( $settings['rp_sidebar_bg'] ?? '#ffffff' ); ?>" />
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
+				<label for="wss-rp-toolbar-bg"><?php esc_html_e( 'Toolbar Background', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<input type="color" id="wss-rp-toolbar-bg" name="rp_toolbar_bg" value="<?php echo esc_attr( $settings['rp_toolbar_bg'] ?? '#ffffff' ); ?>" />
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
+				<label for="wss-rp-page-bg"><?php esc_html_e( 'Page Background', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<input type="color" id="wss-rp-page-bg" name="rp_page_bg" value="<?php echo esc_attr( $settings['rp_page_bg'] ?? '#f9fafb' ); ?>" />
+				<p class="description"><?php esc_html_e( 'Background color for the entire results page area.', 'woo-smart-search' ); ?></p>
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
+				<label for="wss-rp-image-ratio"><?php esc_html_e( 'Image Aspect Ratio', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<select id="wss-rp-image-ratio" name="rp_image_ratio">
+					<option value="1:1" <?php selected( $settings['rp_image_ratio'] ?? '1:1', '1:1' ); ?>>1:1 — <?php esc_html_e( 'Square', 'woo-smart-search' ); ?></option>
+					<option value="4:3" <?php selected( $settings['rp_image_ratio'] ?? '', '4:3' ); ?>>4:3 — <?php esc_html_e( 'Landscape', 'woo-smart-search' ); ?></option>
+					<option value="3:4" <?php selected( $settings['rp_image_ratio'] ?? '', '3:4' ); ?>>3:4 — <?php esc_html_e( 'Portrait', 'woo-smart-search' ); ?></option>
+					<option value="16:9" <?php selected( $settings['rp_image_ratio'] ?? '', '16:9' ); ?>>16:9 — <?php esc_html_e( 'Wide', 'woo-smart-search' ); ?></option>
+					<option value="auto" <?php selected( $settings['rp_image_ratio'] ?? '', 'auto' ); ?>><?php esc_html_e( 'Auto — Original ratio', 'woo-smart-search' ); ?></option>
+				</select>
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
+				<label for="wss-rp-image-fit"><?php esc_html_e( 'Image Fit', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<select id="wss-rp-image-fit" name="rp_image_fit">
+					<option value="cover" <?php selected( $settings['rp_image_fit'] ?? 'cover', 'cover' ); ?>><?php esc_html_e( 'Cover — Fill area, crop edges', 'woo-smart-search' ); ?></option>
+					<option value="contain" <?php selected( $settings['rp_image_fit'] ?? '', 'contain' ); ?>><?php esc_html_e( 'Contain — Fit entire image, may show background', 'woo-smart-search' ); ?></option>
+				</select>
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
+				<label for="wss-rp-card-gap"><?php esc_html_e( 'Card Spacing (px)', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<input type="number" id="wss-rp-card-gap" name="rp_card_gap" value="<?php echo esc_attr( $settings['rp_card_gap'] ?? '20' ); ?>" class="small-text" min="0" max="48" />
+				<p class="description"><?php esc_html_e( 'Gap between product cards in the grid.', 'woo-smart-search' ); ?></p>
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
+				<label for="wss-rp-name-size"><?php esc_html_e( 'Product Name Size (px)', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<input type="number" id="wss-rp-name-size" name="rp_name_size" value="<?php echo esc_attr( $settings['rp_name_size'] ?? '14' ); ?>" class="small-text" min="10" max="24" />
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
+				<label for="wss-rp-price-size"><?php esc_html_e( 'Price Size (px)', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<input type="number" id="wss-rp-price-size" name="rp_price_size" value="<?php echo esc_attr( $settings['rp_price_size'] ?? '16' ); ?>" class="small-text" min="10" max="32" />
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
+				<label for="wss-rp-name-lines"><?php esc_html_e( 'Product Name Lines', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<select id="wss-rp-name-lines" name="rp_name_lines">
+					<option value="1" <?php selected( $settings['rp_name_lines'] ?? '2', '1' ); ?>>1</option>
+					<option value="2" <?php selected( $settings['rp_name_lines'] ?? '2', '2' ); ?>>2</option>
+					<option value="3" <?php selected( $settings['rp_name_lines'] ?? '2', '3' ); ?>>3</option>
+				</select>
+				<p class="description"><?php esc_html_e( 'Max lines to show for product names before truncating.', 'woo-smart-search' ); ?></p>
+			</td>
+		</tr>
+		<tr>
+			<th scope="row">
+				<label for="wss-rp-custom-css"><?php esc_html_e( 'Results Page Custom CSS', 'woo-smart-search' ); ?></label>
+			</th>
+			<td>
+				<textarea id="wss-rp-custom-css" name="rp_custom_css" rows="5" class="large-text code"><?php echo esc_textarea( $settings['rp_custom_css'] ?? '' ); ?></textarea>
 			</td>
 		</tr>
 	</table>

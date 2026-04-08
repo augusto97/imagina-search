@@ -158,6 +158,18 @@ if ( ! function_exists( 'wss_tr' ) ) {
 			<th scope="row"><label for="wss-tr-sortNameZA"><?php esc_html_e( 'Sort: Name Z-A', 'woo-smart-search' ); ?></label></th>
 			<td><input type="text" id="wss-tr-sortNameZA" name="translations[sortNameZA]" class="regular-text" value="<?php echo esc_attr( wss_tr( $t, 'sortNameZA' ) ); ?>" placeholder="Name: Z–A" /></td>
 		</tr>
+		<tr>
+			<th scope="row"><label for="wss-tr-addToCart"><?php esc_html_e( 'Add to Cart', 'woo-smart-search' ); ?></label></th>
+			<td><input type="text" id="wss-tr-addToCart" name="translations[addToCart]" class="regular-text" value="<?php echo esc_attr( wss_tr( $t, 'addToCart' ) ); ?>" placeholder="Add to Cart" /></td>
+		</tr>
+		<tr>
+			<th scope="row"><label for="wss-tr-freeShipping"><?php esc_html_e( 'Free shipping', 'woo-smart-search' ); ?></label></th>
+			<td><input type="text" id="wss-tr-freeShipping" name="translations[freeShipping]" class="regular-text" value="<?php echo esc_attr( wss_tr( $t, 'freeShipping' ) ); ?>" placeholder="Free shipping" /></td>
+		</tr>
+		<tr>
+			<th scope="row"><label for="wss-tr-sold"><?php esc_html_e( 'Sold', 'woo-smart-search' ); ?></label></th>
+			<td><input type="text" id="wss-tr-sold" name="translations[sold]" class="regular-text" value="<?php echo esc_attr( wss_tr( $t, 'sold' ) ); ?>" placeholder="sold" /></td>
+		</tr>
 	</table>
 
 	<!-- Fullscreen Layout -->
