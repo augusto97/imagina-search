@@ -10,17 +10,19 @@ export default defineConfig({
     rollupOptions: {
       input: resolve(__dirname, 'src/main.js'),
       output: {
+        // IIFE format — WordPress loads scripts as regular <script> tags, not ES modules.
+        format: 'iife',
         entryFileNames: 'js/wss-admin.js',
-        chunkFileNames: 'js/wss-admin-[name].js',
         assetFileNames: (assetInfo) => {
           if (assetInfo.name && assetInfo.name.endsWith('.css')) {
             return 'css/wss-admin.css';
           }
           return 'assets/[name][extname]';
         },
+        // No code splitting — single file for wp_enqueue_script.
+        inlineDynamicImports: true,
       },
     },
-    // Produce a single JS + CSS bundle for WordPress enqueuing.
     cssCodeSplit: false,
     sourcemap: false,
     minify: 'esbuild',
