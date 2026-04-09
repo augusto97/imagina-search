@@ -667,6 +667,48 @@ class WSS_Product_Sync {
 		// Store the attribute names for frontend facet requests.
 		update_option( 'wss_product_attribute_names', $attribute_names, true );
 
+		// In mixed or WordPress-only mode, add WordPress-specific fields.
+		$content_source = wss_get_content_source();
+		$is_mixed       = 'mixed' === $content_source;
+		$is_wp_only     = ! wss_is_ecommerce_mode();
+
+		if ( $is_mixed || $is_wp_only ) {
+			$filterable[] = 'post_type';
+			$filterable[] = 'author';
+
+			// Add searchable fields from WordPress content.
+			$searchable = array_values( array_unique( array_merge( $searchable, array( 'full_description', 'taxonomies_text', 'author' ) ) ) );
+
+			// Custom taxonomy keys (tax_genre, tax_topic, etc.).
+			$wp_post_types       = class_exists( 'WSS_Post_Sync' ) ? WSS_Post_Sync::get_configured_post_types() : array( 'post' );
+			$excluded_taxonomies = array( 'category', 'post_tag', 'product_cat', 'product_tag', 'post_format' );
+			foreach ( $wp_post_types as $pt ) {
+				$pt_taxonomies = get_object_taxonomies( $pt, 'objects' );
+				foreach ( $pt_taxonomies as $tax_name => $tax_obj ) {
+					if ( in_array( $tax_name, $excluded_taxonomies, true ) || ! $tax_obj->public ) {
+						continue;
+					}
+					$key = 'tax_' . $tax_name;
+					if ( ! in_array( $key, $filterable, true ) ) {
+						$filterable[] = $key;
+					}
+				}
+			}
+
+			// Custom field keys (cf_color, cf_size, etc.).
+			$wp_custom_fields = wss_get_option( 'wp_custom_fields', array() );
+			if ( ! empty( $wp_custom_fields ) && is_array( $wp_custom_fields ) ) {
+				foreach ( $wp_custom_fields as $cf_key ) {
+					$prefixed = 'cf_' . $cf_key;
+					if ( ! in_array( $prefixed, $filterable, true ) ) {
+						$filterable[] = $prefixed;
+					}
+				}
+			}
+		}
+
+		$filterable = array_values( array_unique( $filterable ) );
+
 		$sortable = array(
 			'price',
 			'price_min',
@@ -697,6 +739,13 @@ class WSS_Product_Sync {
 				'content_source',
 			)
 		);
+
+		// In mixed or WordPress-only mode, also display WP-specific fields.
+		if ( $is_mixed || $is_wp_only ) {
+			$displayed = array_values( array_unique( array_merge( $displayed, array(
+				'post_type', 'author', 'date_created', 'comment_count', 'taxonomies',
+			) ) ) );
+		}
 
 		$settings = apply_filters(
 			'wss_index_settings',
@@ -782,6 +831,45 @@ class WSS_Product_Sync {
 			}
 		}
 
+		// In mixed or WordPress-only mode, add WordPress-specific fields.
+		$content_source = wss_get_content_source();
+		$is_mixed       = 'mixed' === $content_source;
+		$is_wp_only     = ! wss_is_ecommerce_mode();
+
+		if ( $is_mixed || $is_wp_only ) {
+			$filterable[] = 'post_type';
+			$filterable[] = 'author';
+
+			// Custom taxonomy keys.
+			$wp_post_types       = class_exists( 'WSS_Post_Sync' ) ? WSS_Post_Sync::get_configured_post_types() : array( 'post' );
+			$excluded_taxonomies = array( 'category', 'post_tag', 'product_cat', 'product_tag', 'post_format' );
+			foreach ( $wp_post_types as $pt ) {
+				$pt_taxonomies = get_object_taxonomies( $pt, 'objects' );
+				foreach ( $pt_taxonomies as $tax_name => $tax_obj ) {
+					if ( in_array( $tax_name, $excluded_taxonomies, true ) || ! $tax_obj->public ) {
+						continue;
+					}
+					$key = 'tax_' . $tax_name;
+					if ( ! in_array( $key, $filterable, true ) ) {
+						$filterable[] = $key;
+					}
+				}
+			}
+
+			// Custom field keys.
+			$wp_custom_fields = wss_get_option( 'wp_custom_fields', array() );
+			if ( ! empty( $wp_custom_fields ) && is_array( $wp_custom_fields ) ) {
+				foreach ( $wp_custom_fields as $cf_key ) {
+					$prefixed = 'cf_' . $cf_key;
+					if ( ! in_array( $prefixed, $filterable, true ) ) {
+						$filterable[] = $prefixed;
+					}
+				}
+			}
+		}
+
+		$filterable = array_values( array_unique( $filterable ) );
+
 		$result = $engine->set_filterable_attributes( $index_name, $filterable );
 
 		// Also ensure displayed attributes are set for safe direct frontend search.
@@ -801,6 +889,14 @@ class WSS_Product_Sync {
 				'content_source',
 			)
 		);
+
+		// In mixed or WordPress-only mode, also display WP-specific fields.
+		if ( $is_mixed || $is_wp_only ) {
+			$displayed = array_values( array_unique( array_merge( $displayed, array(
+				'post_type', 'author', 'date_created', 'comment_count', 'taxonomies',
+			) ) ) );
+		}
+
 		$engine->set_displayed_attributes( $index_name, $displayed );
 
 		return $result;
