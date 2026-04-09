@@ -349,6 +349,52 @@
 
 /* ===== Element Plus Overrides (scoped) ===== */
 
+/* Fix double-border on inputs — WP admin adds box-shadow + border to inputs
+   which conflicts with Element Plus's own input wrapper styling. */
+#wss-admin-root input[type="text"],
+#wss-admin-root input[type="number"],
+#wss-admin-root input[type="password"],
+#wss-admin-root input[type="search"],
+#wss-admin-root input[type="email"],
+#wss-admin-root input[type="url"],
+#wss-admin-root input[type="color"],
+#wss-admin-root textarea,
+#wss-admin-root select {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  outline: none !important;
+  padding: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  line-height: inherit !important;
+  font-size: inherit !important;
+}
+
+/* Let Element Plus components keep their own styling */
+#wss-admin-root .el-input__wrapper,
+#wss-admin-root .el-textarea__inner,
+#wss-admin-root .el-select .el-input__wrapper {
+  box-shadow: 0 0 0 1px #dcdfe6 inset !important;
+  background: #fff !important;
+}
+
+#wss-admin-root .el-input__wrapper:hover,
+#wss-admin-root .el-textarea__inner:hover {
+  box-shadow: 0 0 0 1px #c0c4cc inset !important;
+}
+
+#wss-admin-root .el-input__wrapper.is-focus,
+#wss-admin-root .el-textarea__inner:focus {
+  box-shadow: 0 0 0 1px #409eff inset !important;
+}
+
+/* Fix Element Plus textarea inner */
+#wss-admin-root .el-textarea__inner {
+  padding: 8px 12px !important;
+  font-size: 14px !important;
+}
+
 #wss-admin-root .el-form-item {
   margin-bottom: 0;
 }
@@ -367,6 +413,24 @@
   --el-button-border-color: #3b82f6;
   --el-button-hover-bg-color: #2563eb;
   --el-button-hover-border-color: #2563eb;
+}
+
+/* Fix notification z-index — must appear above WP admin bar (z-index: 9991) */
+.el-message {
+  z-index: 160000 !important;
+  top: 46px !important;
+}
+
+.el-message-box__wrapper {
+  z-index: 160000 !important;
+}
+
+.v-modal {
+  z-index: 159999 !important;
+}
+
+.el-overlay {
+  z-index: 159999 !important;
 }
 
 /* ===== Responsive ===== */
