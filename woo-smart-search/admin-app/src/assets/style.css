@@ -1,0 +1,479 @@
+/* ===== WSS Admin App — Scoped Styles ===== */
+
+/* Reset within our app to avoid WP admin conflicts */
+#wss-admin-root {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #1f2937;
+  -webkit-font-smoothing: antialiased;
+}
+
+#wss-admin-root *,
+#wss-admin-root *::before,
+#wss-admin-root *::after {
+  box-sizing: border-box;
+}
+
+/* Override WP admin link styles inside our app */
+#wss-admin-root a {
+  text-decoration: none;
+}
+
+/* ===== Layout ===== */
+
+.wss-app {
+  display: flex;
+  min-height: 500px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 20px 0;
+}
+
+/* ===== Sidebar Navigation ===== */
+
+.wss-sidebar {
+  width: 220px;
+  background: #111827;
+  color: #9ca3af;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.wss-sidebar-brand {
+  padding: 20px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.wss-sidebar-brand h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+
+.wss-sidebar-brand .wss-version {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.wss-sidebar-nav {
+  flex: 1;
+  padding: 8px 0;
+  overflow-y: auto;
+}
+
+.wss-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  font-size: 13px;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  border-left: 3px solid transparent;
+}
+
+.wss-nav-item:hover {
+  color: #e5e7eb;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.wss-nav-item.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border-left-color: #3b82f6;
+}
+
+.wss-nav-item .nav-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wss-nav-item .nav-icon .el-icon {
+  font-size: 16px;
+}
+
+/* ===== Main Content ===== */
+
+.wss-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #f9fafb;
+}
+
+/* ===== Header ===== */
+
+.wss-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  gap: 16px;
+}
+
+.wss-header h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.wss-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ===== Content Area ===== */
+
+.wss-content {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+/* ===== Section Cards ===== */
+
+.wss-section {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.wss-section-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wss-section-header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.wss-section-header p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.wss-section-body {
+  padding: 20px;
+}
+
+/* ===== Form Rows ===== */
+
+.wss-form-row {
+  display: flex;
+  align-items: flex-start;
+  padding: 14px 0;
+  border-bottom: 1px solid #f3f4f6;
+  gap: 16px;
+}
+
+.wss-form-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.wss-form-row:first-child {
+  padding-top: 0;
+}
+
+.wss-form-label {
+  width: 200px;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  padding-top: 6px;
+}
+
+.wss-form-label .wss-hint {
+  display: block;
+  font-weight: 400;
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.wss-form-control {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ===== Status Badge ===== */
+
+.wss-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.wss-status-dot.connected { background: #10b981; }
+.wss-status-dot.error { background: #ef4444; }
+.wss-status-dot.syncing { background: #f59e0b; animation: wss-pulse 1.5s infinite; }
+.wss-status-dot.idle { background: #9ca3af; }
+
+@keyframes wss-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ===== Stats Grid ===== */
+
+.wss-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.wss-stat-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 16px 20px;
+}
+
+.wss-stat-card .stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1;
+}
+
+.wss-stat-card .stat-label {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ===== Color Picker Row ===== */
+
+.wss-color-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wss-color-row .el-color-picker {
+  flex-shrink: 0;
+}
+
+.wss-color-row .wss-color-hex {
+  font-size: 12px;
+  color: #6b7280;
+  font-family: monospace;
+}
+
+/* ===== Toggle Groups ===== */
+
+.wss-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.wss-toggle-row:last-child {
+  border-bottom: none;
+}
+
+.wss-toggle-label {
+  font-size: 13px;
+  color: #374151;
+}
+
+/* ===== Progress Bar ===== */
+
+.wss-progress-wrap {
+  margin: 16px 0;
+}
+
+.wss-progress-wrap .el-progress {
+  margin-bottom: 4px;
+}
+
+.wss-progress-text {
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+}
+
+/* ===== Logs Table ===== */
+
+.wss-log-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.wss-log-badge.info { background: #eff6ff; color: #3b82f6; }
+.wss-log-badge.warning { background: #fffbeb; color: #f59e0b; }
+.wss-log-badge.error { background: #fef2f2; color: #ef4444; }
+
+/* ===== Element Plus Overrides (scoped) ===== */
+
+/* Fix double-border on inputs — WP admin adds box-shadow + border to inputs
+   which conflicts with Element Plus's own input wrapper styling. */
+#wss-admin-root input[type="text"],
+#wss-admin-root input[type="number"],
+#wss-admin-root input[type="password"],
+#wss-admin-root input[type="search"],
+#wss-admin-root input[type="email"],
+#wss-admin-root input[type="url"],
+#wss-admin-root input[type="color"],
+#wss-admin-root textarea,
+#wss-admin-root select {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  outline: none !important;
+  padding: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  line-height: inherit !important;
+  font-size: inherit !important;
+}
+
+/* Let Element Plus components keep their own styling */
+#wss-admin-root .el-input__wrapper,
+#wss-admin-root .el-textarea__inner,
+#wss-admin-root .el-select .el-input__wrapper {
+  box-shadow: 0 0 0 1px #dcdfe6 inset !important;
+  background: #fff !important;
+}
+
+#wss-admin-root .el-input__wrapper:hover,
+#wss-admin-root .el-textarea__inner:hover {
+  box-shadow: 0 0 0 1px #c0c4cc inset !important;
+}
+
+#wss-admin-root .el-input__wrapper.is-focus,
+#wss-admin-root .el-textarea__inner:focus {
+  box-shadow: 0 0 0 1px #409eff inset !important;
+}
+
+/* Fix Element Plus textarea inner */
+#wss-admin-root .el-textarea__inner {
+  padding: 8px 12px !important;
+  font-size: 14px !important;
+}
+
+#wss-admin-root .el-form-item {
+  margin-bottom: 0;
+}
+
+#wss-admin-root .el-input,
+#wss-admin-root .el-select {
+  max-width: 400px;
+}
+
+#wss-admin-root .el-textarea {
+  max-width: 500px;
+}
+
+#wss-admin-root .el-button--primary {
+  --el-button-bg-color: #3b82f6;
+  --el-button-border-color: #3b82f6;
+  --el-button-hover-bg-color: #2563eb;
+  --el-button-hover-border-color: #2563eb;
+}
+
+/* Fix notification z-index — must appear above WP admin bar (z-index: 9991) */
+.el-message {
+  z-index: 160000 !important;
+  top: 46px !important;
+}
+
+.el-message-box__wrapper {
+  z-index: 160000 !important;
+}
+
+.v-modal {
+  z-index: 159999 !important;
+}
+
+.el-overlay {
+  z-index: 159999 !important;
+}
+
+/* ===== Responsive ===== */
+
+@media (max-width: 960px) {
+  .wss-app {
+    flex-direction: column;
+  }
+
+  .wss-sidebar {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .wss-sidebar-brand {
+    display: none;
+  }
+
+  .wss-sidebar-nav {
+    display: flex;
+    padding: 0;
+  }
+
+  .wss-nav-item {
+    white-space: nowrap;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    padding: 12px 14px;
+    font-size: 12px;
+  }
+
+  .wss-nav-item.active {
+    border-bottom-color: #3b82f6;
+  }
+
+  .wss-form-row {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .wss-form-label {
+    width: auto;
+    padding-top: 0;
+  }
+}
