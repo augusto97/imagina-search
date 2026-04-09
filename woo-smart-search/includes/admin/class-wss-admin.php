@@ -165,11 +165,15 @@ class WSS_Admin {
 			}
 
 			// Published content count.
-			$published = 0;
-			if ( wss_is_ecommerce_mode() ) {
-				$pc        = wp_count_posts( 'product' );
-				$published = isset( $pc->publish ) ? (int) $pc->publish : 0;
-			} else {
+			$published      = 0;
+			$content_source = wss_get_content_source();
+			$is_mixed       = 'mixed' === $content_source;
+
+			if ( wss_is_ecommerce_mode() || $is_mixed ) {
+				$pc         = wp_count_posts( 'product' );
+				$published += isset( $pc->publish ) ? (int) $pc->publish : 0;
+			}
+			if ( ! wss_is_ecommerce_mode() || $is_mixed ) {
 				$configured_pts = class_exists( 'WSS_Post_Sync' ) ? WSS_Post_Sync::get_configured_post_types() : array( 'post' );
 				foreach ( $configured_pts as $pt ) {
 					$pc         = wp_count_posts( $pt );

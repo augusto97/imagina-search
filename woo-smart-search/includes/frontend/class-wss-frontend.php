@@ -228,11 +228,7 @@ class WSS_Frontend {
 				'rpImageRatio'   => $settings['rp_image_ratio'] ?? '1:1',
 				'rpImageFit'     => $settings['rp_image_fit'] ?? 'cover',
 				'rpCardShadow'   => $settings['rp_card_shadow'] ?? 'medium',
-				'visibleFacets'  => implode( ',', $settings['visible_facets'] ?? (
-				$is_ecom ? array( 'categories', 'tags', 'price', 'stock', 'attributes' ) :
-				( $is_mixed ? array( 'categories', 'tags', 'price', 'stock', 'attributes', 'post_type', 'author' ) :
-				array( 'categories', 'tags', 'post_type', 'author' ) )
-			) ),
+				'visibleFacets'  => implode( ',', self::get_effective_visible_facets( $settings, $is_ecom, $is_mixed ) ),
 				'customFacetLabels' => array_merge( $custom_tax_labels, $custom_cf_labels ),
 			)
 		);
@@ -626,6 +622,43 @@ class WSS_Frontend {
 		}
 
 		return str_replace( ' src=', ' defer src=', $tag );
+	}
+
+	/**
+	 * Build the effective visible facets list, ensuring WordPress-specific
+	 * facets are always present in mixed or WordPress-only mode even if
+	 * the saved setting was created before switching content source.
+	 *
+	 * @param array $settings Plugin settings.
+	 * @param bool  $is_ecom  WooCommerce mode.
+	 * @param bool  $is_mixed Mixed mode.
+	 * @return array
+	 */
+	private static function get_effective_visible_facets( array $settings, bool $is_ecom, bool $is_mixed ): array {
+		$saved = $settings['visible_facets'] ?? null;
+
+		if ( null === $saved ) {
+			// No saved setting — use smart defaults.
+			if ( $is_mixed ) {
+				return array( 'categories', 'tags', 'price', 'stock', 'attributes', 'post_type', 'author' );
+			} elseif ( $is_ecom ) {
+				return array( 'categories', 'tags', 'price', 'stock', 'attributes' );
+			} else {
+				return array( 'categories', 'tags', 'post_type', 'author' );
+			}
+		}
+
+		// Saved setting exists — ensure WordPress facets are included in mixed/WP mode.
+		if ( $is_mixed || ! $is_ecom ) {
+			$wp_facets = array( 'post_type', 'author', 'tags' );
+			foreach ( $wp_facets as $facet ) {
+				if ( ! in_array( $facet, $saved, true ) ) {
+					$saved[] = $facet;
+				}
+			}
+		}
+
+		return $saved;
 	}
 
 	private static function darken_color( string $hex, int $percent ): string {
