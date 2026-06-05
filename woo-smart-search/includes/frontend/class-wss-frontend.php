@@ -586,22 +586,8 @@ class WSS_Frontend {
 	 * @return string
 	 */
 	public function optimize_style_loading( $html, $handle, $href, $media ) {
-		// Only defer results-page CSS (not needed until user navigates to results).
-		// Keep search-widget CSS render-blocking since the widget is visible immediately.
-		if ( 'wss-results-page' !== $handle ) {
-			return $html;
-		}
-
-		// Use media="print" + onload swap for non-blocking CSS.
-		$html = str_replace(
-			"media='all'",
-			"media='print' onload=\"this.media='all'\"",
-			$html
-		);
-
-		// Add noscript fallback.
-		$html .= '<noscript><link rel="stylesheet" href="' . esc_url( $href ) . '" media="all" /></noscript>' . "\n";
-
+		// No longer deferring results-page CSS — it caused blank page issues
+		// when the stylesheet was enqueued late from a shortcode render.
 		return $html;
 	}
 
@@ -614,7 +600,7 @@ class WSS_Frontend {
 	 * @return string
 	 */
 	public function add_defer_attribute( $tag, $handle, $src ) {
-		if ( ! in_array( $handle, array( 'wss-search-widget', 'wss-results-page' ), true ) ) {
+		if ( 'wss-search-widget' !== $handle ) {
 			return $tag;
 		}
 

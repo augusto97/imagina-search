@@ -52,9 +52,7 @@
 			return;
 		}
 
-		dom.page           = page;
-		// Reveal the page (inline critical CSS already applied the layout).
-		page.classList.add( 'wss-ready' );
+		dom.page = page;
 
 		// Apply layout class (may already be set via PHP, but ensure JS also sets it).
 		if ( layout !== 'default' && ! page.classList.contains( 'wss-layout-' + layout ) ) {
