@@ -16,8 +16,28 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 $widget_layout = $settings['widget_layout'] ?? 'standard';
 $i18n          = WSS_Frontend::get_frontend_i18n( $settings );
+$show_icon     = ! isset( $atts['show_icon'] ) || $atts['show_icon'];
+$icon_position = $atts['icon_position'] ?? 'left';
+$input_height  = isset( $atts['input_height'] ) ? (int) $atts['input_height'] : 0;
+$border_radius = isset( $atts['border_radius'] ) ? (int) $atts['border_radius'] : -1;
+
+$wrapper_classes = 'wss-search-wrapper wss-layout-' . esc_attr( $widget_layout );
+if ( $show_icon && 'right' === $icon_position ) {
+	$wrapper_classes .= ' wss-icon-right';
+}
+if ( ! $show_icon ) {
+	$wrapper_classes .= ' wss-icon-hidden';
+}
+
+$inline_styles = 'width:' . esc_attr( $width );
+if ( $input_height > 0 ) {
+	$inline_styles .= ';--wss-input-height:' . $input_height . 'px';
+}
+if ( $border_radius >= 0 ) {
+	$inline_styles .= ';--wss-border-radius:' . $border_radius . 'px';
+}
 ?>
-<div class="wss-search-wrapper wss-layout-<?php echo esc_attr( $widget_layout ); ?>" role="search" aria-label="<?php esc_attr_e( 'Product search', 'woo-smart-search' ); ?>" style="width:<?php echo esc_attr( $width ); ?>">
+<div class="<?php echo esc_attr( $wrapper_classes ); ?>" role="search" aria-label="<?php esc_attr_e( 'Product search', 'woo-smart-search' ); ?>" style="<?php echo $inline_styles; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>">
 	<div class="wss-search-input-container">
 		<input
 			type="search"

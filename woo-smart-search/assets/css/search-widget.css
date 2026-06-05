@@ -56,7 +56,6 @@
 
 .wss-search-wrapper {
 	position: relative;
-	z-index: var(--wss-z-index);
 	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
 	font-size: var(--wss-font-size-base);
 	line-height: 1.5;
@@ -168,6 +167,31 @@
 .wss-search-clear:hover {
 	color: var(--wss-text-color);
 	background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Icon position: right */
+.wss-icon-right .wss-search-input {
+	padding: 0 42px 0 14px !important;
+}
+
+.wss-icon-right .wss-search-icon,
+.wss-icon-right .wss-search-spinner {
+	left: auto !important;
+	right: 12px !important;
+}
+
+.wss-icon-right .wss-search-clear {
+	right: auto !important;
+	left: 6px !important;
+}
+
+/* Icon hidden */
+.wss-icon-hidden .wss-search-input {
+	padding: 0 40px 0 14px !important;
+}
+
+.wss-icon-hidden .wss-search-icon {
+	display: none !important;
 }
 
 /* ============================================

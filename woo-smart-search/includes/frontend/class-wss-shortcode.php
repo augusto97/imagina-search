@@ -112,38 +112,21 @@ class WSS_Shortcode {
 				'editor_script'   => 'wss-block-editor',
 				'render_callback' => array( $this, 'render_block' ),
 				'attributes'      => array(
-					'placeholder'  => array(
-						'type'    => 'string',
-						'default' => '',
-					),
-					'width'        => array(
-						'type'    => 'string',
-						'default' => '100%',
-					),
-					'layout'       => array(
-						'type'    => 'string',
-						'default' => '',
-					),
-					'showImage'    => array(
-						'type'    => 'string',
-						'default' => '',
-					),
-					'showPrice'    => array(
-						'type'    => 'string',
-						'default' => '',
-					),
-					'showCategory' => array(
-						'type'    => 'string',
-						'default' => '',
-					),
-					'maxResults'   => array(
-						'type'    => 'string',
-						'default' => '',
-					),
-					'theme'        => array(
-						'type'    => 'string',
-						'default' => '',
-					),
+					'placeholder'  => array( 'type' => 'string', 'default' => '' ),
+					'width'        => array( 'type' => 'string', 'default' => '100%' ),
+					'layout'       => array( 'type' => 'string', 'default' => '' ),
+					'showImage'    => array( 'type' => 'string', 'default' => '' ),
+					'showPrice'    => array( 'type' => 'string', 'default' => '' ),
+					'showCategory' => array( 'type' => 'string', 'default' => '' ),
+					'showSku'      => array( 'type' => 'string', 'default' => '' ),
+					'showStock'    => array( 'type' => 'string', 'default' => '' ),
+					'showRating'   => array( 'type' => 'string', 'default' => '' ),
+					'maxResults'   => array( 'type' => 'string', 'default' => '' ),
+					'theme'        => array( 'type' => 'string', 'default' => '' ),
+					'showIcon'     => array( 'type' => 'boolean', 'default' => true ),
+					'iconPosition' => array( 'type' => 'string', 'default' => 'left' ),
+					'borderRadius' => array( 'type' => 'number', 'default' => 8 ),
+					'inputHeight'  => array( 'type' => 'number', 'default' => 44 ),
 				),
 			)
 		);
@@ -170,10 +153,17 @@ class WSS_Shortcode {
 			'showImage'    => 'show_image',
 			'showPrice'    => 'show_price',
 			'showCategory' => 'show_category',
+			'showSku'      => 'show_sku',
+			'showStock'    => 'show_stock',
+			'showRating'   => 'show_rating',
 			'maxResults'   => 'max_results',
+			'showIcon'     => 'show_icon',
+			'iconPosition' => 'icon_position',
+			'borderRadius' => 'border_radius',
+			'inputHeight'  => 'input_height',
 		);
 		foreach ( $map as $camel => $snake ) {
-			if ( ! empty( $attributes[ $camel ] ) ) {
+			if ( isset( $attributes[ $camel ] ) && '' !== $attributes[ $camel ] ) {
 				$attributes[ $snake ] = $attributes[ $camel ];
 			}
 			unset( $attributes[ $camel ] );
