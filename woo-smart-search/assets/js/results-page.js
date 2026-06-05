@@ -491,7 +491,7 @@
 
 		var imgSrc    = hit.image || cfg.placeholderImg || '';
 		var name      = hit.name_highlighted ? sanitizeHighlight( hit.name_highlighted ) : escapeHtml( decodeHtml( hit.name || '' ) );
-		var category  = ( hit.categories && hit.categories.length ) ? escapeHtml( decodeHtml( hit.categories[0] ) ) : '';
+		var category  = ( cfg.rpShowCategory && hit.categories && hit.categories.length ) ? escapeHtml( decodeHtml( hit.categories[0] ) ) : '';
 		var permalink = hit.permalink || '#';
 		var saleBadge = '';
 
@@ -499,11 +499,13 @@
 		var priceHtml = '';
 		var isOnSale = false;
 		var discountPercent = 0;
-		if ( typeof hit.price !== 'undefined' ) {
+		if ( cfg.rpShowPrice && typeof hit.price !== 'undefined' ) {
 			if ( hit.on_sale && hit.regular_price > hit.price ) {
 				isOnSale = true;
 				discountPercent = Math.round( ( 1 - hit.price / hit.regular_price ) * 100 );
-				saleBadge = '<span class="wss-sale-badge">-' + discountPercent + '%</span>';
+				if ( cfg.rpShowSaleBadge ) {
+					saleBadge = '<span class="wss-sale-badge">-' + discountPercent + '%</span>';
+				}
 				priceHtml = '<span class="wss-price-current wss-on-sale">' + formatPrice( hit.price ) + '</span>' +
 					'<span class="wss-price-regular">' + formatPrice( hit.regular_price ) + '</span>';
 			} else if ( hit.price_min && hit.price_max && hit.price_min !== hit.price_max ) {
@@ -516,7 +518,7 @@
 
 		// Stock.
 		var stockHtml = '';
-		if ( hit.stock_status ) {
+		if ( cfg.rpShowStock && hit.stock_status ) {
 			var stockClass = 'wss-stock-' + hit.stock_status;
 			var stockLabel = hit.stock_status === 'instock' ? ( cfg.i18n ? cfg.i18n.inStock : 'In stock' ) :
 				hit.stock_status === 'outofstock' ? ( cfg.i18n ? cfg.i18n.outOfStock : 'Out of stock' ) :
@@ -528,53 +530,75 @@
 
 		// Rating.
 		var ratingHtml = '';
-		if ( hit.rating && hit.rating > 0 ) {
+		if ( cfg.rpShowRating && hit.rating && hit.rating > 0 ) {
 			ratingHtml = '<div class="wss-product-card-rating">' +
 				'<span class="wss-stars">' + buildStars( hit.rating ) + '</span>' +
 				( hit.review_count ? '<span class="wss-review-count">(' + hit.review_count + ')</span>' : '' ) +
 				'</div>';
 		}
 
-		// Short description (visible in list view via CSS).
-		var descHtml = hit.description ? '<div class="wss-product-card-description">' + escapeHtml( hit.description ).substring( 0, 120 ) + '</div>' : '';
+		// SKU.
+		var skuHtml = '';
+		if ( cfg.rpShowSku && hit.sku ) {
+			skuHtml = '<div class="wss-product-card-sku">SKU: ' + escapeHtml( hit.sku ) + '</div>';
+		}
+
+		// Short description.
+		var descHtml = '';
+		if ( cfg.rpShowDescription && hit.description ) {
+			descHtml = '<div class="wss-product-card-description">' + escapeHtml( hit.description ).substring( 0, 120 ) + '</div>';
+		}
 
 		// Discount badge (separate from sale badge, positioned by layout CSS).
 		var discountBadgeHtml = '';
-		if ( isOnSale && discountPercent > 0 ) {
+		if ( cfg.rpShowSaleBadge && isOnSale && discountPercent > 0 ) {
 			discountBadgeHtml = '<span class="wss-discount-badge">-' + discountPercent + '%</span>';
 		}
 
-		// Sold/orders count (shown by specific layouts).
+		// Sold/orders count.
 		var soldHtml = '';
-		if ( hit.total_sales && hit.total_sales > 0 ) {
+		if ( cfg.rpShowSold && hit.total_sales && hit.total_sales > 0 ) {
 			var soldText = hit.total_sales >= 1000
 				? ( Math.floor( hit.total_sales / 1000 ) + 'k+ ' + ( cfg.i18n ? cfg.i18n.sold || 'sold' : 'sold' ) )
 				: ( hit.total_sales + ' ' + ( cfg.i18n ? cfg.i18n.sold || 'sold' : 'sold' ) );
 			soldHtml = '<div class="wss-product-card-sold">' + escapeHtml( soldText ) + '</div>';
 		}
 
-		// Shipping badge (shown by specific layouts).
-		var shippingHtml = '<div class="wss-product-card-shipping">' +
-			escapeHtml( cfg.i18n ? cfg.i18n.freeShipping || 'Free shipping' : 'Free shipping' ) + '</div>';
+		// Shipping badge.
+		var shippingHtml = '';
+		if ( cfg.rpShowShipping ) {
+			shippingHtml = '<div class="wss-product-card-shipping">' +
+				escapeHtml( cfg.i18n ? cfg.i18n.freeShipping || 'Free shipping' : 'Free shipping' ) + '</div>';
+		}
 
-		// Add to Cart button (shown by specific layouts).
-		var addToCartText = cfg.i18n ? cfg.i18n.addToCart || 'Add to Cart' : 'Add to Cart';
-		var actionsHtml = '<div class="wss-product-card-actions">' +
-			'<a href="' + escapeHtml( permalink ) + '" class="wss-add-to-cart-btn">' + escapeHtml( addToCartText ) + '</a>' +
-			'</div>';
+		// Add to Cart button.
+		var actionsHtml = '';
+		if ( cfg.rpShowAddToCart ) {
+			var addToCartText = cfg.i18n ? cfg.i18n.addToCart || 'Add to Cart' : 'Add to Cart';
+			actionsHtml = '<div class="wss-product-card-actions" style="display:block">' +
+				'<a href="' + escapeHtml( permalink ) + '" class="wss-add-to-cart-btn">' + escapeHtml( addToCartText ) + '</a>' +
+				'</div>';
+		}
 
-		return '<div class="wss-product-card" data-id="' + ( hit.id || '' ) + '">' +
-			'<a href="' + escapeHtml( permalink ) + '">' +
-			'<div class="wss-product-card-image">' +
+		// Image.
+		var imageHtml = '';
+		if ( cfg.rpShowImage ) {
+			imageHtml = '<div class="wss-product-card-image">' +
 				saleBadge +
 				discountBadgeHtml +
 				'<img src="' + escapeHtml( imgSrc ) + '" alt="' + escapeHtml( hit.name || '' ) + '" loading="lazy" />' +
-			'</div>' +
+			'</div>';
+		}
+
+		return '<div class="wss-product-card" data-id="' + ( hit.id || '' ) + '">' +
+			'<a href="' + escapeHtml( permalink ) + '">' +
+			imageHtml +
 			'<div class="wss-product-card-body">' +
 				( category ? '<div class="wss-product-card-category">' + category + '</div>' : '' ) +
 				'<div class="wss-product-card-name">' + name + '</div>' +
+				skuHtml +
 				descHtml +
-				'<div class="wss-product-card-price">' + priceHtml + '</div>' +
+				( priceHtml ? '<div class="wss-product-card-price">' + priceHtml + '</div>' : '' ) +
 				stockHtml +
 				ratingHtml +
 				soldHtml +
@@ -591,9 +615,9 @@
 	function buildPostCard( hit ) {
 		var imgSrc    = hit.image || cfg.placeholderImg || '';
 		var name      = hit.name_highlighted ? sanitizeHighlight( hit.name_highlighted ) : escapeHtml( decodeHtml( hit.name || '' ) );
-		var category  = ( cfg.showCategory && hit.categories && hit.categories.length ) ? escapeHtml( decodeHtml( hit.categories[0] ) ) : '';
+		var category  = ( cfg.rpShowCategory && hit.categories && hit.categories.length ) ? escapeHtml( decodeHtml( hit.categories[0] ) ) : '';
 		var permalink = hit.permalink || '#';
-		var excerpt   = ( cfg.showExcerpt && hit.description ) ? escapeHtml( hit.description ).substring( 0, 150 ) : '';
+		var excerpt   = ( cfg.rpShowDescription && hit.description ) ? escapeHtml( hit.description ).substring( 0, 150 ) : '';
 		var author    = ( cfg.showAuthor && hit.author ) ? escapeHtml( hit.author ) : '';
 		var postType  = ( cfg.showPostType && hit.post_type ) ? escapeHtml( hit.post_type ) : '';
 
@@ -616,7 +640,7 @@
 
 		// Image section.
 		var imageHtml = '';
-		if ( cfg.showImage ) {
+		if ( cfg.rpShowImage ) {
 			imageHtml = '<div class="wss-product-card-image">' +
 				'<img src="' + escapeHtml( imgSrc ) + '" alt="' + escapeHtml( hit.name || '' ) + '" loading="lazy" />' +
 			'</div>';

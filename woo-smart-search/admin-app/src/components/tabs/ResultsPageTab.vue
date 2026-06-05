@@ -104,6 +104,17 @@
       </div>
     </div>
 
+    <!-- Visible Elements -->
+    <div class="wss-section">
+      <div class="wss-section-header"><div><h3>Visible Elements</h3><p>Show or hide elements on each product/post card in results.</p></div></div>
+      <div class="wss-section-body">
+        <div v-for="el in rpElements" :key="el.key" class="wss-toggle-row">
+          <span class="wss-toggle-label">{{ el.label }}</span>
+          <el-switch v-model="settings[el.key]" active-value="yes" inactive-value="no" />
+        </div>
+      </div>
+    </div>
+
     <!-- Card & Colors -->
     <div class="wss-section">
       <div class="wss-section-header"><div><h3>Results Page Appearance</h3><p>Colors and styles for the search results page.</p></div></div>
@@ -191,6 +202,20 @@ import { useSettings } from '@/composables/useSettings';
 
 const { settings, saving, save } = useSettings();
 const pages = window.wssAdmin?.pages || [];
+
+const rpElements = [
+  { key: 'rp_show_image', label: 'Product Image' },
+  { key: 'rp_show_category', label: 'Category' },
+  { key: 'rp_show_price', label: 'Price' },
+  { key: 'rp_show_sale_badge', label: 'Sale Badge / Discount' },
+  { key: 'rp_show_stock', label: 'Stock Status' },
+  { key: 'rp_show_rating', label: 'Rating Stars' },
+  { key: 'rp_show_sku', label: 'SKU' },
+  { key: 'rp_show_description', label: 'Short Description' },
+  { key: 'rp_show_add_to_cart', label: 'Add to Cart Button' },
+  { key: 'rp_show_shipping', label: 'Free Shipping Badge' },
+  { key: 'rp_show_sold', label: 'Sold Count' },
+];
 
 const rpColors = [
   { key: 'rp_card_bg', label: 'Card Background' },

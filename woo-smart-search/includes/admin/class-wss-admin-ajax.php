@@ -143,6 +143,11 @@ class WSS_Admin_Ajax {
 		$search_bools = array(
 			'index_out_of_stock', 'index_hidden', 'enable_facets',
 			'search_by_sku', 'show_out_of_stock_results',
+			// Results page visible elements.
+			'rp_show_image', 'rp_show_category', 'rp_show_price',
+			'rp_show_sale_badge', 'rp_show_stock', 'rp_show_rating',
+			'rp_show_sku', 'rp_show_description', 'rp_show_add_to_cart',
+			'rp_show_shipping', 'rp_show_sold',
 		);
 
 		$indexing_bools = array(
