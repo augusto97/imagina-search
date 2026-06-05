@@ -1105,39 +1105,62 @@
 			'form.search-form',
 			'form.searchform',
 			'form.woocommerce-product-search',
-			'form[action*="search"]',
+			'form.gspbsearch_form',
 			'[class*="search-box"] form',
 			'[class*="searchbox"] form',
+			'[class*="gspbsearch"] form',
 			'[class*="search-form"]',
 			'[data-type="search"] form',
+			'.elementor-search-form form',
+			'.wp-block-search form',
 		].join(',');
 
 		function hookForm(form) {
-			if (form.closest('.wss-search-wrapper') || form.dataset.wssIntercepted) return;
-			form.dataset.wssIntercepted = '1';
+			if (form.closest('.wss-search-wrapper') || form.dataset.wssHooked) return;
+			form.dataset.wssHooked = '1';
 
+			var getInput = function () {
+				return form.querySelector('input[type="search"], input[name="s"], input.gspbsearch_input, input[type="text"]');
+			};
+
+			// Capture phase runs BEFORE any third-party handler can stopPropagation.
 			form.addEventListener('submit', function (e) {
-				var input = form.querySelector('input[type="search"], input[name="s"], input[type="text"]');
+				var input = getInput();
 				if (input && input.value.trim()) {
 					e.preventDefault();
+					e.stopImmediatePropagation();
 					var url = config.searchUrl.replace('{query}', encodeURIComponent(input.value.trim()));
 					window.location.href = url;
 				}
-			});
+			}, true);
+
+			// Also intercept Enter on the input directly — some blocks prevent form submit.
+			var input = getInput();
+			if (input) {
+				input.addEventListener('keydown', function (e) {
+					if (e.key === 'Enter' && input.value.trim()) {
+						e.preventDefault();
+						e.stopImmediatePropagation();
+						var url = config.searchUrl.replace('{query}', encodeURIComponent(input.value.trim()));
+						window.location.href = url;
+					}
+				}, true);
+			}
 		}
 
 		// Also intercept standalone search inputs not inside forms.
 		function hookInput(input) {
-			if (input.closest('.wss-search-wrapper') || input.dataset.wssIntercepted) return;
-			input.dataset.wssIntercepted = '1';
+			if (input.closest('.wss-search-wrapper') || input.dataset.wssHooked) return;
+			input.dataset.wssHooked = '1';
 
 			input.addEventListener('keydown', function (e) {
 				if (e.key === 'Enter' && input.value.trim()) {
 					e.preventDefault();
+					e.stopImmediatePropagation();
 					var url = config.searchUrl.replace('{query}', encodeURIComponent(input.value.trim()));
 					window.location.href = url;
 				}
-			});
+			}, true);
 		}
 
 		function scanAndHook() {
