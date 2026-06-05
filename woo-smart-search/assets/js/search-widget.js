@@ -1098,7 +1098,7 @@
 	 * and redirects their submissions to the WSS results page.
 	 */
 	function interceptAllSearchForms() {
-		if (!cfg.searchUrl || wssGetOption('integration_mode', 'replace') !== 'replace') return;
+		if (!config.searchUrl || config.integration_mode !== 'replace') return;
 
 		var selectors = [
 			'form[role="search"]',
@@ -1120,7 +1120,7 @@
 				var input = form.querySelector('input[type="search"], input[name="s"], input[type="text"]');
 				if (input && input.value.trim()) {
 					e.preventDefault();
-					var url = cfg.searchUrl.replace('{query}', encodeURIComponent(input.value.trim()));
+					var url = config.searchUrl.replace('{query}', encodeURIComponent(input.value.trim()));
 					window.location.href = url;
 				}
 			});
@@ -1134,7 +1134,7 @@
 			input.addEventListener('keydown', function (e) {
 				if (e.key === 'Enter' && input.value.trim()) {
 					e.preventDefault();
-					var url = cfg.searchUrl.replace('{query}', encodeURIComponent(input.value.trim()));
+					var url = config.searchUrl.replace('{query}', encodeURIComponent(input.value.trim()));
 					window.location.href = url;
 				}
 			});
@@ -1162,7 +1162,4 @@
 		}
 	}
 
-	function wssGetOption(key, fallback) {
-		return (cfg && cfg[key] !== undefined) ? cfg[key] : fallback;
-	}
 })();
