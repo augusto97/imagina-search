@@ -43,7 +43,7 @@
 			filters.push('content_source = "' + sourceValue + '"');
 		}
 		if (config.hideOutOfStock) {
-			filters.push('stock_status = "instock"');
+			filters.push('stock_status != "outofstock"');
 		}
 		if (filters.length) {
 			body.filter = filters.join(' AND ');

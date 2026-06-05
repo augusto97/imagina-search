@@ -261,9 +261,10 @@ class WSS_Rest_Api {
 			}
 		}
 
-		// Hide out-of-stock if configured (only applies to ecommerce/mixed modes).
+		// Hide out-of-stock PRODUCTS if configured (only applies to ecommerce/mixed modes).
+		// Use "!= outofstock" so WordPress content (no stock_status field) is kept.
 		if ( ( wss_is_ecommerce_mode() || 'mixed' === $content_source ) && 'yes' !== wss_get_option( 'show_out_of_stock_results', 'yes' ) ) {
-			$stock_filter = 'stock_status = "instock"';
+			$stock_filter = 'stock_status != "outofstock"';
 			if ( ! empty( $options['filters'] ) ) {
 				$options['filters'] .= ' AND ' . $stock_filter;
 			} else {

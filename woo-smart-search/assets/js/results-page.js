@@ -22,6 +22,9 @@
 	/* ---- Local engine mode ---- */
 	var useLocal = cfg.engineType === 'local' && !!cfg.localSearchUrl;
 
+	/* ---- Layout config ---- */
+	var layout = cfg.resultsLayout || 'default';
+
 	/* ---- State ---- */
 	var defaultView = ( layout === 'mercadolibre' ) ? 'list' : 'grid';
 	var state = {
@@ -41,9 +44,6 @@
 
 	/* ---- DOM refs (set on init) ---- */
 	var dom = {};
-
-	/* ---- Layout config ---- */
-	var layout = cfg.resultsLayout || 'default';
 
 	/* ---- Init ---- */
 	function init() {
