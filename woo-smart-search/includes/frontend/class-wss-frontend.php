@@ -219,6 +219,7 @@ class WSS_Frontend {
 				'decimalSep'     => wss_is_ecommerce_mode() ? get_option( 'woocommerce_price_decimal_sep', '.' ) : '.',
 				'thousandSep'    => wss_is_ecommerce_mode() ? get_option( 'woocommerce_price_thousand_sep', ',' ) : ',',
 				'searchUrl'      => self::get_search_url_template(),
+				'integration_mode' => wss_get_option( 'integration_mode', 'replace' ),
 				'placeholderImg' => WSS_PLUGIN_URL . 'assets/images/placeholder.svg',
 				'i18n'           => self::get_frontend_i18n( $settings ),
 				'widgetLayout'   => $settings['widget_layout'] ?? 'standard',

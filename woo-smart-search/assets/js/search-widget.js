@@ -1084,8 +1084,85 @@
 	}
 
 	if (document.readyState === 'loading') {
-		document.addEventListener('DOMContentLoaded', init);
+		document.addEventListener('DOMContentLoaded', function () { init(); interceptAllSearchForms(); });
 	} else {
 		init();
+		interceptAllSearchForms();
+	}
+
+	/**
+	 * Global search form interceptor.
+	 *
+	 * Scans the entire DOM for search forms and inputs that were NOT created
+	 * by WSS (native WP, Greenshift, Elementor, Oxygen, theme forms, etc.)
+	 * and redirects their submissions to the WSS results page.
+	 */
+	function interceptAllSearchForms() {
+		if (!cfg.searchUrl || wssGetOption('integration_mode', 'replace') !== 'replace') return;
+
+		var selectors = [
+			'form[role="search"]',
+			'form.search-form',
+			'form.searchform',
+			'form.woocommerce-product-search',
+			'form[action*="search"]',
+			'[class*="search-box"] form',
+			'[class*="searchbox"] form',
+			'[class*="search-form"]',
+			'[data-type="search"] form',
+		].join(',');
+
+		function hookForm(form) {
+			if (form.closest('.wss-search-wrapper') || form.dataset.wssIntercepted) return;
+			form.dataset.wssIntercepted = '1';
+
+			form.addEventListener('submit', function (e) {
+				var input = form.querySelector('input[type="search"], input[name="s"], input[type="text"]');
+				if (input && input.value.trim()) {
+					e.preventDefault();
+					var url = cfg.searchUrl.replace('{query}', encodeURIComponent(input.value.trim()));
+					window.location.href = url;
+				}
+			});
+		}
+
+		// Also intercept standalone search inputs not inside forms.
+		function hookInput(input) {
+			if (input.closest('.wss-search-wrapper') || input.dataset.wssIntercepted) return;
+			input.dataset.wssIntercepted = '1';
+
+			input.addEventListener('keydown', function (e) {
+				if (e.key === 'Enter' && input.value.trim()) {
+					e.preventDefault();
+					var url = cfg.searchUrl.replace('{query}', encodeURIComponent(input.value.trim()));
+					window.location.href = url;
+				}
+			});
+		}
+
+		function scanAndHook() {
+			document.querySelectorAll(selectors).forEach(hookForm);
+			document.querySelectorAll('input[type="search"]').forEach(function (input) {
+				if (!input.closest('.wss-search-wrapper')) hookInput(input);
+			});
+		}
+
+		scanAndHook();
+
+		// Watch for dynamically-added search forms (SPA navigations, lazy-loaded blocks).
+		if (typeof MutationObserver !== 'undefined') {
+			var observer = new MutationObserver(function (mutations) {
+				var needsScan = false;
+				for (var i = 0; i < mutations.length; i++) {
+					if (mutations[i].addedNodes.length) { needsScan = true; break; }
+				}
+				if (needsScan) scanAndHook();
+			});
+			observer.observe(document.body, { childList: true, subtree: true });
+		}
+	}
+
+	function wssGetOption(key, fallback) {
+		return (cfg && cfg[key] !== undefined) ? cfg[key] : fallback;
 	}
 })();
