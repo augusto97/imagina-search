@@ -50,6 +50,10 @@ class WSS_Shortcode {
 				'width'              => '100%',
 				'categories'         => '',
 				'exclude_categories' => '',
+				'show_icon'          => '',
+				'icon_position'      => '',
+				'border_radius'      => '',
+				'input_height'       => '',
 			),
 			$atts,
 			'woo_smart_search'

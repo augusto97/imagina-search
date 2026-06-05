@@ -160,7 +160,12 @@ class WSS_Admin_Ajax {
 		}
 
 		foreach ( $bool_fields as $field ) {
-			$settings[ $field ] = isset( $_POST[ $field ] ) ? 'yes' : 'no';
+			if ( isset( $_POST[ $field ] ) ) {
+				$val = sanitize_text_field( wp_unslash( $_POST[ $field ] ) );
+				$settings[ $field ] = ( 'yes' === $val || '1' === $val || 'true' === $val || 'on' === $val ) ? 'yes' : 'no';
+			} else {
+				$settings[ $field ] = 'no';
+			}
 		}
 
 		// Array fields — only reset when their owning tab is submitted.

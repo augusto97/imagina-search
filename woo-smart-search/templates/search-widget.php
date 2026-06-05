@@ -16,10 +16,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 $widget_layout = $settings['widget_layout'] ?? 'standard';
 $i18n          = WSS_Frontend::get_frontend_i18n( $settings );
-$show_icon     = ! isset( $atts['show_icon'] ) || $atts['show_icon'];
-$icon_position = $atts['icon_position'] ?? 'left';
-$input_height  = isset( $atts['input_height'] ) ? (int) $atts['input_height'] : 0;
-$border_radius = isset( $atts['border_radius'] ) ? (int) $atts['border_radius'] : -1;
+$show_icon     = true;
+if ( isset( $atts['show_icon'] ) && ( false === $atts['show_icon'] || '0' === $atts['show_icon'] || 'false' === $atts['show_icon'] || 'no' === $atts['show_icon'] ) ) {
+	$show_icon = false;
+}
+$icon_position = ! empty( $atts['icon_position'] ) ? $atts['icon_position'] : 'left';
+$input_height  = ! empty( $atts['input_height'] ) ? (int) $atts['input_height'] : 0;
+$border_radius = ! empty( $atts['border_radius'] ) ? (int) $atts['border_radius'] : -1;
 
 $wrapper_classes = 'wss-search-wrapper wss-layout-' . esc_attr( $widget_layout );
 if ( $show_icon && 'right' === $icon_position ) {
