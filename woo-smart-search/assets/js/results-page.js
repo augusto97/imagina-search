@@ -593,15 +593,15 @@
 	function buildPostCard( hit ) {
 		var imgSrc    = hit.image || cfg.placeholderImg || '';
 		var name      = hit.name_highlighted ? sanitizeHighlight( hit.name_highlighted ) : escapeHtml( decodeHtml( hit.name || '' ) );
-		var category  = ( cfg.showCategory !== false && hit.categories && hit.categories.length ) ? escapeHtml( decodeHtml( hit.categories[0] ) ) : '';
+		var category  = ( cfg.showCategory && hit.categories && hit.categories.length ) ? escapeHtml( decodeHtml( hit.categories[0] ) ) : '';
 		var permalink = hit.permalink || '#';
-		var excerpt   = ( cfg.showExcerpt !== false && hit.description ) ? escapeHtml( hit.description ).substring( 0, 150 ) : '';
-		var author    = ( cfg.showAuthor !== false && hit.author ) ? escapeHtml( hit.author ) : '';
+		var excerpt   = ( cfg.showExcerpt && hit.description ) ? escapeHtml( hit.description ).substring( 0, 150 ) : '';
+		var author    = ( cfg.showAuthor && hit.author ) ? escapeHtml( hit.author ) : '';
 		var postType  = ( cfg.showPostType && hit.post_type ) ? escapeHtml( hit.post_type ) : '';
 
 		// Date.
 		var dateHtml = '';
-		if ( cfg.showDate !== false && hit.date_created ) {
+		if ( cfg.showDate && hit.date_created ) {
 			var d = new Date( hit.date_created * 1000 );
 			dateHtml = '<span class="wss-post-date">' + d.toLocaleDateString() + '</span>';
 		}
@@ -618,7 +618,7 @@
 
 		// Image section.
 		var imageHtml = '';
-		if ( cfg.showImage !== false ) {
+		if ( cfg.showImage ) {
 			imageHtml = '<div class="wss-product-card-image">' +
 				'<img src="' + escapeHtml( imgSrc ) + '" alt="' + escapeHtml( hit.name || '' ) + '" loading="lazy" />' +
 			'</div>';

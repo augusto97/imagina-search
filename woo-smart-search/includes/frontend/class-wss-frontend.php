@@ -208,6 +208,7 @@ class WSS_Frontend {
 				'showAuthor'     => ( $settings['show_author'] ?? 'yes' ) === 'yes',
 				'showDate'       => ( $settings['show_date'] ?? 'yes' ) === 'yes',
 				'showPostType'   => ( $settings['show_post_type'] ?? 'no' ) === 'yes',
+				'hideOutOfStock' => ( $settings['show_out_of_stock_results'] ?? 'yes' ) !== 'yes',
 				'theme'          => $settings['theme'] ?? 'light',
 				'contentSource'  => wss_get_content_source(),
 				'isMixed'       => 'mixed' === wss_get_content_source(),

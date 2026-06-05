@@ -36,10 +36,17 @@
 			body.facets = facets;
 		}
 
-		// Filter by content_source unless mixed mode.
+		// Build filter string.
+		var filters = [];
 		if (!config.isMixed && config.contentSource) {
 			var sourceValue = config.isEcommerce ? 'woocommerce' : 'wordpress';
-			body.filter = 'content_source = "' + sourceValue + '"';
+			filters.push('content_source = "' + sourceValue + '"');
+		}
+		if (config.hideOutOfStock) {
+			filters.push('stock_status = "instock"');
+		}
+		if (filters.length) {
+			body.filter = filters.join(' AND ');
 		}
 
 		return fetch(meiliSearchUrl, {
@@ -806,7 +813,7 @@
 			}
 
 			// Image (hidden in compact layout).
-			if (!isCompact && config.showImage !== false) {
+			if (!isCompact && config.showImage) {
 				var imgSrc = hit.image || config.placeholderImg || '';
 				html += '<div class="wss-result-image">';
 				html += '<img src="' + escHtml(imgSrc) + '" alt="' + escHtml(hit.name || '') + '" width="60" height="60" />';
@@ -816,7 +823,7 @@
 			html += '<div class="wss-result-info">';
 
 			// Category.
-			if (!isCompact && config.showCategory !== false && hit.categories && hit.categories.length) {
+			if (!isCompact && config.showCategory && hit.categories && hit.categories.length) {
 				html += '<span class="wss-result-category">' + escHtml(decodeHtml(hit.categories[0])) + '</span>';
 			}
 
@@ -829,13 +836,13 @@
 
 			if (hitIsWpContent) {
 				// WordPress content: show excerpt, author, date.
-				if (!isCompact && config.showExcerpt !== false && hit.description) {
+				if (!isCompact && config.showExcerpt && hit.description) {
 					html += '<span class="wss-result-excerpt">' + escHtml(hit.description).substring(0, 80) + '</span>';
 				}
 				html += '<div class="wss-result-meta">';
 				var wpMeta = [];
-				if (config.showAuthor !== false && hit.author) wpMeta.push(escHtml(hit.author));
-				if (config.showDate !== false && hit.date_created) {
+				if (config.showAuthor && hit.author) wpMeta.push(escHtml(hit.author));
+				if (config.showDate && hit.date_created) {
 					var d = new Date(hit.date_created * 1000);
 					wpMeta.push(d.toLocaleDateString());
 				}
@@ -851,7 +858,7 @@
 				}
 
 				html += '<div class="wss-result-meta">';
-				if (config.showPrice !== false && hit.price !== undefined) {
+				if (config.showPrice && hit.price !== undefined) {
 					html += '<div class="wss-result-price">';
 					if (hit.on_sale && hit.regular_price) {
 						html += '<span class="wss-price-regular">' + formatPrice(hit.regular_price) + '</span> ';
@@ -868,7 +875,7 @@
 					html += '</div>';
 				}
 
-				if (!isCompact && config.showStock !== false && hit.stock_status) {
+				if (!isCompact && config.showStock && hit.stock_status) {
 					var stockClass = 'wss-stock-dot wss-stock-' + hit.stock_status;
 					var stockText = config.i18n[hit.stock_status === 'instock' ? 'inStock' : (hit.stock_status === 'outofstock' ? 'outOfStock' : 'onBackorder')] || hit.stock_status;
 					html += '<span class="' + stockClass + '" title="' + escHtml(stockText) + '"><span class="wss-stock-circle"></span>' + escHtml(stockText) + '</span>';

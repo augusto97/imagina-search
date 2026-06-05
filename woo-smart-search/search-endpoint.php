@@ -236,6 +236,17 @@ if ( ! empty( $filter_str ) ) {
 	$search_options['filters'] = $filter_str;
 }
 
+// Hide out-of-stock products if configured.
+$show_oos = isset( $settings['show_out_of_stock_results'] ) ? $settings['show_out_of_stock_results'] : 'yes';
+if ( 'yes' !== $show_oos ) {
+	$stock_filter = 'stock_status = "instock"';
+	if ( ! empty( $search_options['filters'] ) ) {
+		$search_options['filters'] .= ' AND ' . $stock_filter;
+	} else {
+		$search_options['filters'] = $stock_filter;
+	}
+}
+
 if ( ! empty( $sort ) ) {
 	$search_options['sort'] = array( $sort );
 }
