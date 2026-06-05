@@ -11,6 +11,12 @@
               <el-option :value="0" label="— Select a page —" />
               <el-option v-for="p in pages" :key="p.id" :value="p.id" :label="p.title" />
             </el-select>
+            <div style="margin-top:6px; font-size:12px; color:#6b7280; line-height:1.5">
+              Just select any page — the search results will render automatically.
+              No shortcode needed. (Advanced: you can still use
+              <code style="background:#f3f4f6;padding:1px 5px;border-radius:3px">[woo_smart_search_results]</code>
+              to control exact placement.)
+            </div>
           </div>
         </div>
         <div class="wss-form-row">

@@ -60,11 +60,58 @@ class WSS_Frontend {
 		// Enqueue search results page assets when on search.
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_results_page_assets' ) );
 
+		// Auto-inject the results layout on the selected results page when the
+		// shortcode isn't manually present. This means users only need to select
+		// the page in settings — no need to add the shortcode themselves.
+		add_filter( 'the_content', array( $this, 'maybe_inject_results_page' ), 20 );
+
 		// Redirect ?s= to ?q= on the results page, and redirect native
 		// WooCommerce search to the designated results page.
 		if ( 'replace' === $mode ) {
 			add_action( 'template_redirect', array( $this, 'handle_search_redirects' ) );
 		}
+	}
+
+	/**
+	 * Auto-inject the results page layout on the configured results page.
+	 *
+	 * If the user selected a page as the "Search Results Page" in settings but
+	 * did not add the [woo_smart_search_results] shortcode, this renders the
+	 * results layout automatically into that page's content.
+	 *
+	 * @param string $content The post content.
+	 * @return string
+	 */
+	public function maybe_inject_results_page( $content ) {
+		// Only on the main query, in the loop, for a singular page.
+		if ( ! is_singular() || ! in_the_loop() || ! is_main_query() ) {
+			return $content;
+		}
+
+		$results_page_id = (int) wss_get_option( 'results_page_id', 0 );
+		if ( ! $results_page_id ) {
+			return $content;
+		}
+
+		$current_id = get_the_ID();
+		if ( $current_id !== $results_page_id ) {
+			return $content;
+		}
+
+		// If the shortcode is already in the content, let it handle rendering.
+		if ( has_shortcode( $content, 'woo_smart_search_results' ) ) {
+			return $content;
+		}
+
+		// Render the results layout and append it to the page content.
+		if ( ! class_exists( 'WSS_Shortcode' ) ) {
+			return $content;
+		}
+
+		$shortcode = new WSS_Shortcode();
+		$results   = $shortcode->render_results_page( array() );
+
+		return $content . $results;
 	}
 
 	/**
