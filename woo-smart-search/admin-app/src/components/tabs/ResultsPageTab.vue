@@ -57,6 +57,18 @@
           <div class="wss-form-label">Faceted Filters</div>
           <div class="wss-form-control">
             <el-switch v-model="settings.enable_facets" active-value="yes" inactive-value="no" />
+            <div style="margin-top:4px; font-size:12px; color:#6b7280">Master toggle — turn the entire sidebar on/off.</div>
+          </div>
+        </div>
+        <div class="wss-form-row" v-if="settings.enable_facets === 'yes'">
+          <div class="wss-form-label">
+            Visible Facets
+            <span class="wss-hint">Which filters appear in the sidebar</span>
+          </div>
+          <div class="wss-form-control">
+            <el-checkbox-group v-model="visibleFacets">
+              <el-checkbox v-for="f in facetOptions" :key="f.value" :value="f.value" :label="f.label" style="display:block; margin-bottom:2px" />
+            </el-checkbox-group>
           </div>
         </div>
         <div class="wss-form-row">
@@ -140,6 +152,15 @@
           </div>
         </div>
         <div class="wss-form-row">
+          <div class="wss-form-label">
+            Button Radius (px)
+            <span class="wss-hint">Add to Cart button corners</span>
+          </div>
+          <div class="wss-form-control">
+            <el-slider v-model.number="buttonRadiusNum" :min="0" :max="30" style="max-width:300px" />
+          </div>
+        </div>
+        <div class="wss-form-row">
           <div class="wss-form-label">Image Ratio</div>
           <div class="wss-form-control">
             <el-select v-model="settings.rp_image_ratio" style="width:200px">
@@ -202,6 +223,43 @@ import { useSettings } from '@/composables/useSettings';
 
 const { settings, saving, save } = useSettings();
 const pages = window.wssAdmin?.pages || [];
+const isEcommerce = window.wssAdmin?.isEcommerce !== false;
+const isMixed = window.wssAdmin?.isMixed === true;
+
+// Build facet options based on content mode.
+const facetOptions = (() => {
+  const opts = [
+    { value: 'categories', label: 'Categories' },
+    { value: 'tags', label: 'Tags' },
+  ];
+  if (isEcommerce || isMixed) {
+    opts.push(
+      { value: 'price', label: 'Price' },
+      { value: 'stock', label: 'Stock' },
+      { value: 'attributes', label: 'Attributes (Color, Size...)' },
+      { value: 'brands', label: 'Brands' },
+      { value: 'rating', label: 'Rating' }
+    );
+  }
+  if (!isEcommerce || isMixed) {
+    opts.push(
+      { value: 'post_type', label: 'Content Type' },
+      { value: 'author', label: 'Author' }
+    );
+  }
+  return opts;
+})();
+
+// visible_facets is stored as an array; ensure it's reactive.
+const visibleFacets = computed({
+  get: () => Array.isArray(settings.visible_facets) ? settings.visible_facets : [],
+  set: (v) => { settings.visible_facets = v; },
+});
+
+const buttonRadiusNum = computed({
+  get: () => parseInt(settings.rp_button_radius) || 8,
+  set: (v) => { settings.rp_button_radius = String(v); },
+});
 
 const rpElements = [
   { key: 'rp_show_image', label: 'Product Image' },

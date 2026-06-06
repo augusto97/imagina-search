@@ -931,7 +931,7 @@
 	width: 100%;
 	padding: 8px 16px;
 	border: none;
-	border-radius: var(--wss-rp-card-radius, 8px);
+	border-radius: var(--wss-rp-button-radius, 8px);
 	background: var(--wss-rp-button-bg, #2563eb);
 	color: var(--wss-rp-button-text, #fff);
 	font-size: 0.85em;
@@ -1205,7 +1205,7 @@
 .wss-layout-amazon .wss-add-to-cart-btn {
 	background: var(--wss-rp-button-bg, #ffd814);
 	color: var(--wss-rp-button-text, #0f1111);
-	border-radius: 20px;
+	border-radius: var(--wss-rp-button-radius, 20px);
 	font-weight: 500;
 	font-size: 0.85em;
 	border: 1px solid #fcd200;
@@ -2498,7 +2498,7 @@
 	background: transparent;
 	color: var(--wss-text-color, #333);
 	border: 1px solid var(--wss-text-color, #333);
-	border-radius: 0;
+	border-radius: var(--wss-rp-button-radius, 0);
 	text-transform: uppercase;
 	font-size: 0.72em;
 	letter-spacing: 0.12em;

@@ -153,6 +153,7 @@ class WSS_Activator {
 			'rp_stars_color'            => '#f59e0b',
 			'rp_button_bg'              => '#2563eb',
 			'rp_button_text'            => '#ffffff',
+			'rp_button_radius'          => '8',
 			'rp_sidebar_bg'             => '#ffffff',
 			'rp_toolbar_bg'             => '#ffffff',
 			'rp_page_bg'               => 'transparent',

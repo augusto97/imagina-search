@@ -377,6 +377,7 @@ class WSS_Frontend {
 				'--wss-rp-stars-color'  => $settings['rp_stars_color'] ?? '#f59e0b',
 				'--wss-rp-button-bg'    => $settings['rp_button_bg'] ?? '#2563eb',
 				'--wss-rp-button-text'  => $settings['rp_button_text'] ?? '#ffffff',
+				'--wss-rp-button-radius' => ( $settings['rp_button_radius'] ?? '8' ) . 'px',
 				'--wss-rp-sidebar-bg'   => $settings['rp_sidebar_bg'] ?? '#ffffff',
 				'--wss-rp-toolbar-bg'   => $settings['rp_toolbar_bg'] ?? '#ffffff',
 				'--wss-rp-page-bg'      => $settings['rp_page_bg'] ?? '#f9fafb',

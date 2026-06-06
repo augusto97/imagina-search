@@ -199,6 +199,8 @@ class WSS_Admin {
 					'pages'              => $pages_data,
 					'published'          => $published,
 					'lastSync'           => $last_sync ? date_i18n( 'Y-m-d H:i', $last_sync ) : '',
+					'isEcommerce'        => wss_is_ecommerce_mode(),
+					'isMixed'            => 'mixed' === wss_get_content_source(),
 				)
 			);
 		} else {

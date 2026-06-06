@@ -73,7 +73,7 @@ class WSS_Admin_Ajax {
 			'results_layout', 'results_columns',
 			'rp_card_bg', 'rp_card_border', 'rp_card_radius', 'rp_card_shadow',
 			'rp_price_color', 'rp_sale_color', 'rp_badge_bg', 'rp_badge_text',
-			'rp_stars_color', 'rp_button_bg', 'rp_button_text',
+			'rp_stars_color', 'rp_button_bg', 'rp_button_text', 'rp_button_radius',
 			'rp_sidebar_bg', 'rp_toolbar_bg', 'rp_page_bg',
 			'rp_image_ratio', 'rp_image_fit', 'rp_card_gap',
 			'rp_name_size', 'rp_price_size', 'rp_name_lines',
