@@ -285,6 +285,8 @@ const rpColors = [
   { key: 'rp_stars_color', label: 'Rating Stars' },
   { key: 'rp_button_bg', label: 'Button BG' },
   { key: 'rp_button_text', label: 'Button Text' },
+  { key: 'rp_button_hover_bg', label: 'Button BG (Hover)' },
+  { key: 'rp_button_hover_text', label: 'Button Text (Hover)' },
   { key: 'rp_sidebar_bg', label: 'Sidebar BG' },
   { key: 'rp_toolbar_bg', label: 'Toolbar BG' },
   { key: 'rp_page_bg', label: 'Page BG' },

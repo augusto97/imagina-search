@@ -943,7 +943,9 @@
 }
 
 .wss-product-card-actions .wss-add-to-cart-btn:hover {
-	opacity: 0.9;
+	background: var(--wss-rp-button-hover-bg, var(--wss-rp-button-bg, #2563eb));
+	color: var(--wss-rp-button-hover-text, var(--wss-rp-button-text, #fff));
+	opacity: 0.92;
 }
 
 /* ===== Discount Badge (Percentage - layout-specific) ===== */
@@ -1211,7 +1213,11 @@
 	border: 1px solid #fcd200;
 }
 
-.wss-layout-amazon .wss-add-to-cart-btn:hover { background: #f7ca00; opacity: 1; }
+.wss-layout-amazon .wss-add-to-cart-btn:hover {
+	background: var(--wss-rp-button-hover-bg, #f7ca00);
+	color: var(--wss-rp-button-hover-text, #0f1111);
+	opacity: 1;
+}
 
 .wss-layout-amazon .wss-sale-badge {
 	background: var(--wss-rp-badge-bg, #cc0c39);
@@ -2509,8 +2515,8 @@
 }
 
 .wss-layout-shopify .wss-add-to-cart-btn:hover {
-	background: var(--wss-text-color, #333);
-	color: #fff;
+	background: var(--wss-rp-button-hover-bg, var(--wss-text-color, #333));
+	color: var(--wss-rp-button-hover-text, #fff);
 	opacity: 1;
 }
 
