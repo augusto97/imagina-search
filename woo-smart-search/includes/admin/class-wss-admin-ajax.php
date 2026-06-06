@@ -122,7 +122,7 @@ class WSS_Admin_Ajax {
 		}
 
 		// Integer fields.
-		$int_fields = array( 'batch_size', 'max_autocomplete_results', 'results_per_page', 'cache_ttl', 'rate_limit', 'results_page_id' );
+		$int_fields = array( 'batch_size', 'max_autocomplete_results', 'results_per_page', 'cache_ttl', 'rate_limit', 'results_page_id', 'reindex_interval' );
 		foreach ( $int_fields as $field ) {
 			if ( isset( $_POST[ $field ] ) ) {
 				$settings[ $field ] = absint( $_POST[ $field ] );
@@ -268,6 +268,11 @@ class WSS_Admin_Ajax {
 		}
 
 		update_option( 'wss_settings', $settings );
+
+		// Reschedule periodic reindex if interval changed.
+		if ( isset( $_POST['reindex_interval'] ) && function_exists( 'as_unschedule_all_actions' ) ) {
+			as_unschedule_all_actions( 'wss_periodic_reindex', array(), 'woo-smart-search' );
+		}
 
 		// Invalidate cached CSS variables.
 		delete_transient( 'wss_css_vars_' . WSS_VERSION );

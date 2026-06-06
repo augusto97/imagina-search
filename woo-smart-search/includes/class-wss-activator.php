@@ -139,6 +139,7 @@ class WSS_Activator {
 			'wp_post_types'             => array( 'post' ),
 			'wp_custom_fields'          => array(),
 			'search_engine'             => 'meilisearch',
+			'reindex_interval'          => 360,
 			// Results page appearance defaults.
 			'results_layout'            => 'default',
 			'results_columns'           => '3',

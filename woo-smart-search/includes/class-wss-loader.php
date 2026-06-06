@@ -115,10 +115,15 @@ class WSS_Loader {
 	 * from external apps, bulk edit plugins, scheduled sales, CSV imports.
 	 */
 	private function schedule_periodic_reindex() {
-		$interval = (int) apply_filters( 'wss_reindex_interval', 6 * HOUR_IN_SECONDS );
+		$minutes  = (int) wss_get_option( 'reindex_interval', 360 );
+		$interval = (int) apply_filters( 'wss_reindex_interval', $minutes * 60 );
 
 		if ( $interval <= 0 ) {
-			return; // Disabled via filter.
+			// Disabled — unschedule if it exists.
+			if ( function_exists( 'as_has_scheduled_action' ) && as_has_scheduled_action( 'wss_periodic_reindex' ) ) {
+				as_unschedule_all_actions( 'wss_periodic_reindex', array(), 'woo-smart-search' );
+			}
+			return;
 		}
 
 		if ( function_exists( 'as_has_scheduled_action' ) && ! as_has_scheduled_action( 'wss_periodic_reindex' ) ) {
