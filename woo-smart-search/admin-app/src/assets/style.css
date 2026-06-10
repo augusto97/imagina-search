@@ -228,6 +228,25 @@
   min-width: 0;
 }
 
+/* ===== Unsaved Changes Badge ===== */
+
+.wss-unsaved-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+  border-radius: 14px;
+  padding: 3px 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.wss-unsaved-badge .el-icon {
+  font-size: 13px;
+}
+
 /* ===== Status Badge ===== */
 
 .wss-status-dot {

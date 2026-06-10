@@ -1,4 +1,4 @@
-import { reactive, ref } from 'vue';
+import { reactive, ref, watch } from 'vue';
 import { useApi } from './useApi';
 
 /**
@@ -10,6 +10,8 @@ import { useApi } from './useApi';
 const settings = reactive({});
 const loaded = ref(false);
 const saving = ref(false);
+const dirty = ref(false);
+let watching = false;
 
 export function useSettings() {
   const { post } = useApi();
@@ -29,6 +31,13 @@ export function useSettings() {
     });
 
     loaded.value = true;
+
+    // Track unsaved changes. Registered after the initial assign — Vue
+    // watchers flush async, so the load itself never marks the state dirty.
+    if (!watching) {
+      watching = true;
+      watch(settings, () => { dirty.value = true; }, { deep: true });
+    }
   }
 
   async function save(tab, extra = {}) {
@@ -37,11 +46,12 @@ export function useSettings() {
       const payload = { _wss_tab: tab, ...settings, ...extra };
       const res = await post('wss_save_settings', payload);
       if (!res.success) throw new Error(res.data?.message || 'Save failed');
+      dirty.value = false;
       return res.data?.message || 'Settings saved.';
     } finally {
       saving.value = false;
     }
   }
 
-  return { settings, loaded, saving, load, save };
+  return { settings, loaded, saving, dirty, load, save };
 }

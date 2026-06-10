@@ -515,10 +515,37 @@
 			}
 		}
 
+		var fullscreenPrevFocus = null;
+
+		function trapFullscreenFocus(e) {
+			if (e.key !== 'Tab' || !fullscreenOverlay) return;
+
+			var focusables = fullscreenOverlay.querySelectorAll(
+				'input, button, a[href], select, textarea, [tabindex]:not([tabindex="-1"])'
+			);
+			var visible = Array.prototype.filter.call(focusables, function (el) {
+				return el.offsetParent !== null;
+			});
+			if (!visible.length) return;
+
+			var first = visible[0];
+			var last = visible[visible.length - 1];
+
+			if (e.shiftKey && document.activeElement === first) {
+				e.preventDefault();
+				last.focus();
+			} else if (!e.shiftKey && document.activeElement === last) {
+				e.preventDefault();
+				first.focus();
+			}
+		}
+
 		function openFullscreen() {
 			if (fullscreenOverlay) {
+				fullscreenPrevFocus = document.activeElement;
 				fullscreenOverlay.classList.add('wss-visible');
 				document.body.classList.add('wss-body-locked');
+				fullscreenOverlay.addEventListener('keydown', trapFullscreenFocus);
 				if (fullscreenInput) {
 					fullscreenInput.value = input.value;
 					setTimeout(function () { fullscreenInput.focus(); }, 100);
@@ -530,7 +557,13 @@
 			if (fullscreenOverlay) {
 				fullscreenOverlay.classList.remove('wss-visible');
 				document.body.classList.remove('wss-body-locked');
+				fullscreenOverlay.removeEventListener('keydown', trapFullscreenFocus);
 				if (fullscreenInput) input.value = fullscreenInput.value;
+				// Restore focus to where the user was before opening the overlay.
+				if (fullscreenPrevFocus && typeof fullscreenPrevFocus.focus === 'function') {
+					fullscreenPrevFocus.focus();
+					fullscreenPrevFocus = null;
+				}
 			}
 		}
 

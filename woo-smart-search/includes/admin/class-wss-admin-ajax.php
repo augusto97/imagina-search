@@ -114,10 +114,18 @@ class WSS_Admin_Ajax {
 			$settings['index_name'] = preg_replace( '/[^a-zA-Z0-9_\-]/', '', sanitize_text_field( wp_unslash( $_POST['index_name_local'] ) ) );
 		}
 
-		// Handle API key encryption.
+		// Handle API key encryption (with basic format validation so a
+		// malformed paste fails here with a clear message instead of with a
+		// cryptic error on the next sync).
 		if ( isset( $_POST['api_key'] ) ) {
 			$raw_key = sanitize_text_field( wp_unslash( $_POST['api_key'] ) );
 			if ( ! empty( $raw_key ) ) {
+				if ( strlen( $raw_key ) < 8 || strlen( $raw_key ) > 512 || preg_match( '/\s/', $raw_key ) ) {
+					wp_send_json_error( array(
+						'message' => __( 'The API key looks invalid: it must be 8–512 characters with no spaces. Check that you copied it completely.', 'woo-smart-search' ),
+					) );
+					return;
+				}
 				$settings['api_key'] = WSS_Meilisearch::encrypt_key( $raw_key );
 			}
 		}
@@ -170,11 +178,18 @@ class WSS_Admin_Ajax {
 			$bool_fields = $indexing_bools;
 		}
 
-		foreach ( $bool_fields as $field ) {
+		// Process every bool explicitly present in POST regardless of tab —
+		// the Vue admin sends ALL settings with explicit yes/no values on
+		// every save, so changes made in other tabs persist too. Absent
+		// fields only reset to 'no' for the submitted tab (legacy checkbox
+		// forms send nothing for unchecked boxes).
+		$all_bools = array_unique( array_merge( $appearance_bools, $search_bools, $indexing_bools ) );
+
+		foreach ( $all_bools as $field ) {
 			if ( isset( $_POST[ $field ] ) ) {
 				$val = sanitize_text_field( wp_unslash( $_POST[ $field ] ) );
 				$settings[ $field ] = ( 'yes' === $val || '1' === $val || 'true' === $val || 'on' === $val ) ? 'yes' : 'no';
-			} else {
+			} elseif ( in_array( $field, $bool_fields, true ) ) {
 				$settings[ $field ] = 'no';
 			}
 		}
