@@ -169,9 +169,9 @@
 	background-color: rgba(0, 0, 0, 0.05);
 }
 
-/* Icon position: right */
+/* Icon position: right — clear button sits just left of the icon, never over the text. */
 .wss-icon-right .wss-search-input {
-	padding: 0 42px 0 14px !important;
+	padding: 0 72px 0 14px !important;
 }
 
 .wss-icon-right .wss-search-icon,
@@ -181,8 +181,8 @@
 }
 
 .wss-icon-right .wss-search-clear {
-	right: auto !important;
-	left: 6px !important;
+	left: auto !important;
+	right: 38px !important;
 }
 
 /* Icon hidden */
