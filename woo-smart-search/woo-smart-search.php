@@ -3,7 +3,7 @@
  * Plugin Name:       Woo Smart Search
  * Plugin URI:        https://example.com/woo-smart-search
  * Description:       Ultra-fast search powered by Meilisearch for WooCommerce products, blog posts, pages, and custom post types.
- * Version:           6.8.1
+ * Version:           6.9.0
  * Author:            Imagina
  * Author URI:        https://example.com
  * License:           GPL-2.0+
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Plugin constants.
-define( 'WSS_VERSION', '6.8.1' );
+define( 'WSS_VERSION', '6.9.0' );
 define( 'WSS_PLUGIN_FILE', __FILE__ );
 define( 'WSS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WSS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -201,12 +201,18 @@ function wss_log( $message, $type = 'info', $context = array() ) {
 
 	$table_name = $wpdb->prefix . 'wss_logs';
 
+	// Cap context size — a stray product object would bloat the logs table.
+	$context_json = wp_json_encode( $context );
+	if ( strlen( (string) $context_json ) > 10000 ) {
+		$context_json = wp_json_encode( array( '_truncated' => true ) );
+	}
+
 	$wpdb->insert(
 		$table_name,
 		array(
 			'type'       => sanitize_text_field( $type ),
 			'message'    => sanitize_text_field( $message ),
-			'context'    => wp_json_encode( $context ),
+			'context'    => $context_json,
 			'created_at' => current_time( 'mysql' ),
 		),
 		array( '%s', '%s', '%s', '%s' )
@@ -216,7 +222,7 @@ function wss_log( $message, $type = 'info', $context = array() ) {
 	if ( wp_rand( 1, 100 ) === 1 ) {
 		$count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table_name}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		if ( $count > 10000 ) {
-			$wpdb->query( "DELETE FROM {$table_name} ORDER BY id ASC LIMIT 1000" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->query( $wpdb->prepare( "DELETE FROM {$table_name} ORDER BY id ASC LIMIT %d", 1000 ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		}
 	}
 }

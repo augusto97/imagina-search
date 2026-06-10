@@ -382,7 +382,7 @@
 				var catName = decodeHtml(entries[i][0]);
 				var li = document.createElement('li');
 				var a = document.createElement('a');
-				a.href = getSearchPageUrl(lastQuery + '&filter_categories=' + encodeURIComponent(catName));
+				a.href = getSearchPageUrl(lastQuery, 'filter_categories=' + encodeURIComponent(catName));
 				a.className = 'wss-sidebar-cat-item';
 				a.textContent = catName;
 				li.appendChild(a);
@@ -458,7 +458,7 @@
 					catEntries.slice(0, 10).forEach(function (entry) {
 						var li = document.createElement('li');
 						var a = document.createElement('a');
-						a.href = getSearchPageUrl(lastQuery + '&filter_categories=' + encodeURIComponent(entry[0]));
+						a.href = getSearchPageUrl(lastQuery, 'filter_categories=' + encodeURIComponent(entry[0]));
 						a.textContent = decodeHtml(entry[0]);
 						li.appendChild(a);
 						falabellaCategoriesList.appendChild(li);
@@ -483,7 +483,7 @@
 						var count = entry[1];
 						var li = document.createElement('li');
 						var a = document.createElement('a');
-						a.href = getSearchPageUrl(query + '&filter_categories=' + encodeURIComponent(catName));
+						a.href = getSearchPageUrl(query, 'filter_categories=' + encodeURIComponent(catName));
 						a.innerHTML = '<span class="wss-fullscreen-cat-name">' + escHtml(catName) + '</span>' +
 							'<span class="wss-fullscreen-cat-count">' + count + ' articles</span>';
 						li.appendChild(a);
@@ -770,7 +770,7 @@
 				var catCount = catEntries[i][1];
 				var pill = document.createElement('a');
 				pill.className = 'wss-category-pill';
-				pill.href = getSearchPageUrl(query + '&filter_categories=' + encodeURIComponent(catName));
+				pill.href = getSearchPageUrl(query, 'filter_categories=' + encodeURIComponent(catName));
 				pill.textContent = catName + (catCount ? ' (' + catCount + ')' : '');
 				pills.appendChild(pill);
 			}
@@ -1050,9 +1050,15 @@
 		}
 	}
 
-	function getSearchPageUrl(query) {
+	function getSearchPageUrl(query, extraParams) {
 		var url = config.searchUrl || '/?s={query}&post_type=product';
-		return url.replace('{query}', encodeURIComponent(query));
+		url = url.replace('{query}', encodeURIComponent(query));
+		// Append extra query params (e.g. filter_categories=X) OUTSIDE the
+		// encoded query so they reach the results page as real parameters.
+		if (extraParams) {
+			url += (url.indexOf('?') === -1 ? '?' : '&') + extraParams;
+		}
+		return url;
 	}
 
 	function escHtml(str) {
@@ -1179,16 +1185,27 @@
 
 		scanAndHook();
 
-		// Watch for dynamically-added search forms (SPA navigations, lazy-loaded blocks).
+		// Watch for dynamically-added search forms (SPA navigations, lazy-loaded
+		// blocks). Debounced: pages with carousels/animations mutate the DOM
+		// constantly and re-scanning on every mutation would burn CPU.
 		if (typeof MutationObserver !== 'undefined') {
+			var scanTimer = null;
 			var observer = new MutationObserver(function (mutations) {
-				var needsScan = false;
 				for (var i = 0; i < mutations.length; i++) {
-					if (mutations[i].addedNodes.length) { needsScan = true; break; }
+					if (mutations[i].addedNodes.length) {
+						clearTimeout(scanTimer);
+						scanTimer = setTimeout(scanAndHook, 500);
+						break;
+					}
 				}
-				if (needsScan) scanAndHook();
 			});
 			observer.observe(document.body, { childList: true, subtree: true });
+
+			// Cleanup on page teardown (bfcache-friendly).
+			window.addEventListener('pagehide', function () {
+				observer.disconnect();
+				clearTimeout(scanTimer);
+			});
 		}
 	}
 

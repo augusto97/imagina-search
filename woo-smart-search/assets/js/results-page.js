@@ -45,6 +45,19 @@
 	/* ---- DOM refs (set on init) ---- */
 	var dom = {};
 
+	/**
+	 * Reject after `ms` so a slow (not down) engine still falls back to the
+	 * WP REST API instead of hanging the page indefinitely.
+	 */
+	function withTimeout( promise, ms ) {
+		return Promise.race( [
+			promise,
+			new Promise( function ( resolve, reject ) {
+				setTimeout( function () { reject( new Error( 'WSS engine timeout' ) ); }, ms );
+			} )
+		] );
+	}
+
 	/* ---- Init ---- */
 	function init() {
 		var page = document.querySelector( '.wss-results-page' );
@@ -186,9 +199,82 @@
 			dom.mobileOverlay.addEventListener( 'click', closeMobileFilters );
 		}
 
-		if ( dom.filterClose ) {
-			dom.filterClose.addEventListener( 'click', closeMobileFilters );
+		// Click tracking — single delegated listener (results re-render often;
+		// per-link listeners would accumulate and fire N times).
+		if ( dom.grid ) {
+			dom.grid.addEventListener( 'click', function ( e ) {
+				var link = e.target.closest( '.wss-product-card a' );
+				if ( ! link || ! dom.grid.contains( link ) ) return;
+				var card = link.closest( '.wss-product-card' );
+				var productId = card ? card.dataset.id : '';
+				if ( productId && cfg.trackClickUrl ) {
+					trackClick( state.query, productId );
+				}
+			} );
 		}
+
+		// Sidebar — single delegated set of listeners. The sidebar HTML is
+		// re-rendered on every search, so per-element listeners would leak.
+		if ( dom.sidebar ) {
+			bindSidebarDelegation();
+		}
+	}
+
+	function bindSidebarDelegation() {
+		// Collapse toggle + mobile close.
+		dom.sidebar.addEventListener( 'click', function ( e ) {
+			var closeBtn = e.target.closest( '.wss-filter-panel-close button' );
+			if ( closeBtn ) {
+				closeMobileFilters();
+				return;
+			}
+			var header = e.target.closest( '.wss-filter-group-header' );
+			if ( header ) {
+				header.closest( '.wss-filter-group' ).classList.toggle( 'wss-collapsed' );
+			}
+		} );
+
+		// Checkbox filters.
+		dom.sidebar.addEventListener( 'change', function ( e ) {
+			var cb = e.target;
+			if ( cb.type !== 'checkbox' ) return;
+			var group = cb.closest( '.wss-filter-group[data-filter]' );
+			if ( ! group ) return;
+			var filterKey = group.dataset.filter;
+			if ( filterKey === 'price' ) return;
+
+			if ( ! state.filters[ filterKey ] ) {
+				state.filters[ filterKey ] = [];
+			}
+			if ( cb.checked ) {
+				state.filters[ filterKey ].push( cb.value );
+			} else {
+				state.filters[ filterKey ] = state.filters[ filterKey ].filter( function ( v ) {
+					return v !== cb.value;
+				} );
+			}
+			state.page = 1;
+			performSearch();
+		} );
+
+		// Price inputs (input events bubble).
+		var priceDebounce;
+		dom.sidebar.addEventListener( 'input', function ( e ) {
+			if ( ! e.target.classList.contains( 'wss-price-min' ) && ! e.target.classList.contains( 'wss-price-max' ) ) {
+				return;
+			}
+			clearTimeout( priceDebounce );
+			priceDebounce = setTimeout( function () {
+				var minInput = dom.sidebar.querySelector( '.wss-price-min' );
+				var maxInput = dom.sidebar.querySelector( '.wss-price-max' );
+				var minVal = minInput ? minInput.value : '';
+				var maxVal = maxInput ? maxInput.value : '';
+				state.priceMin = minVal !== '' ? parseFloat( minVal ) : null;
+				state.priceMax = maxVal !== '' ? parseFloat( maxVal ) : null;
+				state.page = 1;
+				performSearch();
+			}, 500 );
+		} );
 	}
 
 	function closeMobileFilters() {
@@ -285,9 +371,9 @@
 				localParams += '&sort=' + encodeURIComponent( state.sort );
 			}
 
-			searchPromise = fetch( cfg.localSearchUrl + '?' + localParams, {
+			searchPromise = withTimeout( fetch( cfg.localSearchUrl + '?' + localParams, {
 				signal: state.controller.signal
-			} )
+			} ), 6000 )
 			.then( function ( res ) {
 				if ( ! res.ok ) throw new Error( 'Local HTTP ' + res.status );
 				return res.json();
@@ -341,7 +427,7 @@
 				body.sort = [ state.sort ];
 			}
 
-			searchPromise = fetch( meiliSearchUrl, {
+			searchPromise = withTimeout( fetch( meiliSearchUrl, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -349,7 +435,7 @@
 				},
 				body: JSON.stringify( body ),
 				signal: state.controller.signal
-			} )
+			} ), 6000 )
 			.then( function ( res ) {
 				if ( ! res.ok ) throw new Error( 'Meili HTTP ' + res.status );
 				return res.json();
@@ -469,16 +555,6 @@
 		}
 
 		dom.grid.innerHTML = html;
-
-		// Click tracking.
-		dom.grid.querySelectorAll( '.wss-product-card a' ).forEach( function ( link ) {
-			link.addEventListener( 'click', function () {
-				var productId = link.closest( '.wss-product-card' ).dataset.id;
-				if ( productId && cfg.trackClickUrl ) {
-					trackClick( state.query, productId );
-				}
-			} );
-		} );
 	}
 
 	function buildProductCard( hit ) {
@@ -748,15 +824,7 @@
 		} );
 
 		dom.sidebar.innerHTML = html;
-
-		// Re-bind close button.
-		var newClose = dom.sidebar.querySelector( '.wss-filter-panel-close button' );
-		if ( newClose ) {
-			newClose.addEventListener( 'click', closeMobileFilters );
-		}
-
-		// Bind filter events.
-		bindFilterEvents();
+		// Events handled by delegation (bindSidebarDelegation) — nothing to re-bind.
 	}
 
 	function buildCheckboxFilter( key, label, values ) {
@@ -805,10 +873,10 @@
 	}
 
 	function buildRatingFilter( values ) {
-		var i = cfg.i18n || {};
+		var t = cfg.i18n || {};
 		var html = '<div class="wss-filter-group wss-rating-filter" data-filter="rating">' +
 			'<button class="wss-filter-group-header" type="button">' +
-			'<span>' + escapeHtml( i.rating || 'Rating' ) + '</span>' +
+			'<span>' + escapeHtml( t.rating || 'Rating' ) + '</span>' +
 			'<span class="wss-chevron">&#9660;</span>' +
 			'</button><div class="wss-filter-group-body">';
 
@@ -826,60 +894,6 @@
 
 		html += '</div></div>';
 		return html;
-	}
-
-	function bindFilterEvents() {
-		if ( ! dom.sidebar ) return;
-
-		// Collapse toggle.
-		dom.sidebar.querySelectorAll( '.wss-filter-group-header' ).forEach( function ( header ) {
-			header.addEventListener( 'click', function () {
-				header.closest( '.wss-filter-group' ).classList.toggle( 'wss-collapsed' );
-			} );
-		} );
-
-		// Checkbox filters.
-		dom.sidebar.querySelectorAll( '.wss-filter-group[data-filter]' ).forEach( function ( group ) {
-			var filterKey = group.dataset.filter;
-			if ( filterKey === 'price' ) return;
-
-			group.querySelectorAll( 'input[type="checkbox"]' ).forEach( function ( cb ) {
-				cb.addEventListener( 'change', function () {
-					if ( ! state.filters[ filterKey ] ) {
-						state.filters[ filterKey ] = [];
-					}
-					if ( cb.checked ) {
-						state.filters[ filterKey ].push( cb.value );
-					} else {
-						state.filters[ filterKey ] = state.filters[ filterKey ].filter( function ( v ) {
-							return v !== cb.value;
-						} );
-					}
-					state.page = 1;
-					performSearch();
-				} );
-			} );
-		} );
-
-		// Price inputs.
-		var priceMinInput = dom.sidebar.querySelector( '.wss-price-min' );
-		var priceMaxInput = dom.sidebar.querySelector( '.wss-price-max' );
-
-		var priceDebounce;
-		function onPriceChange() {
-			clearTimeout( priceDebounce );
-			priceDebounce = setTimeout( function () {
-				var minVal = priceMinInput ? priceMinInput.value : '';
-				var maxVal = priceMaxInput ? priceMaxInput.value : '';
-				state.priceMin = minVal !== '' ? parseFloat( minVal ) : null;
-				state.priceMax = maxVal !== '' ? parseFloat( maxVal ) : null;
-				state.page = 1;
-				performSearch();
-			}, 500 );
-		}
-
-		if ( priceMinInput ) priceMinInput.addEventListener( 'input', onPriceChange );
-		if ( priceMaxInput ) priceMaxInput.addEventListener( 'input', onPriceChange );
 	}
 
 	/* ---- Active Filters ---- */

@@ -556,7 +556,13 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 			$material .= AUTH_SALT;
 		}
 		if ( empty( $material ) ) {
-			$material = 'wss-fallback-' . DB_NAME . DB_USER;
+			// No WP salts configured — use a random key generated once and
+			// persisted, instead of guessable DB credentials.
+			$material = get_option( 'wss_encryption_key' );
+			if ( empty( $material ) ) {
+				$material = bin2hex( random_bytes( 32 ) );
+				update_option( 'wss_encryption_key', $material, false );
+			}
 		}
 		return hash( 'sha256', 'wss-api-key-encryption:' . $material, true );
 	}

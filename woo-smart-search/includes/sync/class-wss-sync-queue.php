@@ -45,27 +45,19 @@ class WSS_Sync_Queue {
 
 		$table = $wpdb->prefix . 'wss_sync_queue';
 
-		// Check if already queued.
-		$existing = $wpdb->get_var(
+		// UPDATE-first to avoid the check-then-insert race under concurrent
+		// API updates. If no pending row was updated, insert a new one. A rare
+		// duplicate from a remaining race window is harmless (item syncs twice).
+		$updated = $wpdb->query(
 			$wpdb->prepare(
-				"SELECT id FROM {$table} WHERE product_id = %d AND status = 'pending'", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"UPDATE {$table} SET action = %s, scheduled_at = %s WHERE product_id = %d AND status = 'pending' LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$action,
+				current_time( 'mysql' ),
 				$product_id
 			)
 		);
 
-		if ( $existing ) {
-			// Update the action (delete takes priority).
-			$wpdb->update(
-				$table,
-				array(
-					'action'       => $action,
-					'scheduled_at' => current_time( 'mysql' ),
-				),
-				array( 'id' => $existing ),
-				array( '%s', '%s' ),
-				array( '%d' )
-			);
-		} else {
+		if ( ! $updated ) {
 			$wpdb->insert(
 				$table,
 				array(

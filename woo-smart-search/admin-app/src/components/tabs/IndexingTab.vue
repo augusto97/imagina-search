@@ -210,7 +210,16 @@ async function startSync() {
 }
 
 function pollProgress() {
+  // Safety cap: ~1 hour at 3s intervals. If the sync hangs server-side,
+  // stop polling instead of hammering admin-ajax forever.
+  let polls = 0;
   pollTimer = setInterval(async () => {
+    if (++polls > 1200) {
+      clearInterval(pollTimer);
+      syncing.value = false;
+      ElMessage.warning('Sync is taking too long — check the Logs tab.');
+      return;
+    }
     try {
       const res = await post('wss_sync_progress');
       if (!res.success) return;
@@ -219,6 +228,11 @@ function pollProgress() {
         const pct = d.total > 0 ? Math.round((d.processed / d.total) * 100) : 0;
         progress.value = pct;
         progressText.value = `${pct}% (${d.processed}/${d.total})`;
+      } else if (d.status === 'failed') {
+        clearInterval(pollTimer);
+        syncing.value = false;
+        progressText.value = 'Failed';
+        ElMessage.error('Sync failed — check the Logs tab for details.');
       } else {
         clearInterval(pollTimer);
         syncing.value = false;

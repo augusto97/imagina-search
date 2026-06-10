@@ -525,6 +525,8 @@ class WSS_Product_Sync {
 			}
 		}
 
+		$batch_failed = false;
+
 		if ( ! empty( $documents ) ) {
 			$result = $engine->index_documents( $index_name, $documents );
 
@@ -538,7 +540,8 @@ class WSS_Product_Sync {
 					),
 					'error'
 				);
-				$errors += count( $documents );
+				$errors      += count( $documents );
+				$batch_failed = true;
 			} else {
 				foreach ( $documents as $doc ) {
 					do_action( 'wss_product_indexed', $doc['id'], $doc );
@@ -546,15 +549,27 @@ class WSS_Product_Sync {
 			}
 		}
 
-		// Update progress.
+		// Update progress + circuit breaker: abort after 3 consecutive failed
+		// batches instead of queueing hundreds of doomed jobs while the engine
+		// is down.
 		$progress = get_option( 'wss_sync_progress', array() );
 
 		if ( ! empty( $progress ) ) {
-			$progress['processed'] += count( $product_ids );
-			$progress['current']    = $page;
-			$progress['errors']    += $errors;
+			$progress['processed']            += count( $product_ids );
+			$progress['current']               = $page;
+			$progress['errors']               += $errors;
+			$progress['consecutive_failures']  = $batch_failed
+				? ( (int) ( $progress['consecutive_failures'] ?? 0 ) ) + 1
+				: 0;
 
 			update_option( 'wss_sync_progress', $progress, false );
+
+			if ( $progress['consecutive_failures'] >= 3 ) {
+				$progress['status'] = 'failed';
+				update_option( 'wss_sync_progress', $progress, false );
+				wss_log( __( 'Bulk sync aborted: 3 consecutive batch failures (engine unavailable?).', 'woo-smart-search' ), 'error' );
+				return;
+			}
 		}
 
 		// Schedule next batch (chain pattern).

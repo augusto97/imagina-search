@@ -470,10 +470,24 @@
 	color: var(--wss-text-secondary, #6b7280);
 }
 
-/* ===== Product Description (hidden in grid, shown in list) ===== */
+/* ===== Product Description & SKU =====
+   Only rendered when their Visible Elements toggles are enabled, so show them. */
 
 .wss-product-card-description {
-	display: none;
+	font-size: 0.85em;
+	color: var(--wss-text-secondary, #6b7280);
+	margin-bottom: 6px;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.wss-product-card-sku {
+	font-size: 0.78em;
+	color: var(--wss-text-secondary, #6b7280);
+	margin-bottom: 4px;
+	font-family: monospace;
 }
 
 /* ===== List View ===== */

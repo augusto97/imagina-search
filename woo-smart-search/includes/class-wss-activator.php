@@ -140,6 +140,8 @@ class WSS_Activator {
 			'wp_custom_fields'          => array(),
 			'search_engine'             => 'meilisearch',
 			'reindex_interval'          => 360,
+			'exclude_taxonomies'        => array(),
+			'translations'              => array(),
 			// Results page appearance defaults.
 			'results_layout'            => 'default',
 			'results_columns'           => '3',

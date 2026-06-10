@@ -130,6 +130,11 @@ class WSS_Admin_Ajax {
 			}
 		}
 
+		// Bounds: reindex interval is 0 (disabled) or between 5 minutes and 7 days.
+		if ( isset( $settings['reindex_interval'] ) && $settings['reindex_interval'] > 0 ) {
+			$settings['reindex_interval'] = max( 5, min( 10080, $settings['reindex_interval'] ) );
+		}
+
 		// Yes/no fields — only process checkboxes when their form tab is submitted.
 		// Each form has a hidden _wss_tab field to identify it.
 		$submitted_tab = isset( $_POST['_wss_tab'] ) ? sanitize_text_field( wp_unslash( $_POST['_wss_tab'] ) ) : '';
@@ -246,7 +251,7 @@ class WSS_Admin_Ajax {
 				'startTyping', 'products', 'results', 'content', 'categories',
 				'popularSearches', 'suggestions', 'inStock', 'outOfStock', 'onBackorder',
 				'clearSearch', 'close', 'searchOurStore', 'collections', 'brands',
-				'relatedBrands', 'relatedCategories', 'filters', 'resultsFor',
+				'relatedBrands', 'relatedCategories', 'relatedTags', 'filters', 'resultsFor',
 				'noResultsPage', 'sortRelevance', 'sortPriceLow', 'sortPriceHigh',
 				'sortNewest', 'sortPopular', 'sortRating', 'sortNameAZ', 'sortNameZA',
 				'addToCart', 'freeShipping', 'sold',

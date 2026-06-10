@@ -166,9 +166,11 @@ async function purgeCache() {
 
 async function handleSave() {
   try {
-    const payload = { ...settings };
-    if (apiKey.value) payload.api_key = apiKey.value;
-    const msg = await save('connection');
+    // Pass the API key as extra payload — it must NOT live in the shared
+    // settings store (it's encrypted server-side and never echoed back).
+    const extra = apiKey.value ? { api_key: apiKey.value } : {};
+    const msg = await save('connection', extra);
+    if (apiKey.value) apiKey.value = '';
     ElMessage.success(msg);
   } catch (e) {
     ElMessage.error(e.message);

@@ -18,13 +18,23 @@ export function useSettings() {
     if (loaded.value) return;
     const initial = window.wssAdmin?.settings || {};
     Object.assign(settings, initial);
+
+    // Coerce numeric selects to numbers — legacy values saved by the old
+    // jQuery admin may be strings, and el-select compares with ===.
+    ['reindex_interval', 'results_page_id', 'batch_size', 'max_autocomplete_results',
+      'results_per_page', 'cache_ttl', 'rate_limit'].forEach((key) => {
+      if (typeof settings[key] === 'string' && settings[key] !== '') {
+        settings[key] = parseInt(settings[key], 10) || 0;
+      }
+    });
+
     loaded.value = true;
   }
 
-  async function save(tab) {
+  async function save(tab, extra = {}) {
     saving.value = true;
     try {
-      const payload = { _wss_tab: tab, ...settings };
+      const payload = { _wss_tab: tab, ...settings, ...extra };
       const res = await post('wss_save_settings', payload);
       if (!res.success) throw new Error(res.data?.message || 'Save failed');
       return res.data?.message || 'Settings saved.';

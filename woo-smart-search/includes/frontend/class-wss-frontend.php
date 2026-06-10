@@ -532,6 +532,7 @@ class WSS_Frontend {
 			'brands'           => ! empty( $t['brands'] ) ? $t['brands'] : __( 'Brands', 'woo-smart-search' ),
 			'relatedBrands'    => ! empty( $t['relatedBrands'] ) ? $t['relatedBrands'] : __( 'Related Brands', 'woo-smart-search' ),
 			'relatedCategories' => ! empty( $t['relatedCategories'] ) ? $t['relatedCategories'] : __( 'Related Categories', 'woo-smart-search' ),
+			'relatedTags'      => ! empty( $t['relatedTags'] ) ? $t['relatedTags'] : __( 'Related Tags', 'woo-smart-search' ),
 			'filters'          => ! empty( $t['filters'] ) ? $t['filters'] : __( 'Filters', 'woo-smart-search' ),
 			'resultsFor'       => ! empty( $t['resultsFor'] ) ? $t['resultsFor'] : __( 'Results for "%s"', 'woo-smart-search' ),
 			'noResultsPage'    => ! empty( $t['noResultsPage'] ) ? $t['noResultsPage'] : __( 'No results found matching your search.', 'woo-smart-search' ),
