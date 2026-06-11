@@ -969,12 +969,9 @@
 				wrapper.classList.add('wss-mobile-open');
 				document.body.classList.add('wss-body-locked');
 				if (backdrop) backdrop.classList.add('wss-visible');
-				// Inline styles so the button looks right even if the
-				// stylesheet is stale/cached — fresh CSS overrides these
-				// via its !important rules.
-				if (mobileBackBtn) {
-					mobileBackBtn.style.cssText = 'display:flex;align-items:center;justify-content:center;width:36px;height:36px;background:none;border:none;cursor:pointer;padding:0;order:-1;flex-shrink:0';
-				}
+				// Apply the entire mobile overlay bar layout inline so it
+				// renders correctly even when the stylesheet is cached/stale.
+				applyMobileOverlayStyles();
 			}
 		}
 
@@ -988,8 +985,42 @@
 				wrapper.classList.remove('wss-mobile-open');
 				document.body.classList.remove('wss-body-locked');
 				if (backdrop) backdrop.classList.remove('wss-visible');
+				removeMobileOverlayStyles();
 			}
+		}
+
+		function applyMobileOverlayStyles() {
+			var container = wrapper.querySelector('.wss-search-input-container');
+			if (container) {
+				container.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fff;border-bottom:1px solid #e5e7eb;box-shadow:0 2px 8px rgba(0,0,0,.08)';
+			}
+			if (mobileBackBtn) {
+				mobileBackBtn.style.cssText = 'display:flex;align-items:center;justify-content:center;width:36px;height:36px;flex-shrink:0;background:none;border:none;cursor:pointer;padding:0;color:#374151;order:-1';
+			}
+			if (input) {
+				input.style.cssText = 'flex:1;min-width:0;border:none;box-shadow:none;background:transparent;outline:none;padding:8px 4px;font-size:16px;height:auto';
+			}
+			// Hide the search icon in overlay (the back arrow replaces it).
+			if (icon) icon.style.display = 'none';
+			// Clear button: position static so it flows as a flex item at the end.
+			if (clearBtn) {
+				clearBtn.style.position = 'static';
+				clearBtn.style.transform = 'none';
+				clearBtn.style.flexShrink = '0';
+			}
+		}
+
+		function removeMobileOverlayStyles() {
+			var container = wrapper.querySelector('.wss-search-input-container');
+			if (container) container.style.cssText = '';
 			if (mobileBackBtn) mobileBackBtn.style.cssText = 'display:none';
+			if (input) input.style.cssText = '';
+			if (icon) icon.style.display = '';
+			if (clearBtn) {
+				clearBtn.style.position = '';
+				clearBtn.style.transform = '';
+				clearBtn.style.flexShrink = '';
+			}
 		}
 
 		function showSkeleton() {
