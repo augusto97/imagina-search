@@ -156,7 +156,7 @@
 		var icon = wrapper.querySelector('.wss-search-icon');
 		var clearBtn = wrapper.querySelector('.wss-search-clear');
 		var backdrop = wrapper.querySelector('.wss-mobile-backdrop');
-		var mobileCloseBtn = wrapper.querySelector('.wss-mobile-close-btn');
+		var mobileBackBtn = wrapper.querySelector('.wss-mobile-back-btn');
 		var selectedIndex = -1;
 		var debounceTimer = null;
 		var isMobileOverlay = false;
@@ -317,8 +317,8 @@
 			}
 
 			// Mobile close button.
-			if (mobileCloseBtn) {
-				mobileCloseBtn.addEventListener('click', function () {
+			if (mobileBackBtn) {
+				mobileBackBtn.addEventListener('click', function () {
 					hideDropdown();
 				});
 			}

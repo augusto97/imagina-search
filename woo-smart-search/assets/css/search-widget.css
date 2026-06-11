@@ -696,41 +696,39 @@
 		right: 0 !important;
 		z-index: calc(var(--wss-z-index) + 1);
 		padding: 8px 12px !important;
-		gap: 8px;
+		gap: 6px;
 		background: var(--wss-bg-color) !important;
 		border-bottom: 1px solid var(--wss-border-color);
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 		width: auto !important;
 	}
 
-	/* The input shares the bar with the round close button (40px + 8px gap). */
+	/* Show the ← back button and hide the search icon in overlay mode. */
+	.wss-search-wrapper.wss-mobile-open .wss-mobile-back-btn {
+		display: flex !important;
+	}
+
+	.wss-search-wrapper.wss-mobile-open .wss-search-icon,
+	.wss-search-wrapper.wss-mobile-open .wss-search-spinner {
+		display: none !important;
+	}
+
+	/* Input stretches between ← and ×.  No left icon → no left padding. */
 	.wss-search-wrapper.wss-mobile-open .wss-search-input {
 		flex: 1 1 auto;
 		width: auto !important;
 		min-width: 0 !important;
-		padding: 0 42px 0 38px !important;
+		padding: 0 36px 0 12px !important;
+		border: none !important;
+		box-shadow: none !important;
+		background: transparent !important;
 	}
 
-	/* Normalize icon/clear placement in the overlay bar regardless of the
-	   configured icon variant (left/right/hidden). Offsets compensate the
-	   container's 12px padding and the 48px close-button area at the right. */
-	.wss-search-wrapper.wss-mobile-open .wss-search-icon,
-	.wss-search-wrapper.wss-mobile-open .wss-search-spinner {
-		left: 24px !important;
-		right: auto !important;
-	}
-
-	.wss-search-wrapper.wss-mobile-open.wss-icon-hidden .wss-search-icon {
-		display: none !important;
-	}
-
-	.wss-search-wrapper.wss-mobile-open.wss-icon-hidden .wss-search-input {
-		padding-left: 14px !important;
-	}
-
+	/* Clear (×) sits at the right edge of the input. */
 	.wss-search-wrapper.wss-mobile-open .wss-search-clear {
-		left: auto !important;
-		right: 68px !important;
+		position: static !important;
+		transform: none !important;
+		flex-shrink: 0;
 	}
 }
 
@@ -1757,37 +1755,33 @@
 }
 
 /* ============================================
-   Mobile Close — flex item inside the top bar
+   Mobile Back Button — ← arrow at the left of
+   the search bar to close the overlay.
+   Searchanise-style: ← [input] ×
    ============================================ */
 
-.wss-mobile-close-btn {
+.wss-mobile-back-btn {
 	display: none !important;
 	flex-shrink: 0;
 	align-items: center;
 	justify-content: center;
-	width: 40px;
-	height: 40px;
+	width: 36px;
+	height: 36px;
 	padding: 0;
-	background: var(--wss-bg-color);
-	border: 1px solid var(--wss-border-color);
+	background: none;
+	border: none;
 	border-radius: 50%;
 	cursor: pointer;
-	color: var(--wss-text-secondary);
-	transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.wss-mobile-close-btn:hover {
-	background-color: #f3f4f6;
 	color: var(--wss-text-color);
+	transition: background-color 0.15s ease;
+	order: -1;
 }
 
-.wss-mobile-close-btn svg {
-	width: 18px;
-	height: 18px;
+.wss-mobile-back-btn:hover {
+	background-color: rgba(0, 0, 0, 0.05);
 }
 
-@media (max-width: 767px) {
-	.wss-search-wrapper.wss-mobile-open .wss-mobile-close-btn {
-		display: flex !important;
-	}
+.wss-mobile-back-btn svg {
+	width: 20px;
+	height: 20px;
 }
