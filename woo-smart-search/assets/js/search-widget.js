@@ -969,6 +969,12 @@
 				wrapper.classList.add('wss-mobile-open');
 				document.body.classList.add('wss-body-locked');
 				if (backdrop) backdrop.classList.add('wss-visible');
+				// Inline styles so the button looks right even if the
+				// stylesheet is stale/cached — fresh CSS overrides these
+				// via its !important rules.
+				if (mobileBackBtn) {
+					mobileBackBtn.style.cssText = 'display:flex;align-items:center;justify-content:center;width:36px;height:36px;background:none;border:none;cursor:pointer;padding:0;order:-1;flex-shrink:0';
+				}
 			}
 		}
 
@@ -983,6 +989,7 @@
 				document.body.classList.remove('wss-body-locked');
 				if (backdrop) backdrop.classList.remove('wss-visible');
 			}
+			if (mobileBackBtn) mobileBackBtn.style.cssText = 'display:none';
 		}
 
 		function showSkeleton() {

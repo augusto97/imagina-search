@@ -60,8 +60,10 @@ if ( $border_radius >= 0 ) {
 			<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/></circle></svg>
 		</span>
 		<button class="wss-search-clear" style="display:none" aria-label="<?php esc_attr_e( 'Clear search', 'woo-smart-search' ); ?>" type="button">&times;</button>
-		<!-- Mobile: back arrow replaces the search icon to close the overlay -->
-		<button class="wss-mobile-back-btn" type="button" aria-label="<?php esc_attr_e( 'Close', 'woo-smart-search' ); ?>">
+		<!-- Mobile: back arrow to close the overlay. Hidden inline so it can
+		     never appear unstyled if the stylesheet is stale/cached — JS
+		     toggles it when the mobile overlay opens/closes. -->
+		<button class="wss-mobile-back-btn" style="display:none" type="button" aria-label="<?php esc_attr_e( 'Close', 'woo-smart-search' ); ?>">
 			<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
 		</button>
 	</div>
