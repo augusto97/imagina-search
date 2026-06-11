@@ -696,10 +696,41 @@
 		right: 0 !important;
 		z-index: calc(var(--wss-z-index) + 1);
 		padding: 8px 12px !important;
+		gap: 8px;
 		background: var(--wss-bg-color) !important;
 		border-bottom: 1px solid var(--wss-border-color);
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 		width: auto !important;
+	}
+
+	/* The input shares the bar with the round close button (40px + 8px gap). */
+	.wss-search-wrapper.wss-mobile-open .wss-search-input {
+		flex: 1 1 auto;
+		width: auto !important;
+		min-width: 0 !important;
+		padding: 0 42px 0 38px !important;
+	}
+
+	/* Normalize icon/clear placement in the overlay bar regardless of the
+	   configured icon variant (left/right/hidden). Offsets compensate the
+	   container's 12px padding and the 48px close-button area at the right. */
+	.wss-search-wrapper.wss-mobile-open .wss-search-icon,
+	.wss-search-wrapper.wss-mobile-open .wss-search-spinner {
+		left: 24px !important;
+		right: auto !important;
+	}
+
+	.wss-search-wrapper.wss-mobile-open.wss-icon-hidden .wss-search-icon {
+		display: none !important;
+	}
+
+	.wss-search-wrapper.wss-mobile-open.wss-icon-hidden .wss-search-input {
+		padding-left: 14px !important;
+	}
+
+	.wss-search-wrapper.wss-mobile-open .wss-search-clear {
+		left: auto !important;
+		right: 68px !important;
 	}
 }
 
@@ -1726,34 +1757,23 @@
 }
 
 /* ============================================
-   Mobile Close — Improved Button
+   Mobile Close — flex item inside the top bar
    ============================================ */
-
-@media (max-width: 767px) {
-	.wss-search-wrapper.wss-mobile-open .wss-mobile-close-btn {
-		display: flex !important;
-	}
-}
 
 .wss-mobile-close-btn {
 	display: none !important;
-	position: fixed;
-	top: 10px;
-	right: 12px;
-	z-index: calc(var(--wss-z-index) + 2);
+	flex-shrink: 0;
 	align-items: center;
-	gap: 4px;
-	padding: 6px 14px;
+	justify-content: center;
+	width: 40px;
+	height: 40px;
+	padding: 0;
 	background: var(--wss-bg-color);
 	border: 1px solid var(--wss-border-color);
-	border-radius: 999px;
+	border-radius: 50%;
 	cursor: pointer;
-	font-size: 0.85em;
-	font-weight: 500;
 	color: var(--wss-text-secondary);
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 	transition: background-color 0.15s ease, color 0.15s ease;
-	font-family: inherit;
 }
 
 .wss-mobile-close-btn:hover {
@@ -1762,6 +1782,12 @@
 }
 
 .wss-mobile-close-btn svg {
-	width: 16px;
-	height: 16px;
+	width: 18px;
+	height: 18px;
+}
+
+@media (max-width: 767px) {
+	.wss-search-wrapper.wss-mobile-open .wss-mobile-close-btn {
+		display: flex !important;
+	}
 }
