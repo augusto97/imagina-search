@@ -675,61 +675,10 @@
 		display: block;
 	}
 
-	.wss-search-wrapper.wss-mobile-open .wss-results-dropdown {
-		position: fixed;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		max-height: none;
-		border-radius: 0;
-		border: none;
-		z-index: var(--wss-z-index);
-		padding-top: 60px;
-		overflow-y: auto;
-	}
-
-	.wss-search-wrapper.wss-mobile-open .wss-search-input-container {
-		position: fixed !important;
-		top: 0 !important;
-		left: 0 !important;
-		right: 0 !important;
-		z-index: calc(var(--wss-z-index) + 1);
-		padding: 8px 12px !important;
-		gap: 6px;
-		background: var(--wss-bg-color) !important;
-		border-bottom: 1px solid var(--wss-border-color);
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-		width: auto !important;
-	}
-
-	/* Show the ← back button and hide the search icon in overlay mode. */
-	.wss-search-wrapper.wss-mobile-open .wss-mobile-back-btn {
-		display: flex !important;
-	}
-
-	.wss-search-wrapper.wss-mobile-open .wss-search-icon,
-	.wss-search-wrapper.wss-mobile-open .wss-search-spinner {
-		display: none !important;
-	}
-
-	/* Input stretches between ← and ×.  No left icon → no left padding. */
-	.wss-search-wrapper.wss-mobile-open .wss-search-input {
-		flex: 1 1 auto;
-		width: auto !important;
-		min-width: 0 !important;
-		padding: 0 36px 0 12px !important;
-		border: none !important;
-		box-shadow: none !important;
-		background: transparent !important;
-	}
-
-	/* Clear (×) sits at the right edge of the input. */
-	.wss-search-wrapper.wss-mobile-open .wss-search-clear {
-		position: static !important;
-		transform: none !important;
-		flex-shrink: 0;
-	}
+	/* Mobile overlay layout is applied inline by JS
+	   (applyMobileOverlayStyles / removeMobileOverlayStyles) to be
+	   immune to CSS caching. These rules only exist as a fallback
+	   for when JS hasn't initialised yet — unlikely but defensive. */
 }
 
 /* ============================================

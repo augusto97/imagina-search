@@ -991,33 +991,41 @@
 
 		function applyMobileOverlayStyles() {
 			// Offset below the WP admin bar when present (46px on mobile for
-			// logged-in users). getBoundingClientRect().bottom handles both
-			// fixed and absolute (scrolled-away) admin bar positions.
+			// logged-in users).
 			var topOffset = 0;
 			var adminBar = document.getElementById('wpadminbar');
 			if (adminBar) {
 				topOffset = Math.max(0, Math.round(adminBar.getBoundingClientRect().bottom));
 			}
 
+			// The input bar height is the offset + bar padding + input height.
+			var barH = topOffset + 56;
+
+			// --- Container (fixed bar at the top) ---
 			var container = wrapper.querySelector('.wss-search-input-container');
 			if (container) {
-				container.style.cssText = 'position:fixed;top:' + topOffset + 'px !important;left:0;right:0;z-index:999999;display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fff;border-bottom:1px solid #e5e7eb;box-shadow:0 2px 8px rgba(0,0,0,.08)';
+				container.style.cssText = 'position:fixed !important;top:' + topOffset + 'px !important;left:0 !important;right:0 !important;z-index:999999;display:flex !important;align-items:center;gap:8px;padding:8px 12px;background:#fff;border-bottom:1px solid #e5e7eb;box-shadow:0 2px 8px rgba(0,0,0,.08);width:auto !important';
 			}
-			// The fullscreen dropdown must also start below the admin bar and
-			// leave room for the fixed input bar (~56px).
+
+			// --- Dropdown (fullscreen below the bar) ---
 			if (dropdown) {
-				dropdown.style.top = topOffset + 'px';
-				dropdown.style.paddingTop = '64px';
+				dropdown.style.cssText = 'position:fixed !important;top:' + barH + 'px !important;left:0 !important;right:0 !important;bottom:0 !important;max-height:none !important;border-radius:0 !important;border:none !important;z-index:999998;overflow-y:auto;padding-top:0 !important';
 			}
+
+			// --- Back arrow (← first in the row) ---
 			if (mobileBackBtn) {
 				mobileBackBtn.style.cssText = 'display:flex;align-items:center;justify-content:center;width:36px;height:36px;flex-shrink:0;background:none;border:none;cursor:pointer;padding:0;color:#374151;order:-1';
 			}
+
+			// --- Input (flexible, no border) ---
 			if (input) {
-				input.style.cssText = 'flex:1;min-width:0;border:none;box-shadow:none;background:transparent;outline:none;padding:8px 4px;font-size:16px;height:auto';
+				input.style.cssText = 'flex:1 !important;min-width:0 !important;width:auto !important;border:none !important;box-shadow:none !important;background:transparent !important;outline:none !important;padding:8px 4px !important;font-size:16px !important;height:auto !important';
 			}
-			// Hide the search icon in overlay (the back arrow replaces it).
+
+			// --- Hide the search icon (the ← replaces it) ---
 			if (icon) icon.style.display = 'none';
-			// Clear button: position static so it flows as a flex item at the end.
+
+			// --- Clear (×): static flex item at the end ---
 			if (clearBtn) {
 				clearBtn.style.position = 'static';
 				clearBtn.style.transform = 'none';
@@ -1028,13 +1036,10 @@
 		function removeMobileOverlayStyles() {
 			var container = wrapper.querySelector('.wss-search-input-container');
 			if (container) container.style.cssText = '';
+			if (dropdown) dropdown.style.cssText = '';
 			if (mobileBackBtn) mobileBackBtn.style.cssText = 'display:none';
 			if (input) input.style.cssText = '';
 			if (icon) icon.style.display = '';
-			if (dropdown) {
-				dropdown.style.top = '';
-				dropdown.style.paddingTop = '';
-			}
 			if (clearBtn) {
 				clearBtn.style.position = '';
 				clearBtn.style.transform = '';
