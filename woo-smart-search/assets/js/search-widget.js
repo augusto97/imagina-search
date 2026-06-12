@@ -162,6 +162,7 @@
 		// position:fixed works even when the theme header has CSS transforms.
 		var overlayRoot = null;
 		var portalHomes = null;
+		var applyingOverlay = false;
 		var selectedIndex = -1;
 		var debounceTimer = null;
 		var isMobileOverlay = false;
@@ -996,7 +997,8 @@
 		}
 
 		function applyMobileOverlayStyles() {
-			if (!containerEl || !dropdown) return;
+			if (!containerEl || !dropdown || applyingOverlay) return;
+			applyingOverlay = true;
 
 			// Offset below the WP admin bar when present (46px on mobile for
 			// logged-in users).
@@ -1056,10 +1058,12 @@
 			}
 
 			// Moving a focused element blurs it — restore focus so the
-			// mobile keyboard stays open.
+			// mobile keyboard stays open. The guard flag prevents the
+			// focus event from re-entering showDropdown → applyOverlay.
 			if (input && document.activeElement !== input) {
 				input.focus();
 			}
+			applyingOverlay = false;
 		}
 
 		function removeMobileOverlayStyles() {
