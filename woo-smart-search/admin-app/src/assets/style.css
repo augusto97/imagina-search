@@ -454,6 +454,17 @@
 
 /* ===== Responsive ===== */
 
+/* WP admin bar is 46px on mobile, 32px on desktop >782px.
+   Compensate so the panel never slides under it. */
+@media (max-width: 782px) {
+  .wss-app {
+    margin-top: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+}
+
 @media (max-width: 960px) {
   .wss-app {
     flex-direction: column;
@@ -463,6 +474,7 @@
     width: 100%;
     flex-direction: row;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .wss-sidebar-brand {
@@ -482,8 +494,25 @@
     font-size: 12px;
   }
 
+  .wss-nav-item .nav-icon {
+    display: none;
+  }
+
   .wss-nav-item.active {
     border-bottom-color: #3b82f6;
+  }
+
+  .wss-header {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+  }
+
+  .wss-header h1 {
+    font-size: 16px;
+  }
+
+  .wss-content {
+    padding: 16px;
   }
 
   .wss-form-row {
@@ -494,5 +523,41 @@
   .wss-form-label {
     width: auto;
     padding-top: 0;
+  }
+
+  #wss-admin-root .el-input,
+  #wss-admin-root .el-select,
+  #wss-admin-root .el-textarea {
+    max-width: 100%;
+  }
+
+  .wss-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .wss-stat-card .stat-value {
+    font-size: 22px;
+  }
+
+  .wss-section-body {
+    padding: 14px;
+  }
+}
+
+/* Very small screens — single column stats */
+@media (max-width: 480px) {
+  .wss-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .wss-header-actions {
+    flex-wrap: wrap;
+    font-size: 12px;
+  }
+
+  .wss-unsaved-badge {
+    font-size: 11px;
+    padding: 2px 8px;
   }
 }
