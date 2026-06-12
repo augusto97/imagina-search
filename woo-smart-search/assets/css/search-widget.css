@@ -1703,34 +1703,6 @@
 	}
 }
 
-/* ============================================
-   Mobile Back Button — ← arrow at the left of
-   the search bar to close the overlay.
-   Searchanise-style: ← [input] ×
-   ============================================ */
-
-.wss-mobile-back-btn {
-	display: none !important;
-	flex-shrink: 0;
-	align-items: center;
-	justify-content: center;
-	width: 36px;
-	height: 36px;
-	padding: 0;
-	background: none;
-	border: none;
-	border-radius: 50%;
-	cursor: pointer;
-	color: var(--wss-text-color);
-	transition: background-color 0.15s ease;
-	order: -1;
-}
-
-.wss-mobile-back-btn:hover {
-	background-color: rgba(0, 0, 0, 0.05);
-}
-
-.wss-mobile-back-btn svg {
-	width: 20px;
-	height: 20px;
-}
+/* Mobile back button + overlay layout: styled by the inline <style>
+   block in templates/search-widget.php so the rules always ship in the
+   same response as the HTML (immune to stylesheet caching). */
