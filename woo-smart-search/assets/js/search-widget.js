@@ -157,6 +157,11 @@
 		var clearBtn = wrapper.querySelector('.wss-search-clear');
 		var backdrop = wrapper.querySelector('.wss-mobile-backdrop');
 		var mobileBackBtn = wrapper.querySelector('.wss-mobile-back-btn');
+		var containerEl = wrapper.querySelector('.wss-search-input-container');
+		// Portal root for the mobile overlay — lives directly under <body> so
+		// position:fixed works even when the theme header has CSS transforms.
+		var overlayRoot = null;
+		var portalHomes = null;
 		var selectedIndex = -1;
 		var debounceTimer = null;
 		var isMobileOverlay = false;
@@ -302,9 +307,10 @@
 				}
 			});
 
-			// Close dropdown on click outside.
+			// Close dropdown on click outside (the mobile overlay portal
+			// lives under <body>, so count it as "inside" too).
 			document.addEventListener('click', function (e) {
-				if (!wrapper.contains(e.target)) {
+				if (!wrapper.contains(e.target) && !(overlayRoot && overlayRoot.contains(e.target))) {
 					hideDropdown();
 				}
 			});
@@ -990,6 +996,8 @@
 		}
 
 		function applyMobileOverlayStyles() {
+			if (!containerEl || !dropdown) return;
+
 			// Offset below the WP admin bar when present (46px on mobile for
 			// logged-in users).
 			var topOffset = 0;
@@ -998,19 +1006,34 @@
 				topOffset = Math.max(0, Math.round(adminBar.getBoundingClientRect().bottom));
 			}
 
-			// The input bar height is the offset + bar padding + input height.
-			var barH = topOffset + 56;
+			// Build the portal root once: a fixed, full-viewport white column
+			// attached directly to <body>. Being outside the theme header,
+			// it's immune to ancestor transform/filter that breaks fixed
+			// positioning, and to any cached stylesheet.
+			if (!overlayRoot) {
+				overlayRoot = document.createElement('div');
+				overlayRoot.className = 'wss-mobile-overlay-root';
+				document.body.appendChild(overlayRoot);
+			}
+			overlayRoot.style.cssText = 'position:fixed;top:' + topOffset + 'px;left:0;right:0;bottom:0;z-index:999999;display:flex;flex-direction:column;background:#fff';
 
-			// --- Container (fixed bar at the top) ---
-			var container = wrapper.querySelector('.wss-search-input-container');
-			if (container) {
-				container.style.cssText = 'position:fixed !important;top:' + topOffset + 'px !important;left:0 !important;right:0 !important;z-index:999999;display:flex !important;align-items:center;gap:8px;padding:8px 12px;background:#fff;border-bottom:1px solid #e5e7eb;box-shadow:0 2px 8px rgba(0,0,0,.08);width:auto !important';
+			// Remember where the elements live so we can put them back.
+			if (!portalHomes) {
+				portalHomes = {
+					container: { parent: containerEl.parentNode, next: containerEl.nextSibling },
+					dropdown:  { parent: dropdown.parentNode, next: dropdown.nextSibling }
+				};
 			}
 
-			// --- Dropdown (fullscreen below the bar) ---
-			if (dropdown) {
-				dropdown.style.cssText = 'position:fixed !important;top:' + barH + 'px !important;left:0 !important;right:0 !important;bottom:0 !important;max-height:none !important;border-radius:0 !important;border:none !important;z-index:999998;overflow-y:auto;padding-top:0 !important';
-			}
+			// Move bar + dropdown into the portal (listeners survive the move).
+			overlayRoot.appendChild(containerEl);
+			overlayRoot.appendChild(dropdown);
+
+			// --- Bar: static flex row at the top of the column ---
+			containerEl.style.cssText = 'position:static !important;display:flex !important;align-items:center;gap:8px;padding:8px 12px;background:#fff;border-bottom:1px solid #e5e7eb;flex-shrink:0;width:auto !important';
+
+			// --- Dropdown: fills the rest of the column ---
+			dropdown.style.cssText = 'position:static !important;display:block !important;flex:1;overflow-y:auto;max-height:none !important;border:none !important;border-radius:0 !important;box-shadow:none !important;padding-top:0 !important;width:auto !important';
 
 			// --- Back arrow (← first in the row) ---
 			if (mobileBackBtn) {
@@ -1031,11 +1054,22 @@
 				clearBtn.style.transform = 'none';
 				clearBtn.style.flexShrink = '0';
 			}
+
+			// Moving a focused element blurs it — restore focus so the
+			// mobile keyboard stays open.
+			if (input && document.activeElement !== input) {
+				input.focus();
+			}
 		}
 
 		function removeMobileOverlayStyles() {
-			var container = wrapper.querySelector('.wss-search-input-container');
-			if (container) container.style.cssText = '';
+			// Move the elements back to their original home in the wrapper.
+			if (portalHomes) {
+				portalHomes.container.parent.insertBefore(containerEl, portalHomes.container.next);
+				portalHomes.dropdown.parent.insertBefore(dropdown, portalHomes.dropdown.next);
+			}
+			if (overlayRoot) overlayRoot.style.cssText = 'display:none';
+			if (containerEl) containerEl.style.cssText = '';
 			if (dropdown) dropdown.style.cssText = '';
 			if (mobileBackBtn) mobileBackBtn.style.cssText = 'display:none';
 			if (input) input.style.cssText = '';
