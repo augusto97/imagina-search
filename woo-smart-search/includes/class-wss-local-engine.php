@@ -432,6 +432,28 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	}
 
 	/**
+	 * Get all document IDs currently stored in an index.
+	 *
+	 * Used to prune orphaned entries (documents whose source post no longer
+	 * exists or is no longer published).
+	 *
+	 * @param string $index_name Index name.
+	 * @return int[] Array of document IDs.
+	 */
+	public function get_all_document_ids( string $index_name ): array {
+		global $wpdb;
+
+		$ids = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"SELECT doc_id FROM {$wpdb->prefix}wss_index_documents WHERE index_name = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$index_name
+			)
+		);
+
+		return array_map( 'intval', (array) $ids );
+	}
+
+	/**
 	 * Search documents using the inverted index with TF-IDF scoring.
 	 *
 	 * Results are cached in a dedicated MySQL table for ultra-fast repeated queries.

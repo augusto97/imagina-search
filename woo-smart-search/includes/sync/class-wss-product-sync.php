@@ -408,6 +408,24 @@ class WSS_Product_Sync {
 		}
 
 		update_option( 'wss_last_periodic_reindex', time(), false );
+
+		// Prune orphaned index entries, but at most once every 6 hours to
+		// avoid the full index scan on every short reindex interval.
+		$last_prune = (int) get_option( 'wss_last_orphan_prune', 0 );
+		if ( time() - $last_prune > 6 * HOUR_IN_SECONDS ) {
+			$pruned = self::prune_orphans();
+			update_option( 'wss_last_orphan_prune', time(), false );
+			if ( $pruned > 0 ) {
+				wss_log(
+					sprintf(
+						/* translators: %d: number of orphans removed */
+						__( 'Periodic prune: removed %d orphaned index entries.', 'woo-smart-search' ),
+						$pruned
+					),
+					'info'
+				);
+			}
+		}
 	}
 
 	/**
@@ -677,8 +695,13 @@ class WSS_Product_Sync {
 			return;
 		}
 
+		// Remove orphaned index entries (products deleted/unpublished since
+		// the last sync) before marking complete.
+		$pruned = self::prune_orphans();
+
 		$progress['status']   = 'completed';
 		$progress['finished'] = time();
+		$progress['pruned']   = $pruned;
 
 		update_option( 'wss_sync_progress', $progress, false );
 
@@ -686,15 +709,90 @@ class WSS_Product_Sync {
 
 		wss_log(
 			sprintf(
-				/* translators: 1: processed count 2: error count */
-				__( 'Full sync completed: %1$d products processed, %2$d errors', 'woo-smart-search' ),
+				/* translators: 1: processed count 2: error count 3: pruned count */
+				__( 'Full sync completed: %1$d products processed, %2$d errors, %3$d orphans removed', 'woo-smart-search' ),
 				$progress['processed'],
-				$progress['errors']
+				$progress['errors'],
+				$pruned
 			),
 			$progress['errors'] > 0 ? 'warning' : 'info'
 		);
 
 		wss_update_option( 'last_sync', time() );
+	}
+
+	/**
+	 * Remove orphaned documents from the index.
+	 *
+	 * Compares every document ID in the index against the set of posts that
+	 * SHOULD be indexed (published products and/or configured post types).
+	 * Anything in the index but not in that set is a leftover from a deleted
+	 * or unpublished item and gets removed.
+	 *
+	 * @return int Number of orphaned documents removed.
+	 */
+	public static function prune_orphans(): int {
+		global $wpdb;
+
+		$engine = wss_get_engine();
+		if ( ! $engine || ! method_exists( $engine, 'get_all_document_ids' ) ) {
+			return 0;
+		}
+
+		$index_name   = wss_get_option( 'index_name', 'woo_products' );
+		$indexed_ids  = $engine->get_all_document_ids( $index_name );
+		if ( empty( $indexed_ids ) ) {
+			return 0;
+		}
+
+		// Build the set of IDs that legitimately belong in the index.
+		$content_source = wss_get_content_source();
+		$is_ecommerce   = wss_is_ecommerce_mode();
+		$is_mixed       = 'mixed' === $content_source;
+
+		$valid_ids = array();
+
+		if ( $is_ecommerce || $is_mixed ) {
+			$product_ids = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+				"SELECT ID FROM {$wpdb->posts} WHERE post_type = 'product' AND post_status = 'publish'" // phpcs:ignore WordPress.DB.PreparedSQL
+			);
+			$valid_ids = array_merge( $valid_ids, array_map( 'intval', $product_ids ) );
+		}
+
+		if ( ! $is_ecommerce || $is_mixed ) {
+			$post_types = class_exists( 'WSS_Post_Sync' ) ? WSS_Post_Sync::get_configured_post_types() : array( 'post' );
+			if ( ! empty( $post_types ) ) {
+				$placeholders = implode( ',', array_fill( 0, count( $post_types ), '%s' ) );
+				$post_ids     = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+					$wpdb->prepare(
+						"SELECT ID FROM {$wpdb->posts} WHERE post_type IN ({$placeholders}) AND post_status = 'publish'", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						...$post_types
+					)
+				);
+				$valid_ids = array_merge( $valid_ids, array_map( 'intval', $post_ids ) );
+			}
+		}
+
+		$valid_set = array_flip( $valid_ids );
+		$orphans   = array();
+
+		foreach ( $indexed_ids as $doc_id ) {
+			if ( ! isset( $valid_set[ $doc_id ] ) ) {
+				$orphans[] = $doc_id;
+			}
+		}
+
+		// Safety guard: if the "valid" set is empty (e.g., a transient DB
+		// hiccup), do NOT wipe the whole index — bail out instead.
+		if ( empty( $valid_ids ) ) {
+			return 0;
+		}
+
+		foreach ( $orphans as $doc_id ) {
+			$engine->delete_document( $index_name, (string) $doc_id );
+		}
+
+		return count( $orphans );
 	}
 
 	/**
