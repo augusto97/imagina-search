@@ -25,7 +25,6 @@ class WSS_Product_Sync {
 		// Incremental sync hooks.
 		add_action( 'woocommerce_update_product', array( $this, 'schedule_product_update' ), 10, 1 );
 		add_action( 'woocommerce_new_product', array( $this, 'schedule_product_update' ), 10, 1 );
-		add_action( 'save_post_product', array( $this, 'on_save_post_product' ), 20, 3 );
 		add_action( 'before_delete_post', array( $this, 'schedule_product_delete' ) );
 		add_action( 'wp_trash_post', array( $this, 'schedule_product_delete' ) );
 		add_action( 'untrash_post', array( $this, 'schedule_product_update' ) );
@@ -53,10 +52,23 @@ class WSS_Product_Sync {
 		// WooCommerce CSV import completion.
 		add_action( 'woocommerce_product_import_inserted_product_object', array( $this, 'on_import_product' ), 10, 1 );
 
+		// WP All Import — fires after each record is saved.
+		add_action( 'pmxi_saved_post', array( $this, 'on_wp_all_import_saved' ), 10, 1 );
+		// WP All Import — fires after the entire import is complete.
+		add_action( 'pmxi_after_xml_import', array( $this, 'on_wp_all_import_complete' ), 10, 0 );
+
+		// ATUM Inventory / any plugin that fires this generic WC hook.
+		add_action( 'woocommerce_product_object_updated_props', array( $this, 'on_product_props_updated' ), 10, 1 );
+
+		// Catch-all: any save_post on product type, low priority so other
+		// plugins finish their meta writes first.
+		add_action( 'save_post_product', array( $this, 'on_save_post_product' ), 99, 3 );
+
 		// Bulk sync action (chain pattern).
 		add_action( 'wss_bulk_sync_batch', array( $this, 'process_bulk_sync_batch' ), 10, 1 );
 
-		// Periodic re-indexation.
+		// Periodic re-indexation — the ultimate safety net for changes that
+		// bypass ALL WordPress hooks (direct SQL, ERPs, WP-CLI, etc.).
 		add_action( 'wss_periodic_reindex', array( $this, 'run_periodic_reindex' ) );
 	}
 
@@ -290,6 +302,37 @@ class WSS_Product_Sync {
 	}
 
 	/**
+	 * WP All Import — fires after each record is saved.
+	 *
+	 * @param int $post_id Imported post ID.
+	 */
+	public function on_wp_all_import_saved( $post_id ) {
+		if ( 'product' === get_post_type( $post_id ) ) {
+			WSS_Sync_Queue::add( absint( $post_id ), 'update' );
+		}
+	}
+
+	/**
+	 * WP All Import — fires when the entire import is complete. Useful
+	 * for catching any items that slipped through individual hooks.
+	 */
+	public function on_wp_all_import_complete() {
+		WSS_Sync_Queue::add_wake_up();
+	}
+
+	/**
+	 * WooCommerce product props updated — fires from WC core and some
+	 * inventory/ERP plugins (ATUM, TradeGecko connectors, etc.).
+	 *
+	 * @param WC_Product $product Product object.
+	 */
+	public function on_product_props_updated( $product ) {
+		if ( $product && method_exists( $product, 'get_id' ) ) {
+			$this->schedule_product_update( $product->get_id() );
+		}
+	}
+
+	/**
 	 * Run periodic re-indexation.
 	 *
 	 * Finds products that may be out of sync (modified after last sync)
@@ -302,7 +345,8 @@ class WSS_Product_Sync {
 		$last_reindex = (int) get_option( 'wss_last_periodic_reindex', 0 );
 		$cutoff       = $last_reindex > 0 ? gmdate( 'Y-m-d H:i:s', $last_reindex ) : gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS );
 
-		// Find published products modified since last re-index.
+		// 1) Products whose post row was modified (covers title, status,
+		//    slug, description, and any plugin that calls wp_update_post).
 		$stale_ids = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare(
 				"SELECT ID FROM {$wpdb->posts}
@@ -313,6 +357,40 @@ class WSS_Product_Sync {
 				$cutoff
 			)
 		);
+
+		// 2) Products whose meta was changed (covers direct-DB price/stock
+		//    updates from ERPs, WP All Import, bulk-edit plugins, etc.).
+		//    WooCommerce stores a _last_stock_change timestamp on stock
+		//    updates and _price_last_change in some versions, but the most
+		//    reliable check is looking at the postmeta table directly for
+		//    any row modified after our cutoff by checking the meta_id
+		//    auto-increment (larger ID = newer row).
+		$last_meta_id = (int) get_option( 'wss_last_periodic_reindex_meta_id', 0 );
+		if ( $last_meta_id > 0 ) {
+			$meta_stale_ids = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+				$wpdb->prepare(
+					"SELECT DISTINCT p.ID
+					FROM {$wpdb->postmeta} pm
+					INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+					WHERE p.post_type = 'product' AND p.post_status = 'publish'
+					AND pm.meta_id > %d
+					AND pm.meta_key IN ('_price','_regular_price','_sale_price','_stock','_stock_status','_sku','_sale_price_dates_from','_sale_price_dates_to')
+					ORDER BY pm.meta_id ASC
+					LIMIT 500",
+					$last_meta_id
+				)
+			);
+
+			if ( ! empty( $meta_stale_ids ) ) {
+				$stale_ids = array_unique( array_merge( $stale_ids ?: array(), $meta_stale_ids ) );
+			}
+		}
+
+		// Store the current max meta_id for next run's comparison.
+		$current_max_meta_id = (int) $wpdb->get_var( "SELECT MAX(meta_id) FROM {$wpdb->postmeta}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		if ( $current_max_meta_id > 0 ) {
+			update_option( 'wss_last_periodic_reindex_meta_id', $current_max_meta_id, false );
+		}
 
 		if ( ! empty( $stale_ids ) ) {
 			foreach ( $stale_ids as $product_id ) {
