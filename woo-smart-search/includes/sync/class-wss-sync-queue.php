@@ -2,8 +2,9 @@
 /**
  * Sync Queue.
  *
- * Manages the product sync queue using Action Scheduler.
- * Uses WSS_Meilisearch via wss_get_engine() for engine access.
+ * Manages the product/post sync queue. Prefers Action Scheduler when
+ * available (bundled with WooCommerce), falls back to WP-Cron, and
+ * can process immediately as a last resort.
  *
  * @package WooSmartSearch
  */
@@ -28,16 +29,20 @@ class WSS_Sync_Queue {
 	const MAX_RETRIES = 3;
 
 	/**
-	 * Initialize queue processing.
+	 * Initialize queue processing hooks.
 	 */
 	public function init() {
+		// Action Scheduler hook (preferred — WooCommerce bundles it).
 		add_action( 'wss_process_sync_queue', array( $this, 'process_queue' ) );
+
+		// WP-Cron fallback for sites without Action Scheduler.
+		add_action( 'wss_cron_process_queue', array( $this, 'process_queue' ) );
 	}
 
 	/**
-	 * Add a product to the sync queue.
+	 * Add a product/post to the sync queue and ensure processing is scheduled.
 	 *
-	 * @param int    $product_id Product ID.
+	 * @param int    $product_id Product/post ID.
 	 * @param string $action     Action: 'update' or 'delete'.
 	 */
 	public static function add( int $product_id, string $action = 'update' ) {
@@ -46,8 +51,7 @@ class WSS_Sync_Queue {
 		$table = $wpdb->prefix . 'wss_sync_queue';
 
 		// UPDATE-first to avoid the check-then-insert race under concurrent
-		// API updates. If no pending row was updated, insert a new one. A rare
-		// duplicate from a remaining race window is harmless (item syncs twice).
+		// API updates. If no pending row was updated, insert a new one.
 		$updated = $wpdb->query(
 			$wpdb->prepare(
 				"UPDATE {$table} SET action = %s, scheduled_at = %s WHERE product_id = %d AND status = 'pending' LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -70,31 +74,57 @@ class WSS_Sync_Queue {
 			);
 		}
 
-		// Schedule queue processing.
-		if ( function_exists( 'as_has_scheduled_action' ) && ! as_has_scheduled_action( 'wss_process_sync_queue' ) ) {
-			as_schedule_single_action( time() + self::QUEUE_DELAY, 'wss_process_sync_queue', array(), 'woo-smart-search' );
+		// Schedule queue processing via the best available mechanism.
+		self::ensure_processing_scheduled();
+	}
+
+	/**
+	 * Ensure a queue processing run is scheduled.
+	 *
+	 * Tries Action Scheduler first (reliable, used by WooCommerce), then
+	 * WP-Cron, and finally processes immediately as a last resort.
+	 */
+	private static function ensure_processing_scheduled() {
+		// 1. Action Scheduler (bundled with WooCommerce).
+		if ( function_exists( 'as_has_scheduled_action' ) ) {
+			if ( ! as_has_scheduled_action( 'wss_process_sync_queue' ) ) {
+				as_schedule_single_action( time() + self::QUEUE_DELAY, 'wss_process_sync_queue', array(), 'woo-smart-search' );
+			}
+			return;
+		}
+
+		// 2. WP-Cron fallback.
+		if ( ! wp_next_scheduled( 'wss_cron_process_queue' ) ) {
+			wp_schedule_single_event( time() + self::QUEUE_DELAY, 'wss_cron_process_queue' );
 		}
 	}
 
 	/**
 	 * Process the sync queue.
 	 *
-	 * Uses WSS_Meilisearch via wss_get_engine() for engine access.
+	 * Fetches pending items and syncs them one by one via the configured
+	 * search engine (Meilisearch or Local). Items that fail are retried
+	 * up to MAX_RETRIES times with exponential backoff.
 	 */
 	public function process_queue() {
 		global $wpdb;
 
-		// Verify the engine is available before processing.
 		$engine = wss_get_engine();
 
 		if ( ! $engine ) {
-			wss_log( __( 'Sync queue: Meilisearch engine not available. Rescheduling.', 'woo-smart-search' ), 'warning' );
+			$engine_type = wss_get_option( 'search_engine', 'meilisearch' );
+			wss_log(
+				sprintf(
+					/* translators: %s: engine type */
+					__( 'Sync queue: search engine (%s) not available. Will retry on next scheduled run.', 'woo-smart-search' ),
+					$engine_type
+				),
+				'warning'
+			);
 
-			// Reschedule so items are not lost.
-			if ( function_exists( 'as_schedule_single_action' ) ) {
-				as_schedule_single_action( time() + self::QUEUE_DELAY, 'wss_process_sync_queue', array(), 'woo-smart-search' );
-			}
-
+			// Reschedule so items are not lost — but use a longer delay to
+			// avoid hammering a down engine every 30 seconds.
+			self::schedule_retry( 120 );
 			return;
 		}
 
@@ -123,6 +153,9 @@ class WSS_Sync_Queue {
 			return;
 		}
 
+		$processed = 0;
+		$failed    = 0;
+
 		foreach ( $items as $item ) {
 			$post_id   = (int) $item['product_id'];
 			$action    = $item['action'];
@@ -144,6 +177,7 @@ class WSS_Sync_Queue {
 			}
 
 			if ( $success ) {
+				++$processed;
 				$wpdb->update(
 					$table,
 					array(
@@ -155,11 +189,11 @@ class WSS_Sync_Queue {
 					array( '%d' )
 				);
 			} else {
+				++$failed;
 				$retries = isset( $item['priority'] ) ? (int) $item['priority'] : 0;
 				++$retries;
 
 				if ( $retries < self::MAX_RETRIES ) {
-					// Retry with exponential backoff: reschedule as pending.
 					$backoff_seconds = (int) pow( 5, $retries ); // 5s, 25s, 125s.
 					$wpdb->update(
 						$table,
@@ -173,7 +207,6 @@ class WSS_Sync_Queue {
 						array( '%d' )
 					);
 				} else {
-					// Max retries exceeded — mark as permanently failed.
 					$wpdb->update(
 						$table,
 						array(
@@ -187,7 +220,7 @@ class WSS_Sync_Queue {
 					);
 					wss_log(
 						sprintf(
-							/* translators: 1: post ID 2: action */
+							/* translators: 1: post ID 2: action 3: retry count */
 							__( 'Sync failed after %3$d retries: post %1$d (%2$s)', 'woo-smart-search' ),
 							$post_id,
 							$action,
@@ -199,14 +232,26 @@ class WSS_Sync_Queue {
 			}
 		}
 
+		if ( $processed > 0 || $failed > 0 ) {
+			wss_log(
+				sprintf(
+					/* translators: 1: processed count 2: failed count */
+					__( 'Sync queue batch: %1$d processed, %2$d failed.', 'woo-smart-search' ),
+					$processed,
+					$failed
+				),
+				'info'
+			);
+		}
+
 		// Clean old completed entries (older than 24 hours).
-		// Keep failed entries for 7 days for visibility.
 		$wpdb->query(
 			$wpdb->prepare(
 				"DELETE FROM {$table} WHERE status = 'completed' AND processed_at < %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS )
 			)
 		);
+		// Keep failed entries for 7 days for visibility.
 		$wpdb->query(
 			$wpdb->prepare(
 				"DELETE FROM {$table} WHERE status = 'failed' AND processed_at < %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -214,11 +259,49 @@ class WSS_Sync_Queue {
 			)
 		);
 
-		// If more pending items remain, schedule another run.
+		// If more pending items remain, schedule another run quickly.
 		$remaining = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE status = 'pending'" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
-		if ( $remaining > 0 && function_exists( 'as_schedule_single_action' ) ) {
-			as_schedule_single_action( time() + 5, 'wss_process_sync_queue', array(), 'woo-smart-search' );
+		if ( $remaining > 0 ) {
+			self::schedule_retry( 5 );
+		}
+	}
+
+	/**
+	 * Force an immediate queue processing run. Called when the search
+	 * engine comes back online after an outage so pending items don't
+	 * have to wait for the next scheduled interval.
+	 */
+	public static function add_wake_up() {
+		global $wpdb;
+		$table     = $wpdb->prefix . 'wss_sync_queue';
+		$remaining = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE status = 'pending'" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		if ( $remaining > 0 ) {
+			self::schedule_retry( 5 );
+			wss_log(
+				sprintf(
+					/* translators: %d: number of pending items */
+					__( 'Sync queue: waking up to process %d pending items after engine recovery.', 'woo-smart-search' ),
+					$remaining
+				),
+				'info'
+			);
+		}
+	}
+
+	/**
+	 * Schedule a retry via the best available scheduler.
+	 *
+	 * @param int $delay Seconds to wait before retrying.
+	 */
+	private static function schedule_retry( int $delay ) {
+		if ( function_exists( 'as_schedule_single_action' ) ) {
+			if ( ! as_has_scheduled_action( 'wss_process_sync_queue' ) ) {
+				as_schedule_single_action( time() + $delay, 'wss_process_sync_queue', array(), 'woo-smart-search' );
+			}
+		} elseif ( ! wp_next_scheduled( 'wss_cron_process_queue' ) ) {
+			wp_schedule_single_event( time() + $delay, 'wss_cron_process_queue' );
 		}
 	}
 }

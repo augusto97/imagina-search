@@ -162,6 +162,11 @@ class WSS_Loader {
 			if ( $was_down ) {
 				wss_log( __( 'Meilisearch connection restored.', 'woo-smart-search' ), 'info' );
 
+				// Wake up the sync queue so any items that piled up during
+				// the outage get processed now instead of waiting for the
+				// next scheduled run.
+				WSS_Sync_Queue::add_wake_up();
+
 				// Notify admin that connection is back.
 				$this->send_health_notification(
 					__( 'Meilisearch Connection Restored', 'woo-smart-search' ),
