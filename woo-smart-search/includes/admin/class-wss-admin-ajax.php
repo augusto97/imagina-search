@@ -67,13 +67,14 @@ class WSS_Admin_Ajax {
 			'search_api_key', 'theme', 'primary_color', 'bg_color',
 			'text_color', 'border_color', 'font_size', 'border_radius',
 			'placeholder_text', 'custom_css', 'integration_mode',
-			'synonyms', 'stop_words', 'widget_layout', 'content_source',
+			'synonyms', 'stop_words', 'widget_layout', 'widget_layout_mobile', 'content_source',
 			'search_engine',
 			// Results page appearance.
-			'results_layout', 'results_columns',
+			'results_layout', 'results_layout_mobile', 'results_columns',
 			'rp_card_bg', 'rp_card_border', 'rp_card_radius', 'rp_card_shadow',
 			'rp_price_color', 'rp_sale_color', 'rp_badge_bg', 'rp_badge_text',
-			'rp_stars_color', 'rp_button_bg', 'rp_button_text',
+			'rp_stars_color', 'rp_button_bg', 'rp_button_text', 'rp_button_radius',
+			'rp_button_hover_bg', 'rp_button_hover_text',
 			'rp_sidebar_bg', 'rp_toolbar_bg', 'rp_page_bg',
 			'rp_image_ratio', 'rp_image_fit', 'rp_card_gap',
 			'rp_name_size', 'rp_price_size', 'rp_name_lines',
@@ -108,25 +109,48 @@ class WSS_Admin_Ajax {
 			$settings['results_layout'] = 'default';
 		}
 
+		// Validate results_layout_mobile field ('same' = follow desktop layout).
+		if ( isset( $settings['results_layout_mobile'] ) && ! in_array( $settings['results_layout_mobile'], array( 'same', 'default', 'amazon', 'temu', 'mercadolibre', 'aliexpress', 'shopify' ), true ) ) {
+			$settings['results_layout_mobile'] = 'same';
+		}
+
+		// Validate widget_layout_mobile field ('same' = follow desktop widget layout).
+		if ( isset( $settings['widget_layout_mobile'] ) && ! in_array( $settings['widget_layout_mobile'], array( 'same', 'standard', 'expanded', 'compact', 'amazon', 'falabella', 'fullscreen' ), true ) ) {
+			$settings['widget_layout_mobile'] = 'same';
+		}
+
 		// Handle local engine index name from its own field.
 		if ( isset( $_POST['index_name_local'] ) && 'local' === ( $settings['search_engine'] ?? 'meilisearch' ) ) {
 			$settings['index_name'] = preg_replace( '/[^a-zA-Z0-9_\-]/', '', sanitize_text_field( wp_unslash( $_POST['index_name_local'] ) ) );
 		}
 
-		// Handle API key encryption.
+		// Handle API key encryption (with basic format validation so a
+		// malformed paste fails here with a clear message instead of with a
+		// cryptic error on the next sync).
 		if ( isset( $_POST['api_key'] ) ) {
 			$raw_key = sanitize_text_field( wp_unslash( $_POST['api_key'] ) );
 			if ( ! empty( $raw_key ) ) {
+				if ( strlen( $raw_key ) < 8 || strlen( $raw_key ) > 512 || preg_match( '/\s/', $raw_key ) ) {
+					wp_send_json_error( array(
+						'message' => __( 'The API key looks invalid: it must be 8–512 characters with no spaces. Check that you copied it completely.', 'woo-smart-search' ),
+					) );
+					return;
+				}
 				$settings['api_key'] = WSS_Meilisearch::encrypt_key( $raw_key );
 			}
 		}
 
 		// Integer fields.
-		$int_fields = array( 'batch_size', 'max_autocomplete_results', 'results_per_page', 'cache_ttl', 'rate_limit', 'results_page_id' );
+		$int_fields = array( 'batch_size', 'max_autocomplete_results', 'results_per_page', 'cache_ttl', 'rate_limit', 'results_page_id', 'reindex_interval' );
 		foreach ( $int_fields as $field ) {
 			if ( isset( $_POST[ $field ] ) ) {
 				$settings[ $field ] = absint( $_POST[ $field ] );
 			}
+		}
+
+		// Bounds: reindex interval is 0 (disabled) or between 5 minutes and 7 days.
+		if ( isset( $settings['reindex_interval'] ) && $settings['reindex_interval'] > 0 ) {
+			$settings['reindex_interval'] = max( 5, min( 10080, $settings['reindex_interval'] ) );
 		}
 
 		// Yes/no fields — only process checkboxes when their form tab is submitted.
@@ -143,6 +167,11 @@ class WSS_Admin_Ajax {
 		$search_bools = array(
 			'index_out_of_stock', 'index_hidden', 'enable_facets',
 			'search_by_sku', 'show_out_of_stock_results',
+			// Results page visible elements.
+			'rp_show_image', 'rp_show_category', 'rp_show_price',
+			'rp_show_sale_badge', 'rp_show_stock', 'rp_show_rating',
+			'rp_show_sku', 'rp_show_description', 'rp_show_add_to_cart',
+			'rp_show_shipping', 'rp_show_sold',
 		);
 
 		$indexing_bools = array(
@@ -159,8 +188,20 @@ class WSS_Admin_Ajax {
 			$bool_fields = $indexing_bools;
 		}
 
-		foreach ( $bool_fields as $field ) {
-			$settings[ $field ] = isset( $_POST[ $field ] ) ? 'yes' : 'no';
+		// Process every bool explicitly present in POST regardless of tab —
+		// the Vue admin sends ALL settings with explicit yes/no values on
+		// every save, so changes made in other tabs persist too. Absent
+		// fields only reset to 'no' for the submitted tab (legacy checkbox
+		// forms send nothing for unchecked boxes).
+		$all_bools = array_unique( array_merge( $appearance_bools, $search_bools, $indexing_bools ) );
+
+		foreach ( $all_bools as $field ) {
+			if ( isset( $_POST[ $field ] ) ) {
+				$val = sanitize_text_field( wp_unslash( $_POST[ $field ] ) );
+				$settings[ $field ] = ( 'yes' === $val || '1' === $val || 'true' === $val || 'on' === $val ) ? 'yes' : 'no';
+			} elseif ( in_array( $field, $bool_fields, true ) ) {
+				$settings[ $field ] = 'no';
+			}
 		}
 
 		// Array fields — only reset when their owning tab is submitted.
@@ -235,7 +276,7 @@ class WSS_Admin_Ajax {
 				'startTyping', 'products', 'results', 'content', 'categories',
 				'popularSearches', 'suggestions', 'inStock', 'outOfStock', 'onBackorder',
 				'clearSearch', 'close', 'searchOurStore', 'collections', 'brands',
-				'relatedBrands', 'relatedCategories', 'filters', 'resultsFor',
+				'relatedBrands', 'relatedCategories', 'relatedTags', 'filters', 'resultsFor',
 				'noResultsPage', 'sortRelevance', 'sortPriceLow', 'sortPriceHigh',
 				'sortNewest', 'sortPopular', 'sortRating', 'sortNameAZ', 'sortNameZA',
 				'addToCart', 'freeShipping', 'sold',
@@ -258,6 +299,11 @@ class WSS_Admin_Ajax {
 		}
 
 		update_option( 'wss_settings', $settings );
+
+		// Reschedule periodic reindex if interval changed.
+		if ( isset( $_POST['reindex_interval'] ) && function_exists( 'as_unschedule_all_actions' ) ) {
+			as_unschedule_all_actions( 'wss_periodic_reindex', array(), 'woo-smart-search' );
+		}
 
 		// Invalidate cached CSS variables.
 		delete_transient( 'wss_css_vars_' . WSS_VERSION );

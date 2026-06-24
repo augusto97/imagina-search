@@ -62,6 +62,9 @@ Basic support is included. Full multi-language indexing depends on your setup.
 
 == Changelog ==
 
+= 6.17.0 =
+* Search widget: separate mobile layout. You can now pick a different widget layout for phones (≤767px) independently of the desktop layout, under Widget → Mobile Widget Layout. When a distinct mobile layout is set, the widget is rendered per-viewport so each layout keeps its full structure.
+
 = 1.0.0 =
 * Initial release
 * Meilisearch and Typesense support

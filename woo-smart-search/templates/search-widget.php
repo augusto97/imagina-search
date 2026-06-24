@@ -14,10 +14,42 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$widget_layout = $settings['widget_layout'] ?? 'standard';
+// $render_layout / $render_device / $render_id_sfx are set by the frontend
+// renderer when it outputs separate desktop + mobile widgets. They fall back
+// to the saved setting so the template still works when included directly.
+$widget_layout = isset( $render_layout ) && '' !== $render_layout ? $render_layout : ( $settings['widget_layout'] ?? 'standard' );
+$device_class  = isset( $render_device ) ? $render_device : '';
+$id_suffix     = isset( $render_id_sfx ) ? $render_id_sfx : '';
+$results_id    = 'wss-results-list' . $id_suffix;
 $i18n          = WSS_Frontend::get_frontend_i18n( $settings );
+$show_icon     = true;
+if ( isset( $atts['show_icon'] ) && ( false === $atts['show_icon'] || '0' === $atts['show_icon'] || 'false' === $atts['show_icon'] || 'no' === $atts['show_icon'] ) ) {
+	$show_icon = false;
+}
+$icon_position = ! empty( $atts['icon_position'] ) ? $atts['icon_position'] : 'left';
+$input_height  = ! empty( $atts['input_height'] ) ? (int) $atts['input_height'] : 0;
+$border_radius = ! empty( $atts['border_radius'] ) ? (int) $atts['border_radius'] : -1;
+
+$wrapper_classes = 'wss-search-wrapper wss-layout-' . esc_attr( $widget_layout );
+if ( '' !== $device_class ) {
+	$wrapper_classes .= ' ' . esc_attr( $device_class );
+}
+if ( $show_icon && 'right' === $icon_position ) {
+	$wrapper_classes .= ' wss-icon-right';
+}
+if ( ! $show_icon ) {
+	$wrapper_classes .= ' wss-icon-hidden';
+}
+
+$inline_styles = 'width:' . esc_attr( $width );
+if ( $input_height > 0 ) {
+	$inline_styles .= ';--wss-input-height:' . $input_height . 'px';
+}
+if ( $border_radius >= 0 ) {
+	$inline_styles .= ';--wss-border-radius:' . $border_radius . 'px';
+}
 ?>
-<div class="wss-search-wrapper wss-layout-<?php echo esc_attr( $widget_layout ); ?>" role="search" aria-label="<?php esc_attr_e( 'Product search', 'woo-smart-search' ); ?>" style="width:<?php echo esc_attr( $width ); ?>">
+<div class="<?php echo esc_attr( $wrapper_classes ); ?>" role="search" aria-label="<?php esc_attr_e( 'Product search', 'woo-smart-search' ); ?>" style="<?php echo $inline_styles; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>">
 	<div class="wss-search-input-container">
 		<input
 			type="search"
@@ -26,7 +58,7 @@ $i18n          = WSS_Frontend::get_frontend_i18n( $settings );
 			maxlength="100"
 			autocomplete="off"
 			aria-autocomplete="list"
-			aria-controls="wss-results-list"
+			aria-controls="<?php echo esc_attr( $results_id ); ?>"
 			aria-expanded="false"
 			role="combobox"
 		/>
@@ -37,7 +69,37 @@ $i18n          = WSS_Frontend::get_frontend_i18n( $settings );
 			<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/></circle></svg>
 		</span>
 		<button class="wss-search-clear" style="display:none" aria-label="<?php esc_attr_e( 'Clear search', 'woo-smart-search' ); ?>" type="button">&times;</button>
+		<!-- Mobile: back arrow at the left of the bar closes the overlay.
+		     Styled by the inline block below — ships with this HTML, so it
+		     can never be out of sync with a cached stylesheet. -->
+		<button class="wss-mobile-back-btn" type="button" aria-label="<?php esc_attr_e( 'Close', 'woo-smart-search' ); ?>">
+			<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+		</button>
 	</div>
+
+	<?php if ( empty( $GLOBALS['wss_mobile_overlay_css_done'] ) ) : ?>
+		<?php $GLOBALS['wss_mobile_overlay_css_done'] = true; ?>
+	<style>
+	/* Separate desktop / mobile widgets. When a distinct mobile layout is
+	   configured the frontend renders TWO wrappers (each self-initialises);
+	   these rules show the right one per viewport. Inline so they can never
+	   desync from a cached stylesheet. Breakpoint matches the overlay below. */
+	@media (max-width:767px){.wss-search-wrapper.wss-device-desktop{display:none!important}}
+	@media (min-width:768px){.wss-search-wrapper.wss-device-mobile{display:none!important}}
+	/* Mobile overlay — inline with the widget HTML so HTML/CSS are always in
+	   sync regardless of stylesheet caching. Layout: ← [input] × */
+	.wss-mobile-back-btn{display:none}
+	@media (max-width:767px){
+	.wss-search-wrapper.wss-mobile-open .wss-search-input-container{position:fixed!important;top:0!important;left:0!important;right:0!important;z-index:999999;display:flex!important;align-items:center!important;gap:6px;padding:8px 12px!important;background:#fff!important;border-bottom:1px solid #e5e7eb;box-shadow:0 2px 8px rgba(0,0,0,.08);width:auto!important}
+	.wss-search-wrapper.wss-mobile-open .wss-mobile-back-btn{display:flex!important;align-items:center;justify-content:center;width:36px;height:36px;flex-shrink:0;background:none;border:none;cursor:pointer;padding:0;color:#374151;order:-1;border-radius:50%}
+	.wss-search-wrapper.wss-mobile-open .wss-search-icon,
+	.wss-search-wrapper.wss-mobile-open .wss-search-spinner{display:none!important}
+	.wss-search-wrapper.wss-mobile-open .wss-search-input{flex:1 1 auto!important;width:auto!important;min-width:0!important;border:none!important;box-shadow:none!important;background:transparent!important;outline:none!important;padding:8px 4px!important;font-size:16px!important;height:auto!important}
+	.wss-search-wrapper.wss-mobile-open .wss-search-clear{position:static!important;transform:none!important;flex-shrink:0}
+	.wss-search-wrapper.wss-mobile-open .wss-results-dropdown{position:fixed!important;top:53px!important;left:0!important;right:0!important;bottom:0!important;max-height:none!important;border:none!important;border-radius:0!important;z-index:999998;overflow-y:auto!important;padding-top:0!important}
+	}
+	</style>
+	<?php endif; ?>
 
 	<?php if ( 'fullscreen' === $widget_layout ) : ?>
 	<!-- Fullscreen overlay (Shopify-style) -->
@@ -79,7 +141,7 @@ $i18n          = WSS_Frontend::get_frontend_i18n( $settings );
 	</div>
 	<?php else : ?>
 
-	<div class="wss-results-dropdown" role="listbox" id="wss-results-list" aria-label="<?php esc_attr_e( 'Search results', 'woo-smart-search' ); ?>">
+	<div class="wss-results-dropdown" role="listbox" id="<?php echo esc_attr( $results_id ); ?>" aria-label="<?php esc_attr_e( 'Search results', 'woo-smart-search' ); ?>">
 
 		<?php if ( 'expanded' === $widget_layout ) : ?>
 		<!-- Expanded layout: two-column -->
@@ -152,12 +214,6 @@ $i18n          = WSS_Frontend::get_frontend_i18n( $settings );
 	</div>
 
 	<?php endif; ?>
-
-	<!-- Mobile Close Button (improved for touch) -->
-	<button class="wss-mobile-close-btn" type="button" aria-label="<?php esc_attr_e( 'Close', 'woo-smart-search' ); ?>">
-		<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-		<?php echo esc_html( $i18n['close'] ?? __( 'Close', 'woo-smart-search' ) ); ?>
-	</button>
 
 	<!-- Mobile Overlay Backdrop -->
 	<div class="wss-mobile-backdrop" aria-hidden="true"></div>

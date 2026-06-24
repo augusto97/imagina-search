@@ -1,5 +1,29 @@
 <template>
   <div>
+    <!-- Shortcodes & Blocks -->
+    <div class="wss-section">
+      <div class="wss-section-header"><div><h3>Shortcodes &amp; Blocks</h3><p>Use these to place the search bar anywhere on your site.</p></div></div>
+      <div class="wss-section-body">
+        <div class="wss-form-row">
+          <div class="wss-form-label">Search Bar</div>
+          <div class="wss-form-control">
+            <code style="display:inline-block;background:#f3f4f6;padding:6px 14px;border-radius:6px;font-size:13px;user-select:all;cursor:text">[woo_smart_search]</code>
+            <div style="margin-top:4px;font-size:12px;color:#6b7280">Place the search widget in any page, post, or widget area. Also available as a Gutenberg block: <strong>Woo Smart Search</strong>.</div>
+          </div>
+        </div>
+        <div class="wss-form-row">
+          <div class="wss-form-label">
+            Optional Attributes
+            <span class="wss-hint">All are optional — defaults come from these settings.</span>
+          </div>
+          <div class="wss-form-control" style="font-size:12px;color:#6b7280;line-height:1.8">
+            <code>placeholder</code>, <code>layout</code>, <code>theme</code>, <code>width</code>, <code>max_results</code>, <code>show_image</code>, <code>show_price</code>, <code>show_category</code>, <code>show_icon</code>, <code>icon_position</code><br>
+            Example: <code style="background:#f3f4f6;padding:2px 6px;border-radius:4px">[woo_smart_search placeholder="Search..." layout="expanded" max_results="6"]</code>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Integration & Layout -->
     <div class="wss-section">
       <div class="wss-section-header"><div><h3>Integration &amp; Layout</h3></div></div>
@@ -14,9 +38,27 @@
           </div>
         </div>
         <div class="wss-form-row">
-          <div class="wss-form-label">Widget Layout</div>
+          <div class="wss-form-label">Widget Layout
+            <span class="wss-hint">Desktop layout.</span>
+          </div>
           <div class="wss-form-control">
             <el-select v-model="settings.widget_layout">
+              <el-option value="standard" label="Standard — Vertical list" />
+              <el-option value="expanded" label="Expanded — Two columns" />
+              <el-option value="compact" label="Compact — No images" />
+              <el-option value="amazon" label="Amazon — Text suggestions" />
+              <el-option value="falabella" label="Multi-column — Columns layout" />
+              <el-option value="fullscreen" label="Fullscreen — Overlay" />
+            </el-select>
+          </div>
+        </div>
+        <div class="wss-form-row">
+          <div class="wss-form-label">Mobile Widget Layout
+            <span class="wss-hint">Layout used on phones (≤767px). Choose “Same as desktop” to follow the layout above, or pick a different one just for mobile.</span>
+          </div>
+          <div class="wss-form-control">
+            <el-select v-model="settings.widget_layout_mobile">
+              <el-option value="same" label="Same as desktop" />
               <el-option value="standard" label="Standard — Vertical list" />
               <el-option value="expanded" label="Expanded — Two columns" />
               <el-option value="compact" label="Compact — No images" />

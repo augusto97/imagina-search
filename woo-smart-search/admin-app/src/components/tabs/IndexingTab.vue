@@ -57,6 +57,25 @@
           </div>
         </div>
         <div class="wss-form-row">
+          <div class="wss-form-label">
+            Auto Re-index Interval
+            <span class="wss-hint">How often to rescan all content. Use shorter intervals if products are updated via external API or direct DB.</span>
+          </div>
+          <div class="wss-form-control">
+            <el-select v-model="settings.reindex_interval" style="width:280px">
+              <el-option :value="0" label="Disabled" />
+              <el-option :value="5" label="Every 5 minutes" />
+              <el-option :value="15" label="Every 15 minutes" />
+              <el-option :value="30" label="Every 30 minutes" />
+              <el-option :value="60" label="Every 1 hour" />
+              <el-option :value="120" label="Every 2 hours" />
+              <el-option :value="360" label="Every 6 hours (default)" />
+              <el-option :value="720" label="Every 12 hours" />
+              <el-option :value="1440" label="Every 24 hours" />
+            </el-select>
+          </div>
+        </div>
+        <div class="wss-form-row">
           <div class="wss-form-label">Index Out of Stock</div>
           <div class="wss-form-control">
             <el-switch v-model="settings.index_out_of_stock" active-value="yes" inactive-value="no" />
@@ -191,7 +210,16 @@ async function startSync() {
 }
 
 function pollProgress() {
+  // Safety cap: ~1 hour at 3s intervals. If the sync hangs server-side,
+  // stop polling instead of hammering admin-ajax forever.
+  let polls = 0;
   pollTimer = setInterval(async () => {
+    if (++polls > 1200) {
+      clearInterval(pollTimer);
+      syncing.value = false;
+      ElMessage.warning('Sync is taking too long — check the Logs tab.');
+      return;
+    }
     try {
       const res = await post('wss_sync_progress');
       if (!res.success) return;
@@ -200,6 +228,11 @@ function pollProgress() {
         const pct = d.total > 0 ? Math.round((d.processed / d.total) * 100) : 0;
         progress.value = pct;
         progressText.value = `${pct}% (${d.processed}/${d.total})`;
+      } else if (d.status === 'failed') {
+        clearInterval(pollTimer);
+        syncing.value = false;
+        progressText.value = 'Failed';
+        ElMessage.error('Sync failed — check the Logs tab for details.');
       } else {
         clearInterval(pollTimer);
         syncing.value = false;

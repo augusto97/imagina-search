@@ -60,11 +60,58 @@ class WSS_Frontend {
 		// Enqueue search results page assets when on search.
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_results_page_assets' ) );
 
+		// Auto-inject the results layout on the selected results page when the
+		// shortcode isn't manually present. This means users only need to select
+		// the page in settings — no need to add the shortcode themselves.
+		add_filter( 'the_content', array( $this, 'maybe_inject_results_page' ), 20 );
+
 		// Redirect ?s= to ?q= on the results page, and redirect native
 		// WooCommerce search to the designated results page.
 		if ( 'replace' === $mode ) {
 			add_action( 'template_redirect', array( $this, 'handle_search_redirects' ) );
 		}
+	}
+
+	/**
+	 * Auto-inject the results page layout on the configured results page.
+	 *
+	 * If the user selected a page as the "Search Results Page" in settings but
+	 * did not add the [woo_smart_search_results] shortcode, this renders the
+	 * results layout automatically into that page's content.
+	 *
+	 * @param string $content The post content.
+	 * @return string
+	 */
+	public function maybe_inject_results_page( $content ) {
+		// Only on the main query, in the loop, for a singular page.
+		if ( ! is_singular() || ! in_the_loop() || ! is_main_query() ) {
+			return $content;
+		}
+
+		$results_page_id = (int) wss_get_option( 'results_page_id', 0 );
+		if ( ! $results_page_id ) {
+			return $content;
+		}
+
+		$current_id = get_the_ID();
+		if ( $current_id !== $results_page_id ) {
+			return $content;
+		}
+
+		// If the shortcode is already in the content, let it handle rendering.
+		if ( has_shortcode( $content, 'woo_smart_search_results' ) ) {
+			return $content;
+		}
+
+		// Render the results layout and append it to the page content.
+		if ( ! class_exists( 'WSS_Shortcode' ) ) {
+			return $content;
+		}
+
+		$shortcode = new WSS_Shortcode();
+		$results   = $shortcode->render_results_page( array() );
+
+		return $content . $results;
 	}
 
 	/**
@@ -208,6 +255,19 @@ class WSS_Frontend {
 				'showAuthor'     => ( $settings['show_author'] ?? 'yes' ) === 'yes',
 				'showDate'       => ( $settings['show_date'] ?? 'yes' ) === 'yes',
 				'showPostType'   => ( $settings['show_post_type'] ?? 'no' ) === 'yes',
+				'hideOutOfStock' => ( $settings['show_out_of_stock_results'] ?? 'yes' ) !== 'yes',
+				// Results page visible elements (independent from widget settings).
+				'rpShowImage'      => ( $settings['rp_show_image'] ?? 'yes' ) === 'yes',
+				'rpShowCategory'   => ( $settings['rp_show_category'] ?? 'yes' ) === 'yes',
+				'rpShowPrice'      => ( $settings['rp_show_price'] ?? 'yes' ) === 'yes',
+				'rpShowSaleBadge'  => ( $settings['rp_show_sale_badge'] ?? 'yes' ) === 'yes',
+				'rpShowStock'      => ( $settings['rp_show_stock'] ?? 'yes' ) === 'yes',
+				'rpShowRating'     => ( $settings['rp_show_rating'] ?? 'yes' ) === 'yes',
+				'rpShowSku'        => ( $settings['rp_show_sku'] ?? 'no' ) === 'yes',
+				'rpShowDescription' => ( $settings['rp_show_description'] ?? 'no' ) === 'yes',
+				'rpShowAddToCart'  => ( $settings['rp_show_add_to_cart'] ?? 'no' ) === 'yes',
+				'rpShowShipping'   => ( $settings['rp_show_shipping'] ?? 'no' ) === 'yes',
+				'rpShowSold'       => ( $settings['rp_show_sold'] ?? 'no' ) === 'yes',
 				'theme'          => $settings['theme'] ?? 'light',
 				'contentSource'  => wss_get_content_source(),
 				'isMixed'       => 'mixed' === wss_get_content_source(),
@@ -219,10 +279,12 @@ class WSS_Frontend {
 				'decimalSep'     => wss_is_ecommerce_mode() ? get_option( 'woocommerce_price_decimal_sep', '.' ) : '.',
 				'thousandSep'    => wss_is_ecommerce_mode() ? get_option( 'woocommerce_price_thousand_sep', ',' ) : ',',
 				'searchUrl'      => self::get_search_url_template(),
+				'integration_mode' => wss_get_option( 'integration_mode', 'replace' ),
 				'placeholderImg' => WSS_PLUGIN_URL . 'assets/images/placeholder.svg',
 				'i18n'           => self::get_frontend_i18n( $settings ),
 				'widgetLayout'   => $settings['widget_layout'] ?? 'standard',
 				'resultsLayout'  => $settings['results_layout'] ?? 'default',
+				'resultsLayoutMobile' => $settings['results_layout_mobile'] ?? 'same',
 				'resultsColumns' => (int) ( $settings['results_columns'] ?? 3 ),
 				'resultsPerPage' => (int) ( $settings['results_per_page'] ?? 20 ),
 				'rpImageRatio'   => $settings['rp_image_ratio'] ?? '1:1',
@@ -316,6 +378,9 @@ class WSS_Frontend {
 				'--wss-rp-stars-color'  => $settings['rp_stars_color'] ?? '#f59e0b',
 				'--wss-rp-button-bg'    => $settings['rp_button_bg'] ?? '#2563eb',
 				'--wss-rp-button-text'  => $settings['rp_button_text'] ?? '#ffffff',
+				'--wss-rp-button-hover-bg'   => $settings['rp_button_hover_bg'] ?? self::darken_color( $settings['rp_button_bg'] ?? '#2563eb', 12 ),
+				'--wss-rp-button-hover-text' => $settings['rp_button_hover_text'] ?? ( $settings['rp_button_text'] ?? '#ffffff' ),
+				'--wss-rp-button-radius' => ( $settings['rp_button_radius'] ?? '8' ) . 'px',
 				'--wss-rp-sidebar-bg'   => $settings['rp_sidebar_bg'] ?? '#ffffff',
 				'--wss-rp-toolbar-bg'   => $settings['rp_toolbar_bg'] ?? '#ffffff',
 				'--wss-rp-page-bg'      => $settings['rp_page_bg'] ?? '#f9fafb',
@@ -363,8 +428,28 @@ class WSS_Frontend {
 		$theme = $settings['theme'] ?? 'light';
 
 		// Allow layout override from shortcode/block attributes.
+		$desktop_layout = $settings['widget_layout'] ?? 'standard';
 		if ( ! empty( $atts['layout'] ) ) {
-			$settings['widget_layout'] = sanitize_text_field( $atts['layout'] );
+			$desktop_layout                = sanitize_text_field( $atts['layout'] );
+			$settings['widget_layout']     = $desktop_layout;
+		}
+
+		// Optional separate mobile layout. When set to something other than the
+		// desktop layout, we render the widget twice (one structure per viewport)
+		// because widget layouts differ in HTML structure, not just CSS, so a
+		// runtime class-swap cannot rebuild the markup the way the results page can.
+		$allowed_layouts = array( 'standard', 'expanded', 'compact', 'amazon', 'falabella', 'fullscreen' );
+		$mobile_layout   = $settings['widget_layout_mobile'] ?? 'same';
+		if ( ! in_array( $mobile_layout, $allowed_layouts, true ) ) {
+			$mobile_layout = 'same';
+		}
+
+		$renders = array();
+		if ( 'same' === $mobile_layout || $mobile_layout === $desktop_layout ) {
+			$renders[] = array( 'layout' => $desktop_layout, 'device' => '', 'sfx' => '' );
+		} else {
+			$renders[] = array( 'layout' => $desktop_layout, 'device' => 'wss-device-desktop', 'sfx' => '' );
+			$renders[] = array( 'layout' => $mobile_layout, 'device' => 'wss-device-mobile', 'sfx' => '-m' );
 		}
 
 		$template = locate_template( 'woo-smart-search/search-widget.php' );
@@ -373,7 +458,12 @@ class WSS_Frontend {
 		}
 
 		ob_start();
-		include $template;
+		foreach ( $renders as $render ) {
+			$render_layout = $render['layout'];
+			$render_device = $render['device'];
+			$render_id_sfx = $render['sfx'];
+			include $template;
+		}
 		$html = ob_get_clean();
 
 		return apply_filters( 'wss_search_widget_html', $html, $atts );
@@ -468,6 +558,7 @@ class WSS_Frontend {
 			'brands'           => ! empty( $t['brands'] ) ? $t['brands'] : __( 'Brands', 'woo-smart-search' ),
 			'relatedBrands'    => ! empty( $t['relatedBrands'] ) ? $t['relatedBrands'] : __( 'Related Brands', 'woo-smart-search' ),
 			'relatedCategories' => ! empty( $t['relatedCategories'] ) ? $t['relatedCategories'] : __( 'Related Categories', 'woo-smart-search' ),
+			'relatedTags'      => ! empty( $t['relatedTags'] ) ? $t['relatedTags'] : __( 'Related Tags', 'woo-smart-search' ),
 			'filters'          => ! empty( $t['filters'] ) ? $t['filters'] : __( 'Filters', 'woo-smart-search' ),
 			'resultsFor'       => ! empty( $t['resultsFor'] ) ? $t['resultsFor'] : __( 'Results for "%s"', 'woo-smart-search' ),
 			'noResultsPage'    => ! empty( $t['noResultsPage'] ) ? $t['noResultsPage'] : __( 'No results found matching your search.', 'woo-smart-search' ),
@@ -584,22 +675,8 @@ class WSS_Frontend {
 	 * @return string
 	 */
 	public function optimize_style_loading( $html, $handle, $href, $media ) {
-		// Only defer results-page CSS (not needed until user navigates to results).
-		// Keep search-widget CSS render-blocking since the widget is visible immediately.
-		if ( 'wss-results-page' !== $handle ) {
-			return $html;
-		}
-
-		// Use media="print" + onload swap for non-blocking CSS.
-		$html = str_replace(
-			"media='all'",
-			"media='print' onload=\"this.media='all'\"",
-			$html
-		);
-
-		// Add noscript fallback.
-		$html .= '<noscript><link rel="stylesheet" href="' . esc_url( $href ) . '" media="all" /></noscript>' . "\n";
-
+		// No longer deferring results-page CSS — it caused blank page issues
+		// when the stylesheet was enqueued late from a shortcode render.
 		return $html;
 	}
 
@@ -612,7 +689,7 @@ class WSS_Frontend {
 	 * @return string
 	 */
 	public function add_defer_attribute( $tag, $handle, $src ) {
-		if ( ! in_array( $handle, array( 'wss-search-widget', 'wss-results-page' ), true ) ) {
+		if ( 'wss-search-widget' !== $handle ) {
 			return $tag;
 		}
 

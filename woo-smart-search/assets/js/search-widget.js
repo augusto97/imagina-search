@@ -36,10 +36,17 @@
 			body.facets = facets;
 		}
 
-		// Filter by content_source unless mixed mode.
+		// Build filter string.
+		var filters = [];
 		if (!config.isMixed && config.contentSource) {
 			var sourceValue = config.isEcommerce ? 'woocommerce' : 'wordpress';
-			body.filter = 'content_source = "' + sourceValue + '"';
+			filters.push('content_source = "' + sourceValue + '"');
+		}
+		if (config.hideOutOfStock) {
+			filters.push('stock_status != "outofstock"');
+		}
+		if (filters.length) {
+			body.filter = filters.join(' AND ');
 		}
 
 		return fetch(meiliSearchUrl, {
@@ -149,7 +156,7 @@
 		var icon = wrapper.querySelector('.wss-search-icon');
 		var clearBtn = wrapper.querySelector('.wss-search-clear');
 		var backdrop = wrapper.querySelector('.wss-mobile-backdrop');
-		var mobileCloseBtn = wrapper.querySelector('.wss-mobile-close-btn');
+		var mobileBackBtn = wrapper.querySelector('.wss-mobile-back-btn');
 		var selectedIndex = -1;
 		var debounceTimer = null;
 		var isMobileOverlay = false;
@@ -310,8 +317,8 @@
 			}
 
 			// Mobile close button.
-			if (mobileCloseBtn) {
-				mobileCloseBtn.addEventListener('click', function () {
+			if (mobileBackBtn) {
+				mobileBackBtn.addEventListener('click', function () {
 					hideDropdown();
 				});
 			}
@@ -375,7 +382,7 @@
 				var catName = decodeHtml(entries[i][0]);
 				var li = document.createElement('li');
 				var a = document.createElement('a');
-				a.href = getSearchPageUrl(lastQuery + '&filter_categories=' + encodeURIComponent(catName));
+				a.href = getSearchPageUrl(lastQuery, 'filter_categories=' + encodeURIComponent(catName));
 				a.className = 'wss-sidebar-cat-item';
 				a.textContent = catName;
 				li.appendChild(a);
@@ -451,7 +458,7 @@
 					catEntries.slice(0, 10).forEach(function (entry) {
 						var li = document.createElement('li');
 						var a = document.createElement('a');
-						a.href = getSearchPageUrl(lastQuery + '&filter_categories=' + encodeURIComponent(entry[0]));
+						a.href = getSearchPageUrl(lastQuery, 'filter_categories=' + encodeURIComponent(entry[0]));
 						a.textContent = decodeHtml(entry[0]);
 						li.appendChild(a);
 						falabellaCategoriesList.appendChild(li);
@@ -476,7 +483,7 @@
 						var count = entry[1];
 						var li = document.createElement('li');
 						var a = document.createElement('a');
-						a.href = getSearchPageUrl(query + '&filter_categories=' + encodeURIComponent(catName));
+						a.href = getSearchPageUrl(query, 'filter_categories=' + encodeURIComponent(catName));
 						a.innerHTML = '<span class="wss-fullscreen-cat-name">' + escHtml(catName) + '</span>' +
 							'<span class="wss-fullscreen-cat-count">' + count + ' articles</span>';
 						li.appendChild(a);
@@ -508,10 +515,37 @@
 			}
 		}
 
+		var fullscreenPrevFocus = null;
+
+		function trapFullscreenFocus(e) {
+			if (e.key !== 'Tab' || !fullscreenOverlay) return;
+
+			var focusables = fullscreenOverlay.querySelectorAll(
+				'input, button, a[href], select, textarea, [tabindex]:not([tabindex="-1"])'
+			);
+			var visible = Array.prototype.filter.call(focusables, function (el) {
+				return el.offsetParent !== null;
+			});
+			if (!visible.length) return;
+
+			var first = visible[0];
+			var last = visible[visible.length - 1];
+
+			if (e.shiftKey && document.activeElement === first) {
+				e.preventDefault();
+				last.focus();
+			} else if (!e.shiftKey && document.activeElement === last) {
+				e.preventDefault();
+				first.focus();
+			}
+		}
+
 		function openFullscreen() {
 			if (fullscreenOverlay) {
+				fullscreenPrevFocus = document.activeElement;
 				fullscreenOverlay.classList.add('wss-visible');
 				document.body.classList.add('wss-body-locked');
+				fullscreenOverlay.addEventListener('keydown', trapFullscreenFocus);
 				if (fullscreenInput) {
 					fullscreenInput.value = input.value;
 					setTimeout(function () { fullscreenInput.focus(); }, 100);
@@ -523,7 +557,13 @@
 			if (fullscreenOverlay) {
 				fullscreenOverlay.classList.remove('wss-visible');
 				document.body.classList.remove('wss-body-locked');
+				fullscreenOverlay.removeEventListener('keydown', trapFullscreenFocus);
 				if (fullscreenInput) input.value = fullscreenInput.value;
+				// Restore focus to where the user was before opening the overlay.
+				if (fullscreenPrevFocus && typeof fullscreenPrevFocus.focus === 'function') {
+					fullscreenPrevFocus.focus();
+					fullscreenPrevFocus = null;
+				}
 			}
 		}
 
@@ -763,7 +803,7 @@
 				var catCount = catEntries[i][1];
 				var pill = document.createElement('a');
 				pill.className = 'wss-category-pill';
-				pill.href = getSearchPageUrl(query + '&filter_categories=' + encodeURIComponent(catName));
+				pill.href = getSearchPageUrl(query, 'filter_categories=' + encodeURIComponent(catName));
 				pill.textContent = catName + (catCount ? ' (' + catCount + ')' : '');
 				pills.appendChild(pill);
 			}
@@ -806,7 +846,7 @@
 			}
 
 			// Image (hidden in compact layout).
-			if (!isCompact && config.showImage !== false) {
+			if (!isCompact && config.showImage) {
 				var imgSrc = hit.image || config.placeholderImg || '';
 				html += '<div class="wss-result-image">';
 				html += '<img src="' + escHtml(imgSrc) + '" alt="' + escHtml(hit.name || '') + '" width="60" height="60" />';
@@ -816,7 +856,7 @@
 			html += '<div class="wss-result-info">';
 
 			// Category.
-			if (!isCompact && config.showCategory !== false && hit.categories && hit.categories.length) {
+			if (!isCompact && config.showCategory && hit.categories && hit.categories.length) {
 				html += '<span class="wss-result-category">' + escHtml(decodeHtml(hit.categories[0])) + '</span>';
 			}
 
@@ -829,13 +869,13 @@
 
 			if (hitIsWpContent) {
 				// WordPress content: show excerpt, author, date.
-				if (!isCompact && config.showExcerpt !== false && hit.description) {
+				if (!isCompact && config.showExcerpt && hit.description) {
 					html += '<span class="wss-result-excerpt">' + escHtml(hit.description).substring(0, 80) + '</span>';
 				}
 				html += '<div class="wss-result-meta">';
 				var wpMeta = [];
-				if (config.showAuthor !== false && hit.author) wpMeta.push(escHtml(hit.author));
-				if (config.showDate !== false && hit.date_created) {
+				if (config.showAuthor && hit.author) wpMeta.push(escHtml(hit.author));
+				if (config.showDate && hit.date_created) {
 					var d = new Date(hit.date_created * 1000);
 					wpMeta.push(d.toLocaleDateString());
 				}
@@ -851,7 +891,7 @@
 				}
 
 				html += '<div class="wss-result-meta">';
-				if (config.showPrice !== false && hit.price !== undefined) {
+				if (config.showPrice && hit.price !== undefined) {
 					html += '<div class="wss-result-price">';
 					if (hit.on_sale && hit.regular_price) {
 						html += '<span class="wss-price-regular">' + formatPrice(hit.regular_price) + '</span> ';
@@ -868,7 +908,7 @@
 					html += '</div>';
 				}
 
-				if (!isCompact && config.showStock !== false && hit.stock_status) {
+				if (!isCompact && config.showStock && hit.stock_status) {
 					var stockClass = 'wss-stock-dot wss-stock-' + hit.stock_status;
 					var stockText = config.i18n[hit.stock_status === 'instock' ? 'inStock' : (hit.stock_status === 'outofstock' ? 'outOfStock' : 'onBackorder')] || hit.stock_status;
 					html += '<span class="' + stockClass + '" title="' + escHtml(stockText) + '"><span class="wss-stock-circle"></span>' + escHtml(stockText) + '</span>';
@@ -1043,9 +1083,15 @@
 		}
 	}
 
-	function getSearchPageUrl(query) {
+	function getSearchPageUrl(query, extraParams) {
 		var url = config.searchUrl || '/?s={query}&post_type=product';
-		return url.replace('{query}', encodeURIComponent(query));
+		url = url.replace('{query}', encodeURIComponent(query));
+		// Append extra query params (e.g. filter_categories=X) OUTSIDE the
+		// encoded query so they reach the results page as real parameters.
+		if (extraParams) {
+			url += (url.indexOf('?') === -1 ? '?' : '&') + extraParams;
+		}
+		return url;
 	}
 
 	function escHtml(str) {
@@ -1084,8 +1130,116 @@
 	}
 
 	if (document.readyState === 'loading') {
-		document.addEventListener('DOMContentLoaded', init);
+		document.addEventListener('DOMContentLoaded', function () { init(); interceptAllSearchForms(); });
 	} else {
 		init();
+		interceptAllSearchForms();
 	}
+
+	/**
+	 * Global search form interceptor.
+	 *
+	 * Scans the entire DOM for search forms and inputs that were NOT created
+	 * by WSS (native WP, Greenshift, Elementor, Oxygen, theme forms, etc.)
+	 * and redirects their submissions to the WSS results page.
+	 */
+	function interceptAllSearchForms() {
+		if (!config.searchUrl || config.integration_mode !== 'replace') return;
+
+		var selectors = [
+			'form[role="search"]',
+			'form.search-form',
+			'form.searchform',
+			'form.woocommerce-product-search',
+			'form.gspbsearch_form',
+			'[class*="search-box"] form',
+			'[class*="searchbox"] form',
+			'[class*="gspbsearch"] form',
+			'[class*="search-form"]',
+			'[data-type="search"] form',
+			'.elementor-search-form form',
+			'.wp-block-search form',
+		].join(',');
+
+		function hookForm(form) {
+			if (form.closest('.wss-search-wrapper') || form.dataset.wssHooked) return;
+			form.dataset.wssHooked = '1';
+
+			var getInput = function () {
+				return form.querySelector('input[type="search"], input[name="s"], input.gspbsearch_input, input[type="text"]');
+			};
+
+			// Capture phase runs BEFORE any third-party handler can stopPropagation.
+			form.addEventListener('submit', function (e) {
+				var input = getInput();
+				if (input && input.value.trim()) {
+					e.preventDefault();
+					e.stopImmediatePropagation();
+					var url = config.searchUrl.replace('{query}', encodeURIComponent(input.value.trim()));
+					window.location.href = url;
+				}
+			}, true);
+
+			// Also intercept Enter on the input directly — some blocks prevent form submit.
+			var input = getInput();
+			if (input) {
+				input.addEventListener('keydown', function (e) {
+					if (e.key === 'Enter' && input.value.trim()) {
+						e.preventDefault();
+						e.stopImmediatePropagation();
+						var url = config.searchUrl.replace('{query}', encodeURIComponent(input.value.trim()));
+						window.location.href = url;
+					}
+				}, true);
+			}
+		}
+
+		// Also intercept standalone search inputs not inside forms.
+		function hookInput(input) {
+			if (input.closest('.wss-search-wrapper') || input.dataset.wssHooked) return;
+			input.dataset.wssHooked = '1';
+
+			input.addEventListener('keydown', function (e) {
+				if (e.key === 'Enter' && input.value.trim()) {
+					e.preventDefault();
+					e.stopImmediatePropagation();
+					var url = config.searchUrl.replace('{query}', encodeURIComponent(input.value.trim()));
+					window.location.href = url;
+				}
+			}, true);
+		}
+
+		function scanAndHook() {
+			document.querySelectorAll(selectors).forEach(hookForm);
+			document.querySelectorAll('input[type="search"]').forEach(function (input) {
+				if (!input.closest('.wss-search-wrapper')) hookInput(input);
+			});
+		}
+
+		scanAndHook();
+
+		// Watch for dynamically-added search forms (SPA navigations, lazy-loaded
+		// blocks). Debounced: pages with carousels/animations mutate the DOM
+		// constantly and re-scanning on every mutation would burn CPU.
+		if (typeof MutationObserver !== 'undefined') {
+			var scanTimer = null;
+			var observer = new MutationObserver(function (mutations) {
+				for (var i = 0; i < mutations.length; i++) {
+					if (mutations[i].addedNodes.length) {
+						clearTimeout(scanTimer);
+						scanTimer = setTimeout(scanAndHook, 500);
+						break;
+					}
+				}
+			});
+			observer.observe(document.body, { childList: true, subtree: true });
+
+			// Cleanup on page teardown (bfcache-friendly).
+			window.addEventListener('pagehide', function () {
+				observer.disconnect();
+				clearTimeout(scanTimer);
+			});
+		}
+	}
+
 })();

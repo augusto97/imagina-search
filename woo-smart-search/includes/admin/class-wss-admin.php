@@ -199,6 +199,8 @@ class WSS_Admin {
 					'pages'              => $pages_data,
 					'published'          => $published,
 					'lastSync'           => $last_sync ? date_i18n( 'Y-m-d H:i', $last_sync ) : '',
+					'isEcommerce'        => wss_is_ecommerce_mode(),
+					'isMixed'            => 'mixed' === wss_get_content_source(),
 				)
 			);
 		} else {
@@ -275,7 +277,14 @@ class WSS_Admin {
 		$has_vue_app = file_exists( WSS_PLUGIN_DIR . 'assets/admin-app/js/wss-admin.js' );
 
 		if ( $has_vue_app ) {
-			echo '<div class="wrap"><div id="wss-admin-root"></div></div>';
+			// WordPress injects admin notices after the first element inside
+			// .wrap. We print .wrap > h1 (invisible, zero-height) so WP
+			// places notices there — ABOVE #wss-admin-root — instead of
+			// inside the Vue flex layout where they'd land in the sidebar.
+			echo '<div class="wrap">';
+			echo '<h1 class="wss-notice-anchor" style="margin:0;padding:0;height:0;overflow:hidden"></h1>';
+			echo '<div id="wss-admin-root"></div>';
+			echo '</div>';
 		} else {
 			// Legacy fallback.
 			$active_tab = isset( $_GET['tab'] ) ? sanitize_text_field( wp_unslash( $_GET['tab'] ) ) : 'connection'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended

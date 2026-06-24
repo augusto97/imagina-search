@@ -261,9 +261,10 @@ class WSS_Rest_Api {
 			}
 		}
 
-		// Hide out-of-stock if configured (only applies to ecommerce/mixed modes).
+		// Hide out-of-stock PRODUCTS if configured (only applies to ecommerce/mixed modes).
+		// Use "!= outofstock" so WordPress content (no stock_status field) is kept.
 		if ( ( wss_is_ecommerce_mode() || 'mixed' === $content_source ) && 'yes' !== wss_get_option( 'show_out_of_stock_results', 'yes' ) ) {
-			$stock_filter = 'stock_status = "instock"';
+			$stock_filter = 'stock_status != "outofstock"';
 			if ( ! empty( $options['filters'] ) ) {
 				$options['filters'] .= ' AND ' . $stock_filter;
 			} else {
@@ -416,9 +417,13 @@ class WSS_Rest_Api {
 				'content_source' => $hit_source,
 			);
 
-			// Highlighted name.
+			// Highlighted name — only allow <mark> tags, strip everything else
+			// so engine-supplied markup can never inject scripts.
 			if ( isset( $hit['_formatted']['name'] ) ) {
-				$item['name_highlighted'] = $hit['_formatted']['name'];
+				$item['name_highlighted'] = wp_kses(
+					$hit['_formatted']['name'],
+					array( 'mark' => array() )
+				);
 			}
 
 			if ( ( $settings['show_image'] ?? 'yes' ) === 'yes' ) {
@@ -619,6 +624,39 @@ class WSS_Rest_Api {
 			'posts_per_page' => $limit,
 			'paged'          => $page,
 		);
+
+		// Apply the same exclusions used during indexing so fallback results
+		// match what the index would return.
+		$tax_query = array();
+
+		$exclude_categories = wss_get_option( 'exclude_categories', array() );
+		if ( $is_ecommerce && ! empty( $exclude_categories ) && is_array( $exclude_categories ) ) {
+			$tax_query[] = array(
+				'taxonomy' => 'product_cat',
+				'field'    => 'term_id',
+				'terms'    => array_map( 'absint', $exclude_categories ),
+				'operator' => 'NOT IN',
+			);
+		}
+
+		$exclude_taxonomies = wss_get_option( 'exclude_taxonomies', array() );
+		if ( ! empty( $exclude_taxonomies ) && is_array( $exclude_taxonomies ) ) {
+			foreach ( $exclude_taxonomies as $tax_slug => $term_ids ) {
+				if ( ! empty( $term_ids ) && is_array( $term_ids ) && taxonomy_exists( $tax_slug ) ) {
+					$tax_query[] = array(
+						'taxonomy' => sanitize_key( $tax_slug ),
+						'field'    => 'term_id',
+						'terms'    => array_map( 'absint', $term_ids ),
+						'operator' => 'NOT IN',
+					);
+				}
+			}
+		}
+
+		if ( ! empty( $tax_query ) ) {
+			$tax_query['relation'] = 'AND';
+			$args['tax_query']     = $tax_query; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query
+		}
 
 		$wp_query = new WP_Query( $args );
 		$hits     = array();

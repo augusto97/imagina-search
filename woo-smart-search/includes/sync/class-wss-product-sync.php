@@ -25,7 +25,6 @@ class WSS_Product_Sync {
 		// Incremental sync hooks.
 		add_action( 'woocommerce_update_product', array( $this, 'schedule_product_update' ), 10, 1 );
 		add_action( 'woocommerce_new_product', array( $this, 'schedule_product_update' ), 10, 1 );
-		add_action( 'save_post_product', array( $this, 'on_save_post_product' ), 20, 3 );
 		add_action( 'before_delete_post', array( $this, 'schedule_product_delete' ) );
 		add_action( 'wp_trash_post', array( $this, 'schedule_product_delete' ) );
 		add_action( 'untrash_post', array( $this, 'schedule_product_update' ) );
@@ -53,10 +52,23 @@ class WSS_Product_Sync {
 		// WooCommerce CSV import completion.
 		add_action( 'woocommerce_product_import_inserted_product_object', array( $this, 'on_import_product' ), 10, 1 );
 
+		// WP All Import — fires after each record is saved.
+		add_action( 'pmxi_saved_post', array( $this, 'on_wp_all_import_saved' ), 10, 1 );
+		// WP All Import — fires after the entire import is complete.
+		add_action( 'pmxi_after_xml_import', array( $this, 'on_wp_all_import_complete' ), 10, 0 );
+
+		// ATUM Inventory / any plugin that fires this generic WC hook.
+		add_action( 'woocommerce_product_object_updated_props', array( $this, 'on_product_props_updated' ), 10, 1 );
+
+		// Catch-all: any save_post on product type, low priority so other
+		// plugins finish their meta writes first.
+		add_action( 'save_post_product', array( $this, 'on_save_post_product' ), 99, 3 );
+
 		// Bulk sync action (chain pattern).
 		add_action( 'wss_bulk_sync_batch', array( $this, 'process_bulk_sync_batch' ), 10, 1 );
 
-		// Periodic re-indexation.
+		// Periodic re-indexation — the ultimate safety net for changes that
+		// bypass ALL WordPress hooks (direct SQL, ERPs, WP-CLI, etc.).
 		add_action( 'wss_periodic_reindex', array( $this, 'run_periodic_reindex' ) );
 	}
 
@@ -290,6 +302,37 @@ class WSS_Product_Sync {
 	}
 
 	/**
+	 * WP All Import — fires after each record is saved.
+	 *
+	 * @param int $post_id Imported post ID.
+	 */
+	public function on_wp_all_import_saved( $post_id ) {
+		if ( 'product' === get_post_type( $post_id ) ) {
+			WSS_Sync_Queue::add( absint( $post_id ), 'update' );
+		}
+	}
+
+	/**
+	 * WP All Import — fires when the entire import is complete. Useful
+	 * for catching any items that slipped through individual hooks.
+	 */
+	public function on_wp_all_import_complete() {
+		WSS_Sync_Queue::add_wake_up();
+	}
+
+	/**
+	 * WooCommerce product props updated — fires from WC core and some
+	 * inventory/ERP plugins (ATUM, TradeGecko connectors, etc.).
+	 *
+	 * @param WC_Product $product Product object.
+	 */
+	public function on_product_props_updated( $product ) {
+		if ( $product && method_exists( $product, 'get_id' ) ) {
+			$this->schedule_product_update( $product->get_id() );
+		}
+	}
+
+	/**
 	 * Run periodic re-indexation.
 	 *
 	 * Finds products that may be out of sync (modified after last sync)
@@ -302,7 +345,8 @@ class WSS_Product_Sync {
 		$last_reindex = (int) get_option( 'wss_last_periodic_reindex', 0 );
 		$cutoff       = $last_reindex > 0 ? gmdate( 'Y-m-d H:i:s', $last_reindex ) : gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS );
 
-		// Find published products modified since last re-index.
+		// 1) Products whose post row was modified (covers title, status,
+		//    slug, description, and any plugin that calls wp_update_post).
 		$stale_ids = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare(
 				"SELECT ID FROM {$wpdb->posts}
@@ -313,6 +357,40 @@ class WSS_Product_Sync {
 				$cutoff
 			)
 		);
+
+		// 2) Products whose meta was changed (covers direct-DB price/stock
+		//    updates from ERPs, WP All Import, bulk-edit plugins, etc.).
+		//    WooCommerce stores a _last_stock_change timestamp on stock
+		//    updates and _price_last_change in some versions, but the most
+		//    reliable check is looking at the postmeta table directly for
+		//    any row modified after our cutoff by checking the meta_id
+		//    auto-increment (larger ID = newer row).
+		$last_meta_id = (int) get_option( 'wss_last_periodic_reindex_meta_id', 0 );
+		if ( $last_meta_id > 0 ) {
+			$meta_stale_ids = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+				$wpdb->prepare(
+					"SELECT DISTINCT p.ID
+					FROM {$wpdb->postmeta} pm
+					INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+					WHERE p.post_type = 'product' AND p.post_status = 'publish'
+					AND pm.meta_id > %d
+					AND pm.meta_key IN ('_price','_regular_price','_sale_price','_stock','_stock_status','_sku','_sale_price_dates_from','_sale_price_dates_to')
+					ORDER BY pm.meta_id ASC
+					LIMIT 500",
+					$last_meta_id
+				)
+			);
+
+			if ( ! empty( $meta_stale_ids ) ) {
+				$stale_ids = array_unique( array_merge( $stale_ids ?: array(), $meta_stale_ids ) );
+			}
+		}
+
+		// Store the current max meta_id for next run's comparison.
+		$current_max_meta_id = (int) $wpdb->get_var( "SELECT MAX(meta_id) FROM {$wpdb->postmeta}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		if ( $current_max_meta_id > 0 ) {
+			update_option( 'wss_last_periodic_reindex_meta_id', $current_max_meta_id, false );
+		}
 
 		if ( ! empty( $stale_ids ) ) {
 			foreach ( $stale_ids as $product_id ) {
@@ -330,6 +408,24 @@ class WSS_Product_Sync {
 		}
 
 		update_option( 'wss_last_periodic_reindex', time(), false );
+
+		// Prune orphaned index entries, but at most once every 6 hours to
+		// avoid the full index scan on every short reindex interval.
+		$last_prune = (int) get_option( 'wss_last_orphan_prune', 0 );
+		if ( time() - $last_prune > 6 * HOUR_IN_SECONDS ) {
+			$pruned = self::prune_orphans();
+			update_option( 'wss_last_orphan_prune', time(), false );
+			if ( $pruned > 0 ) {
+				wss_log(
+					sprintf(
+						/* translators: %d: number of orphans removed */
+						__( 'Periodic prune: removed %d orphaned index entries.', 'woo-smart-search' ),
+						$pruned
+					),
+					'info'
+				);
+			}
+		}
 	}
 
 	/**
@@ -525,6 +621,8 @@ class WSS_Product_Sync {
 			}
 		}
 
+		$batch_failed = false;
+
 		if ( ! empty( $documents ) ) {
 			$result = $engine->index_documents( $index_name, $documents );
 
@@ -538,7 +636,8 @@ class WSS_Product_Sync {
 					),
 					'error'
 				);
-				$errors += count( $documents );
+				$errors      += count( $documents );
+				$batch_failed = true;
 			} else {
 				foreach ( $documents as $doc ) {
 					do_action( 'wss_product_indexed', $doc['id'], $doc );
@@ -546,15 +645,27 @@ class WSS_Product_Sync {
 			}
 		}
 
-		// Update progress.
+		// Update progress + circuit breaker: abort after 3 consecutive failed
+		// batches instead of queueing hundreds of doomed jobs while the engine
+		// is down.
 		$progress = get_option( 'wss_sync_progress', array() );
 
 		if ( ! empty( $progress ) ) {
-			$progress['processed'] += count( $product_ids );
-			$progress['current']    = $page;
-			$progress['errors']    += $errors;
+			$progress['processed']            += count( $product_ids );
+			$progress['current']               = $page;
+			$progress['errors']               += $errors;
+			$progress['consecutive_failures']  = $batch_failed
+				? ( (int) ( $progress['consecutive_failures'] ?? 0 ) ) + 1
+				: 0;
 
 			update_option( 'wss_sync_progress', $progress, false );
+
+			if ( $progress['consecutive_failures'] >= 3 ) {
+				$progress['status'] = 'failed';
+				update_option( 'wss_sync_progress', $progress, false );
+				wss_log( __( 'Bulk sync aborted: 3 consecutive batch failures (engine unavailable?).', 'woo-smart-search' ), 'error' );
+				return;
+			}
 		}
 
 		// Schedule next batch (chain pattern).
@@ -584,8 +695,13 @@ class WSS_Product_Sync {
 			return;
 		}
 
+		// Remove orphaned index entries (products deleted/unpublished since
+		// the last sync) before marking complete.
+		$pruned = self::prune_orphans();
+
 		$progress['status']   = 'completed';
 		$progress['finished'] = time();
+		$progress['pruned']   = $pruned;
 
 		update_option( 'wss_sync_progress', $progress, false );
 
@@ -593,15 +709,90 @@ class WSS_Product_Sync {
 
 		wss_log(
 			sprintf(
-				/* translators: 1: processed count 2: error count */
-				__( 'Full sync completed: %1$d products processed, %2$d errors', 'woo-smart-search' ),
+				/* translators: 1: processed count 2: error count 3: pruned count */
+				__( 'Full sync completed: %1$d products processed, %2$d errors, %3$d orphans removed', 'woo-smart-search' ),
 				$progress['processed'],
-				$progress['errors']
+				$progress['errors'],
+				$pruned
 			),
 			$progress['errors'] > 0 ? 'warning' : 'info'
 		);
 
 		wss_update_option( 'last_sync', time() );
+	}
+
+	/**
+	 * Remove orphaned documents from the index.
+	 *
+	 * Compares every document ID in the index against the set of posts that
+	 * SHOULD be indexed (published products and/or configured post types).
+	 * Anything in the index but not in that set is a leftover from a deleted
+	 * or unpublished item and gets removed.
+	 *
+	 * @return int Number of orphaned documents removed.
+	 */
+	public static function prune_orphans(): int {
+		global $wpdb;
+
+		$engine = wss_get_engine();
+		if ( ! $engine || ! method_exists( $engine, 'get_all_document_ids' ) ) {
+			return 0;
+		}
+
+		$index_name   = wss_get_option( 'index_name', 'woo_products' );
+		$indexed_ids  = $engine->get_all_document_ids( $index_name );
+		if ( empty( $indexed_ids ) ) {
+			return 0;
+		}
+
+		// Build the set of IDs that legitimately belong in the index.
+		$content_source = wss_get_content_source();
+		$is_ecommerce   = wss_is_ecommerce_mode();
+		$is_mixed       = 'mixed' === $content_source;
+
+		$valid_ids = array();
+
+		if ( $is_ecommerce || $is_mixed ) {
+			$product_ids = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+				"SELECT ID FROM {$wpdb->posts} WHERE post_type = 'product' AND post_status = 'publish'" // phpcs:ignore WordPress.DB.PreparedSQL
+			);
+			$valid_ids = array_merge( $valid_ids, array_map( 'intval', $product_ids ) );
+		}
+
+		if ( ! $is_ecommerce || $is_mixed ) {
+			$post_types = class_exists( 'WSS_Post_Sync' ) ? WSS_Post_Sync::get_configured_post_types() : array( 'post' );
+			if ( ! empty( $post_types ) ) {
+				$placeholders = implode( ',', array_fill( 0, count( $post_types ), '%s' ) );
+				$post_ids     = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+					$wpdb->prepare(
+						"SELECT ID FROM {$wpdb->posts} WHERE post_type IN ({$placeholders}) AND post_status = 'publish'", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						...$post_types
+					)
+				);
+				$valid_ids = array_merge( $valid_ids, array_map( 'intval', $post_ids ) );
+			}
+		}
+
+		$valid_set = array_flip( $valid_ids );
+		$orphans   = array();
+
+		foreach ( $indexed_ids as $doc_id ) {
+			if ( ! isset( $valid_set[ $doc_id ] ) ) {
+				$orphans[] = $doc_id;
+			}
+		}
+
+		// Safety guard: if the "valid" set is empty (e.g., a transient DB
+		// hiccup), do NOT wipe the whole index — bail out instead.
+		if ( empty( $valid_ids ) ) {
+			return 0;
+		}
+
+		foreach ( $orphans as $doc_id ) {
+			$engine->delete_document( $index_name, (string) $doc_id );
+		}
+
+		return count( $orphans );
 	}
 
 	/**

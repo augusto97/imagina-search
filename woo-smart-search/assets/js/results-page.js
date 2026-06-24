@@ -22,6 +22,48 @@
 	/* ---- Local engine mode ---- */
 	var useLocal = cfg.engineType === 'local' && !!cfg.localSearchUrl;
 
+	/* ---- Layout config ---- */
+	var layout = cfg.resultsLayout || 'default';
+	var layoutMobile = cfg.resultsLayoutMobile || 'same';
+	var allLayouts = [ 'default', 'amazon', 'temu', 'mercadolibre', 'aliexpress', 'shopify' ];
+	var currentLayout = layout;
+	var resizeTimer = null;
+
+	/**
+	 * Pick the layout that applies for the current viewport: the mobile
+	 * layout on small screens (when one is configured), otherwise desktop.
+	 */
+	function effectiveLayout() {
+		var isMobile = window.innerWidth <= 768;
+		if ( isMobile && layoutMobile && layoutMobile !== 'same' ) {
+			return layoutMobile;
+		}
+		return layout;
+	}
+
+	/**
+	 * Apply the effective layout class to the page, removing any other
+	 * layout class so only one is ever active.
+	 */
+	function applyResponsiveLayout() {
+		if ( ! dom.page ) return;
+		var target = effectiveLayout();
+		if ( target === currentLayout && dom.page.classList.contains( 'wss-layout-' + target ) ) {
+			return;
+		}
+		allLayouts.forEach( function ( l ) {
+			dom.page.classList.toggle( 'wss-layout-' + l, l === target && l !== 'default' );
+		} );
+		currentLayout = target;
+		// mercadolibre defaults to list view; others to grid. Only auto-switch
+		// when the user hasn't manually toggled the view this session.
+		if ( ! state.viewLocked ) {
+			var wantList = ( target === 'mercadolibre' );
+			state.view = wantList ? 'list' : 'grid';
+			if ( dom.grid ) dom.grid.classList.toggle( 'wss-view-list', wantList );
+		}
+	}
+
 	/* ---- State ---- */
 	var defaultView = ( layout === 'mercadolibre' ) ? 'list' : 'grid';
 	var state = {
@@ -42,8 +84,18 @@
 	/* ---- DOM refs (set on init) ---- */
 	var dom = {};
 
-	/* ---- Layout config ---- */
-	var layout = cfg.resultsLayout || 'default';
+	/**
+	 * Reject after `ms` so a slow (not down) engine still falls back to the
+	 * WP REST API instead of hanging the page indefinitely.
+	 */
+	function withTimeout( promise, ms ) {
+		return Promise.race( [
+			promise,
+			new Promise( function ( resolve, reject ) {
+				setTimeout( function () { reject( new Error( 'WSS engine timeout' ) ); }, ms );
+			} )
+		] );
+	}
 
 	/* ---- Init ---- */
 	function init() {
@@ -52,14 +104,16 @@
 			return;
 		}
 
-		dom.page           = page;
-		// Reveal the page (inline critical CSS already applied the layout).
-		page.classList.add( 'wss-ready' );
+		dom.page = page;
 
-		// Apply layout class (may already be set via PHP, but ensure JS also sets it).
-		if ( layout !== 'default' && ! page.classList.contains( 'wss-layout-' + layout ) ) {
-			page.classList.add( 'wss-layout-' + layout );
-		}
+		// Apply the layout for the current viewport (desktop vs mobile).
+		applyResponsiveLayout();
+
+		// Re-evaluate the layout when the viewport crosses the breakpoint.
+		window.addEventListener( 'resize', function () {
+			clearTimeout( resizeTimer );
+			resizeTimer = setTimeout( applyResponsiveLayout, 150 );
+		} );
 
 		// Apply image ratio utility class.
 		var imgRatio = cfg.rpImageRatio || '1:1';
@@ -167,6 +221,7 @@
 					btns.forEach( function ( b ) { b.classList.remove( 'wss-active' ); } );
 					btn.classList.add( 'wss-active' );
 					state.view = btn.dataset.view;
+					state.viewLocked = true; // user chose a view; don't auto-switch on layout change
 					if ( dom.grid ) {
 						dom.grid.classList.toggle( 'wss-view-list', state.view === 'list' );
 					}
@@ -188,9 +243,82 @@
 			dom.mobileOverlay.addEventListener( 'click', closeMobileFilters );
 		}
 
-		if ( dom.filterClose ) {
-			dom.filterClose.addEventListener( 'click', closeMobileFilters );
+		// Click tracking — single delegated listener (results re-render often;
+		// per-link listeners would accumulate and fire N times).
+		if ( dom.grid ) {
+			dom.grid.addEventListener( 'click', function ( e ) {
+				var link = e.target.closest( '.wss-product-card a' );
+				if ( ! link || ! dom.grid.contains( link ) ) return;
+				var card = link.closest( '.wss-product-card' );
+				var productId = card ? card.dataset.id : '';
+				if ( productId && cfg.trackClickUrl ) {
+					trackClick( state.query, productId );
+				}
+			} );
 		}
+
+		// Sidebar — single delegated set of listeners. The sidebar HTML is
+		// re-rendered on every search, so per-element listeners would leak.
+		if ( dom.sidebar ) {
+			bindSidebarDelegation();
+		}
+	}
+
+	function bindSidebarDelegation() {
+		// Collapse toggle + mobile close.
+		dom.sidebar.addEventListener( 'click', function ( e ) {
+			var closeBtn = e.target.closest( '.wss-filter-panel-close button' );
+			if ( closeBtn ) {
+				closeMobileFilters();
+				return;
+			}
+			var header = e.target.closest( '.wss-filter-group-header' );
+			if ( header ) {
+				header.closest( '.wss-filter-group' ).classList.toggle( 'wss-collapsed' );
+			}
+		} );
+
+		// Checkbox filters.
+		dom.sidebar.addEventListener( 'change', function ( e ) {
+			var cb = e.target;
+			if ( cb.type !== 'checkbox' ) return;
+			var group = cb.closest( '.wss-filter-group[data-filter]' );
+			if ( ! group ) return;
+			var filterKey = group.dataset.filter;
+			if ( filterKey === 'price' ) return;
+
+			if ( ! state.filters[ filterKey ] ) {
+				state.filters[ filterKey ] = [];
+			}
+			if ( cb.checked ) {
+				state.filters[ filterKey ].push( cb.value );
+			} else {
+				state.filters[ filterKey ] = state.filters[ filterKey ].filter( function ( v ) {
+					return v !== cb.value;
+				} );
+			}
+			state.page = 1;
+			performSearch();
+		} );
+
+		// Price inputs (input events bubble).
+		var priceDebounce;
+		dom.sidebar.addEventListener( 'input', function ( e ) {
+			if ( ! e.target.classList.contains( 'wss-price-min' ) && ! e.target.classList.contains( 'wss-price-max' ) ) {
+				return;
+			}
+			clearTimeout( priceDebounce );
+			priceDebounce = setTimeout( function () {
+				var minInput = dom.sidebar.querySelector( '.wss-price-min' );
+				var maxInput = dom.sidebar.querySelector( '.wss-price-max' );
+				var minVal = minInput ? minInput.value : '';
+				var maxVal = maxInput ? maxInput.value : '';
+				state.priceMin = minVal !== '' ? parseFloat( minVal ) : null;
+				state.priceMax = maxVal !== '' ? parseFloat( maxVal ) : null;
+				state.page = 1;
+				performSearch();
+			}, 500 );
+		} );
 	}
 
 	function closeMobileFilters() {
@@ -287,9 +415,9 @@
 				localParams += '&sort=' + encodeURIComponent( state.sort );
 			}
 
-			searchPromise = fetch( cfg.localSearchUrl + '?' + localParams, {
+			searchPromise = withTimeout( fetch( cfg.localSearchUrl + '?' + localParams, {
 				signal: state.controller.signal
-			} )
+			} ), 6000 )
 			.then( function ( res ) {
 				if ( ! res.ok ) throw new Error( 'Local HTTP ' + res.status );
 				return res.json();
@@ -343,7 +471,7 @@
 				body.sort = [ state.sort ];
 			}
 
-			searchPromise = fetch( meiliSearchUrl, {
+			searchPromise = withTimeout( fetch( meiliSearchUrl, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -351,7 +479,7 @@
 				},
 				body: JSON.stringify( body ),
 				signal: state.controller.signal
-			} )
+			} ), 6000 )
 			.then( function ( res ) {
 				if ( ! res.ok ) throw new Error( 'Meili HTTP ' + res.status );
 				return res.json();
@@ -471,16 +599,6 @@
 		}
 
 		dom.grid.innerHTML = html;
-
-		// Click tracking.
-		dom.grid.querySelectorAll( '.wss-product-card a' ).forEach( function ( link ) {
-			link.addEventListener( 'click', function () {
-				var productId = link.closest( '.wss-product-card' ).dataset.id;
-				if ( productId && cfg.trackClickUrl ) {
-					trackClick( state.query, productId );
-				}
-			} );
-		} );
 	}
 
 	function buildProductCard( hit ) {
@@ -493,7 +611,7 @@
 
 		var imgSrc    = hit.image || cfg.placeholderImg || '';
 		var name      = hit.name_highlighted ? sanitizeHighlight( hit.name_highlighted ) : escapeHtml( decodeHtml( hit.name || '' ) );
-		var category  = ( hit.categories && hit.categories.length ) ? escapeHtml( decodeHtml( hit.categories[0] ) ) : '';
+		var category  = ( cfg.rpShowCategory && hit.categories && hit.categories.length ) ? escapeHtml( decodeHtml( hit.categories[0] ) ) : '';
 		var permalink = hit.permalink || '#';
 		var saleBadge = '';
 
@@ -501,11 +619,13 @@
 		var priceHtml = '';
 		var isOnSale = false;
 		var discountPercent = 0;
-		if ( typeof hit.price !== 'undefined' ) {
+		if ( cfg.rpShowPrice && typeof hit.price !== 'undefined' ) {
 			if ( hit.on_sale && hit.regular_price > hit.price ) {
 				isOnSale = true;
 				discountPercent = Math.round( ( 1 - hit.price / hit.regular_price ) * 100 );
-				saleBadge = '<span class="wss-sale-badge">-' + discountPercent + '%</span>';
+				if ( cfg.rpShowSaleBadge ) {
+					saleBadge = '<span class="wss-sale-badge">-' + discountPercent + '%</span>';
+				}
 				priceHtml = '<span class="wss-price-current wss-on-sale">' + formatPrice( hit.price ) + '</span>' +
 					'<span class="wss-price-regular">' + formatPrice( hit.regular_price ) + '</span>';
 			} else if ( hit.price_min && hit.price_max && hit.price_min !== hit.price_max ) {
@@ -518,7 +638,7 @@
 
 		// Stock.
 		var stockHtml = '';
-		if ( hit.stock_status ) {
+		if ( cfg.rpShowStock && hit.stock_status ) {
 			var stockClass = 'wss-stock-' + hit.stock_status;
 			var stockLabel = hit.stock_status === 'instock' ? ( cfg.i18n ? cfg.i18n.inStock : 'In stock' ) :
 				hit.stock_status === 'outofstock' ? ( cfg.i18n ? cfg.i18n.outOfStock : 'Out of stock' ) :
@@ -530,53 +650,75 @@
 
 		// Rating.
 		var ratingHtml = '';
-		if ( hit.rating && hit.rating > 0 ) {
+		if ( cfg.rpShowRating && hit.rating && hit.rating > 0 ) {
 			ratingHtml = '<div class="wss-product-card-rating">' +
 				'<span class="wss-stars">' + buildStars( hit.rating ) + '</span>' +
 				( hit.review_count ? '<span class="wss-review-count">(' + hit.review_count + ')</span>' : '' ) +
 				'</div>';
 		}
 
-		// Short description (visible in list view via CSS).
-		var descHtml = hit.description ? '<div class="wss-product-card-description">' + escapeHtml( hit.description ).substring( 0, 120 ) + '</div>' : '';
+		// SKU.
+		var skuHtml = '';
+		if ( cfg.rpShowSku && hit.sku ) {
+			skuHtml = '<div class="wss-product-card-sku">SKU: ' + escapeHtml( hit.sku ) + '</div>';
+		}
+
+		// Short description.
+		var descHtml = '';
+		if ( cfg.rpShowDescription && hit.description ) {
+			descHtml = '<div class="wss-product-card-description">' + escapeHtml( hit.description ).substring( 0, 120 ) + '</div>';
+		}
 
 		// Discount badge (separate from sale badge, positioned by layout CSS).
 		var discountBadgeHtml = '';
-		if ( isOnSale && discountPercent > 0 ) {
+		if ( cfg.rpShowSaleBadge && isOnSale && discountPercent > 0 ) {
 			discountBadgeHtml = '<span class="wss-discount-badge">-' + discountPercent + '%</span>';
 		}
 
-		// Sold/orders count (shown by specific layouts).
+		// Sold/orders count.
 		var soldHtml = '';
-		if ( hit.total_sales && hit.total_sales > 0 ) {
+		if ( cfg.rpShowSold && hit.total_sales && hit.total_sales > 0 ) {
 			var soldText = hit.total_sales >= 1000
 				? ( Math.floor( hit.total_sales / 1000 ) + 'k+ ' + ( cfg.i18n ? cfg.i18n.sold || 'sold' : 'sold' ) )
 				: ( hit.total_sales + ' ' + ( cfg.i18n ? cfg.i18n.sold || 'sold' : 'sold' ) );
 			soldHtml = '<div class="wss-product-card-sold">' + escapeHtml( soldText ) + '</div>';
 		}
 
-		// Shipping badge (shown by specific layouts).
-		var shippingHtml = '<div class="wss-product-card-shipping">' +
-			escapeHtml( cfg.i18n ? cfg.i18n.freeShipping || 'Free shipping' : 'Free shipping' ) + '</div>';
+		// Shipping badge.
+		var shippingHtml = '';
+		if ( cfg.rpShowShipping ) {
+			shippingHtml = '<div class="wss-product-card-shipping">' +
+				escapeHtml( cfg.i18n ? cfg.i18n.freeShipping || 'Free shipping' : 'Free shipping' ) + '</div>';
+		}
 
-		// Add to Cart button (shown by specific layouts).
-		var addToCartText = cfg.i18n ? cfg.i18n.addToCart || 'Add to Cart' : 'Add to Cart';
-		var actionsHtml = '<div class="wss-product-card-actions">' +
-			'<a href="' + escapeHtml( permalink ) + '" class="wss-add-to-cart-btn">' + escapeHtml( addToCartText ) + '</a>' +
-			'</div>';
+		// Add to Cart button.
+		var actionsHtml = '';
+		if ( cfg.rpShowAddToCart ) {
+			var addToCartText = cfg.i18n ? cfg.i18n.addToCart || 'Add to Cart' : 'Add to Cart';
+			actionsHtml = '<div class="wss-product-card-actions" style="display:block">' +
+				'<a href="' + escapeHtml( permalink ) + '" class="wss-add-to-cart-btn">' + escapeHtml( addToCartText ) + '</a>' +
+				'</div>';
+		}
 
-		return '<div class="wss-product-card" data-id="' + ( hit.id || '' ) + '">' +
-			'<a href="' + escapeHtml( permalink ) + '">' +
-			'<div class="wss-product-card-image">' +
+		// Image.
+		var imageHtml = '';
+		if ( cfg.rpShowImage ) {
+			imageHtml = '<div class="wss-product-card-image">' +
 				saleBadge +
 				discountBadgeHtml +
 				'<img src="' + escapeHtml( imgSrc ) + '" alt="' + escapeHtml( hit.name || '' ) + '" loading="lazy" />' +
-			'</div>' +
+			'</div>';
+		}
+
+		return '<div class="wss-product-card" data-id="' + ( hit.id || '' ) + '">' +
+			'<a href="' + escapeHtml( permalink ) + '">' +
+			imageHtml +
 			'<div class="wss-product-card-body">' +
 				( category ? '<div class="wss-product-card-category">' + category + '</div>' : '' ) +
 				'<div class="wss-product-card-name">' + name + '</div>' +
+				skuHtml +
 				descHtml +
-				'<div class="wss-product-card-price">' + priceHtml + '</div>' +
+				( priceHtml ? '<div class="wss-product-card-price">' + priceHtml + '</div>' : '' ) +
 				stockHtml +
 				ratingHtml +
 				soldHtml +
@@ -593,15 +735,15 @@
 	function buildPostCard( hit ) {
 		var imgSrc    = hit.image || cfg.placeholderImg || '';
 		var name      = hit.name_highlighted ? sanitizeHighlight( hit.name_highlighted ) : escapeHtml( decodeHtml( hit.name || '' ) );
-		var category  = ( cfg.showCategory !== false && hit.categories && hit.categories.length ) ? escapeHtml( decodeHtml( hit.categories[0] ) ) : '';
+		var category  = ( cfg.rpShowCategory && hit.categories && hit.categories.length ) ? escapeHtml( decodeHtml( hit.categories[0] ) ) : '';
 		var permalink = hit.permalink || '#';
-		var excerpt   = ( cfg.showExcerpt !== false && hit.description ) ? escapeHtml( hit.description ).substring( 0, 150 ) : '';
-		var author    = ( cfg.showAuthor !== false && hit.author ) ? escapeHtml( hit.author ) : '';
+		var excerpt   = ( cfg.rpShowDescription && hit.description ) ? escapeHtml( hit.description ).substring( 0, 150 ) : '';
+		var author    = ( cfg.showAuthor && hit.author ) ? escapeHtml( hit.author ) : '';
 		var postType  = ( cfg.showPostType && hit.post_type ) ? escapeHtml( hit.post_type ) : '';
 
 		// Date.
 		var dateHtml = '';
-		if ( cfg.showDate !== false && hit.date_created ) {
+		if ( cfg.showDate && hit.date_created ) {
 			var d = new Date( hit.date_created * 1000 );
 			dateHtml = '<span class="wss-post-date">' + d.toLocaleDateString() + '</span>';
 		}
@@ -618,7 +760,7 @@
 
 		// Image section.
 		var imageHtml = '';
-		if ( cfg.showImage !== false ) {
+		if ( cfg.rpShowImage ) {
 			imageHtml = '<div class="wss-product-card-image">' +
 				'<img src="' + escapeHtml( imgSrc ) + '" alt="' + escapeHtml( hit.name || '' ) + '" loading="lazy" />' +
 			'</div>';
@@ -726,15 +868,7 @@
 		} );
 
 		dom.sidebar.innerHTML = html;
-
-		// Re-bind close button.
-		var newClose = dom.sidebar.querySelector( '.wss-filter-panel-close button' );
-		if ( newClose ) {
-			newClose.addEventListener( 'click', closeMobileFilters );
-		}
-
-		// Bind filter events.
-		bindFilterEvents();
+		// Events handled by delegation (bindSidebarDelegation) — nothing to re-bind.
 	}
 
 	function buildCheckboxFilter( key, label, values ) {
@@ -783,10 +917,10 @@
 	}
 
 	function buildRatingFilter( values ) {
-		var i = cfg.i18n || {};
+		var t = cfg.i18n || {};
 		var html = '<div class="wss-filter-group wss-rating-filter" data-filter="rating">' +
 			'<button class="wss-filter-group-header" type="button">' +
-			'<span>' + escapeHtml( i.rating || 'Rating' ) + '</span>' +
+			'<span>' + escapeHtml( t.rating || 'Rating' ) + '</span>' +
 			'<span class="wss-chevron">&#9660;</span>' +
 			'</button><div class="wss-filter-group-body">';
 
@@ -804,60 +938,6 @@
 
 		html += '</div></div>';
 		return html;
-	}
-
-	function bindFilterEvents() {
-		if ( ! dom.sidebar ) return;
-
-		// Collapse toggle.
-		dom.sidebar.querySelectorAll( '.wss-filter-group-header' ).forEach( function ( header ) {
-			header.addEventListener( 'click', function () {
-				header.closest( '.wss-filter-group' ).classList.toggle( 'wss-collapsed' );
-			} );
-		} );
-
-		// Checkbox filters.
-		dom.sidebar.querySelectorAll( '.wss-filter-group[data-filter]' ).forEach( function ( group ) {
-			var filterKey = group.dataset.filter;
-			if ( filterKey === 'price' ) return;
-
-			group.querySelectorAll( 'input[type="checkbox"]' ).forEach( function ( cb ) {
-				cb.addEventListener( 'change', function () {
-					if ( ! state.filters[ filterKey ] ) {
-						state.filters[ filterKey ] = [];
-					}
-					if ( cb.checked ) {
-						state.filters[ filterKey ].push( cb.value );
-					} else {
-						state.filters[ filterKey ] = state.filters[ filterKey ].filter( function ( v ) {
-							return v !== cb.value;
-						} );
-					}
-					state.page = 1;
-					performSearch();
-				} );
-			} );
-		} );
-
-		// Price inputs.
-		var priceMinInput = dom.sidebar.querySelector( '.wss-price-min' );
-		var priceMaxInput = dom.sidebar.querySelector( '.wss-price-max' );
-
-		var priceDebounce;
-		function onPriceChange() {
-			clearTimeout( priceDebounce );
-			priceDebounce = setTimeout( function () {
-				var minVal = priceMinInput ? priceMinInput.value : '';
-				var maxVal = priceMaxInput ? priceMaxInput.value : '';
-				state.priceMin = minVal !== '' ? parseFloat( minVal ) : null;
-				state.priceMax = maxVal !== '' ? parseFloat( maxVal ) : null;
-				state.page = 1;
-				performSearch();
-			}, 500 );
-		}
-
-		if ( priceMinInput ) priceMinInput.addEventListener( 'input', onPriceChange );
-		if ( priceMaxInput ) priceMaxInput.addEventListener( 'input', onPriceChange );
 	}
 
 	/* ---- Active Filters ---- */

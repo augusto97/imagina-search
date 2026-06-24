@@ -323,6 +323,42 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 	}
 
 	/**
+	 * Get all document IDs currently stored in an index.
+	 *
+	 * Paginates through the documents endpoint requesting only the id field.
+	 * Used to prune orphaned entries.
+	 *
+	 * @param string $index_name Index name.
+	 * @return int[] Array of document IDs.
+	 */
+	public function get_all_document_ids( string $index_name ): array {
+		$ids    = array();
+		$offset = 0;
+		$limit  = 1000;
+
+		do {
+			$response = $this->request(
+				'GET',
+				'/indexes/' . $index_name . '/documents?fields=id&limit=' . $limit . '&offset=' . $offset
+			);
+			if ( is_wp_error( $response ) ) {
+				break;
+			}
+			$body    = json_decode( wp_remote_retrieve_body( $response ), true );
+			$results = isset( $body['results'] ) ? $body['results'] : array();
+			foreach ( $results as $doc ) {
+				if ( isset( $doc['id'] ) ) {
+					$ids[] = (int) $doc['id'];
+				}
+			}
+			$count   = count( $results );
+			$offset += $limit;
+		} while ( $count === $limit );
+
+		return $ids;
+	}
+
+	/**
 	 * Search documents.
 	 *
 	 * @param string $index_name Index name.
@@ -556,7 +592,13 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 			$material .= AUTH_SALT;
 		}
 		if ( empty( $material ) ) {
-			$material = 'wss-fallback-' . DB_NAME . DB_USER;
+			// No WP salts configured — use a random key generated once and
+			// persisted, instead of guessable DB credentials.
+			$material = get_option( 'wss_encryption_key' );
+			if ( empty( $material ) ) {
+				$material = bin2hex( random_bytes( 32 ) );
+				update_option( 'wss_encryption_key', $material, false );
+			}
 		}
 		return hash( 'sha256', 'wss-api-key-encryption:' . $material, true );
 	}

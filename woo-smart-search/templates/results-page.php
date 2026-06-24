@@ -13,15 +13,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$wss_settings    = get_option( 'wss_settings', array() );
-$i18n            = WSS_Frontend::get_frontend_i18n( $wss_settings );
-$results_layout  = $wss_settings['results_layout'] ?? 'default';
-$layout_class    = 'default' !== $results_layout ? ' wss-layout-' . esc_attr( $results_layout ) : '';
+$wss_settings        = get_option( 'wss_settings', array() );
+$i18n                = WSS_Frontend::get_frontend_i18n( $wss_settings );
+$results_layout      = $wss_settings['results_layout'] ?? 'default';
+$results_layout_m    = $wss_settings['results_layout_mobile'] ?? 'same';
+// Base class = desktop layout (JS swaps it for the mobile layout on small
+// screens when a distinct mobile layout is configured).
+$layout_class        = 'default' !== $results_layout ? ' wss-layout-' . esc_attr( $results_layout ) : '';
 ?>
 
 <style>
-.wss-results-page{display:flex;gap:30px;max-width:1200px;width:100%;margin:0 auto;padding:20px 0;font-size:14px;box-sizing:border-box;opacity:0;transition:opacity .15s ease-out}
-.wss-results-page.wss-ready{opacity:1}
+.wss-results-page{display:flex;gap:30px;max-width:1200px;width:100%;margin:0 auto;padding:20px 0;font-size:14px;box-sizing:border-box}
 .wss-results-page *,.wss-results-page *::before,.wss-results-page *::after{box-sizing:border-box}
 .wss-results-main{flex:1;min-width:0;width:0;position:relative}
 .wss-filters-sidebar{width:260px;flex-shrink:0}
@@ -32,9 +34,10 @@ $layout_class    = 'default' !== $results_layout ? ' wss-layout-' . esc_attr( $r
 .wss-products-grid{display:grid;grid-template-columns:repeat(var(--wss-rp-columns,3),1fr);gap:var(--wss-rp-card-gap,20px)}
 .wss-mobile-filter-toggle{display:none}
 .wss-results-loading{display:none;position:absolute;top:0;left:0;right:0;bottom:0;z-index:10;background:rgba(255,255,255,.7);justify-content:center;align-items:center}
+.wss-results-loading.wss-visible{display:flex}
 @media(max-width:768px){.wss-results-page{flex-direction:column}.wss-results-main{width:100%}.wss-filters-sidebar{width:100%;position:fixed;top:0;left:-100%;bottom:0;z-index:999999}.wss-mobile-filter-toggle{display:block;width:100%;padding:10px 16px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;font-weight:600;cursor:pointer;margin-bottom:16px;text-align:center}.wss-products-grid{grid-template-columns:repeat(2,1fr);gap:12px}}
 </style>
-<div class="wss-results-page<?php echo esc_attr( $layout_class ); ?>" style="background:var(--wss-rp-page-bg,#f9fafb)">
+<div class="wss-results-page<?php echo esc_attr( $layout_class ); ?>" data-wss-layout="<?php echo esc_attr( $results_layout ); ?>" data-wss-layout-mobile="<?php echo esc_attr( $results_layout_m ); ?>">
 
 	<!-- Mobile filter toggle -->
 	<button class="wss-mobile-filter-toggle" type="button">
@@ -114,4 +117,3 @@ $layout_class    = 'default' !== $results_layout ? ' wss-layout-' . esc_attr( $r
 	</div>
 
 </div>
-<script>setTimeout(function(){var p=document.querySelector('.wss-results-page');if(p)p.classList.add('wss-ready')},2000)</script>

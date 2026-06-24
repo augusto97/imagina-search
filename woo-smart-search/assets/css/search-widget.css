@@ -169,6 +169,31 @@
 	background-color: rgba(0, 0, 0, 0.05);
 }
 
+/* Icon position: right — clear button sits just left of the icon, never over the text. */
+.wss-icon-right .wss-search-input {
+	padding: 0 72px 0 14px !important;
+}
+
+.wss-icon-right .wss-search-icon,
+.wss-icon-right .wss-search-spinner {
+	left: auto !important;
+	right: 12px !important;
+}
+
+.wss-icon-right .wss-search-clear {
+	left: auto !important;
+	right: 38px !important;
+}
+
+/* Icon hidden */
+.wss-icon-hidden .wss-search-input {
+	padding: 0 40px 0 14px !important;
+}
+
+.wss-icon-hidden .wss-search-icon {
+	display: none !important;
+}
+
 /* ============================================
    Dropdown
    ============================================ */
@@ -650,32 +675,10 @@
 		display: block;
 	}
 
-	.wss-search-wrapper.wss-mobile-open .wss-results-dropdown {
-		position: fixed;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		max-height: none;
-		border-radius: 0;
-		border: none;
-		z-index: var(--wss-z-index);
-		padding-top: 60px;
-		overflow-y: auto;
-	}
-
-	.wss-search-wrapper.wss-mobile-open .wss-search-input-container {
-		position: fixed !important;
-		top: 0 !important;
-		left: 0 !important;
-		right: 0 !important;
-		z-index: calc(var(--wss-z-index) + 1);
-		padding: 8px 12px !important;
-		background: var(--wss-bg-color) !important;
-		border-bottom: 1px solid var(--wss-border-color);
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-		width: auto !important;
-	}
+	/* Mobile overlay layout is applied inline by JS
+	   (applyMobileOverlayStyles / removeMobileOverlayStyles) to be
+	   immune to CSS caching. These rules only exist as a fallback
+	   for when JS hasn't initialised yet — unlikely but defensive. */
 }
 
 /* ============================================
@@ -1700,43 +1703,6 @@
 	}
 }
 
-/* ============================================
-   Mobile Close — Improved Button
-   ============================================ */
-
-@media (max-width: 767px) {
-	.wss-search-wrapper.wss-mobile-open .wss-mobile-close-btn {
-		display: flex !important;
-	}
-}
-
-.wss-mobile-close-btn {
-	display: none !important;
-	position: fixed;
-	top: 10px;
-	right: 12px;
-	z-index: calc(var(--wss-z-index) + 2);
-	align-items: center;
-	gap: 4px;
-	padding: 6px 14px;
-	background: var(--wss-bg-color);
-	border: 1px solid var(--wss-border-color);
-	border-radius: 999px;
-	cursor: pointer;
-	font-size: 0.85em;
-	font-weight: 500;
-	color: var(--wss-text-secondary);
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-	transition: background-color 0.15s ease, color 0.15s ease;
-	font-family: inherit;
-}
-
-.wss-mobile-close-btn:hover {
-	background-color: #f3f4f6;
-	color: var(--wss-text-color);
-}
-
-.wss-mobile-close-btn svg {
-	width: 16px;
-	height: 16px;
-}
+/* Mobile back button + overlay layout: styled by the inline <style>
+   block in templates/search-widget.php so the rules always ship in the
+   same response as the HTML (immune to stylesheet caching). */

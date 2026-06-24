@@ -18,7 +18,7 @@
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 	font-size: var(--wss-font-size-base, 14px);
 	color: var(--wss-text-color, #1f2937);
-	background: var(--wss-rp-page-bg, #f9fafb);
+	background: var(--wss-rp-page-bg, transparent);
 	box-sizing: border-box;
 }
 
@@ -470,10 +470,24 @@
 	color: var(--wss-text-secondary, #6b7280);
 }
 
-/* ===== Product Description (hidden in grid, shown in list) ===== */
+/* ===== Product Description & SKU =====
+   Only rendered when their Visible Elements toggles are enabled, so show them. */
 
 .wss-product-card-description {
-	display: none;
+	font-size: 0.85em;
+	color: var(--wss-text-secondary, #6b7280);
+	margin-bottom: 6px;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.wss-product-card-sku {
+	font-size: 0.78em;
+	color: var(--wss-text-secondary, #6b7280);
+	margin-bottom: 4px;
+	font-family: monospace;
 }
 
 /* ===== List View ===== */
@@ -931,7 +945,7 @@
 	width: 100%;
 	padding: 8px 16px;
 	border: none;
-	border-radius: var(--wss-rp-card-radius, 8px);
+	border-radius: var(--wss-rp-button-radius, 8px);
 	background: var(--wss-rp-button-bg, #2563eb);
 	color: var(--wss-rp-button-text, #fff);
 	font-size: 0.85em;
@@ -943,7 +957,9 @@
 }
 
 .wss-product-card-actions .wss-add-to-cart-btn:hover {
-	opacity: 0.9;
+	background: var(--wss-rp-button-hover-bg, var(--wss-rp-button-bg, #2563eb));
+	color: var(--wss-rp-button-hover-text, var(--wss-rp-button-text, #fff));
+	opacity: 0.92;
 }
 
 /* ===== Discount Badge (Percentage - layout-specific) ===== */
@@ -1205,13 +1221,17 @@
 .wss-layout-amazon .wss-add-to-cart-btn {
 	background: var(--wss-rp-button-bg, #ffd814);
 	color: var(--wss-rp-button-text, #0f1111);
-	border-radius: 20px;
+	border-radius: var(--wss-rp-button-radius, 20px);
 	font-weight: 500;
 	font-size: 0.85em;
 	border: 1px solid #fcd200;
 }
 
-.wss-layout-amazon .wss-add-to-cart-btn:hover { background: #f7ca00; opacity: 1; }
+.wss-layout-amazon .wss-add-to-cart-btn:hover {
+	background: var(--wss-rp-button-hover-bg, #f7ca00);
+	color: var(--wss-rp-button-hover-text, #0f1111);
+	opacity: 1;
+}
 
 .wss-layout-amazon .wss-sale-badge {
 	background: var(--wss-rp-badge-bg, #cc0c39);
@@ -2498,7 +2518,7 @@
 	background: transparent;
 	color: var(--wss-text-color, #333);
 	border: 1px solid var(--wss-text-color, #333);
-	border-radius: 0;
+	border-radius: var(--wss-rp-button-radius, 0);
 	text-transform: uppercase;
 	font-size: 0.72em;
 	letter-spacing: 0.12em;
@@ -2509,8 +2529,8 @@
 }
 
 .wss-layout-shopify .wss-add-to-cart-btn:hover {
-	background: var(--wss-text-color, #333);
-	color: #fff;
+	background: var(--wss-rp-button-hover-bg, var(--wss-text-color, #333));
+	color: var(--wss-rp-button-hover-text, #fff);
 	opacity: 1;
 }
 

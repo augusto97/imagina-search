@@ -11,13 +11,39 @@
               <el-option :value="0" label="— Select a page —" />
               <el-option v-for="p in pages" :key="p.id" :value="p.id" :label="p.title" />
             </el-select>
+            <div style="margin-top:6px; font-size:12px; color:#6b7280; line-height:1.5">
+              Just select any page — the search results will render automatically.
+              No shortcode needed. (Advanced: you can still use
+              <code style="background:#f3f4f6;padding:1px 5px;border-radius:3px">[woo_smart_search_results]</code>
+              to control exact placement.)
+            </div>
           </div>
         </div>
         <div class="wss-form-row">
-          <div class="wss-form-label">Results Layout</div>
+          <div class="wss-form-label">
+            Results Layout
+            <span class="wss-hint">Desktop layout</span>
+          </div>
           <div class="wss-form-control">
             <el-select v-model="settings.results_layout">
               <el-option value="default" label="Default — Clean grid with sidebar" />
+              <el-option value="amazon" label="Amazon — Ratings, Add to Cart" />
+              <el-option value="temu" label="Temu — Vibrant discounts, dense grid" />
+              <el-option value="mercadolibre" label="MercadoLibre — List view, shipping badges" />
+              <el-option value="aliexpress" label="AliExpress — Multi-column, orders count" />
+              <el-option value="shopify" label="Shopify — Minimal, elegant" />
+            </el-select>
+          </div>
+        </div>
+        <div class="wss-form-row">
+          <div class="wss-form-label">
+            Mobile Layout
+            <span class="wss-hint">Layout used on phones (≤768px)</span>
+          </div>
+          <div class="wss-form-control">
+            <el-select v-model="settings.results_layout_mobile">
+              <el-option value="same" label="Same as desktop" />
+              <el-option value="default" label="Default — Clean grid" />
               <el-option value="amazon" label="Amazon — Ratings, Add to Cart" />
               <el-option value="temu" label="Temu — Vibrant discounts, dense grid" />
               <el-option value="mercadolibre" label="MercadoLibre — List view, shipping badges" />
@@ -51,6 +77,18 @@
           <div class="wss-form-label">Faceted Filters</div>
           <div class="wss-form-control">
             <el-switch v-model="settings.enable_facets" active-value="yes" inactive-value="no" />
+            <div style="margin-top:4px; font-size:12px; color:#6b7280">Master toggle — turn the entire sidebar on/off.</div>
+          </div>
+        </div>
+        <div class="wss-form-row" v-if="settings.enable_facets === 'yes'">
+          <div class="wss-form-label">
+            Visible Facets
+            <span class="wss-hint">Which filters appear in the sidebar</span>
+          </div>
+          <div class="wss-form-control">
+            <el-checkbox-group v-model="visibleFacets">
+              <el-checkbox v-for="f in facetOptions" :key="f.value" :value="f.value" :label="f.label" style="display:block; margin-bottom:2px" />
+            </el-checkbox-group>
           </div>
         </div>
         <div class="wss-form-row">
@@ -98,6 +136,17 @@
       </div>
     </div>
 
+    <!-- Visible Elements -->
+    <div class="wss-section">
+      <div class="wss-section-header"><div><h3>Visible Elements</h3><p>Show or hide elements on each product/post card in results.</p></div></div>
+      <div class="wss-section-body">
+        <div v-for="el in rpElements" :key="el.key" class="wss-toggle-row">
+          <span class="wss-toggle-label">{{ el.label }}</span>
+          <el-switch v-model="settings[el.key]" active-value="yes" inactive-value="no" />
+        </div>
+      </div>
+    </div>
+
     <!-- Card & Colors -->
     <div class="wss-section">
       <div class="wss-section-header"><div><h3>Results Page Appearance</h3><p>Colors and styles for the search results page.</p></div></div>
@@ -120,6 +169,15 @@
               <el-option value="medium" label="Medium" />
               <el-option value="strong" label="Strong" />
             </el-select>
+          </div>
+        </div>
+        <div class="wss-form-row">
+          <div class="wss-form-label">
+            Button Radius (px)
+            <span class="wss-hint">Add to Cart button corners</span>
+          </div>
+          <div class="wss-form-control">
+            <el-slider v-model.number="buttonRadiusNum" :min="0" :max="30" style="max-width:300px" />
           </div>
         </div>
         <div class="wss-form-row">
@@ -185,6 +243,57 @@ import { useSettings } from '@/composables/useSettings';
 
 const { settings, saving, save } = useSettings();
 const pages = window.wssAdmin?.pages || [];
+const isEcommerce = window.wssAdmin?.isEcommerce !== false;
+const isMixed = window.wssAdmin?.isMixed === true;
+
+// Build facet options based on content mode.
+const facetOptions = (() => {
+  const opts = [
+    { value: 'categories', label: 'Categories' },
+    { value: 'tags', label: 'Tags' },
+  ];
+  if (isEcommerce || isMixed) {
+    opts.push(
+      { value: 'price', label: 'Price' },
+      { value: 'stock', label: 'Stock' },
+      { value: 'attributes', label: 'Attributes (Color, Size...)' },
+      { value: 'brands', label: 'Brands' },
+      { value: 'rating', label: 'Rating' }
+    );
+  }
+  if (!isEcommerce || isMixed) {
+    opts.push(
+      { value: 'post_type', label: 'Content Type' },
+      { value: 'author', label: 'Author' }
+    );
+  }
+  return opts;
+})();
+
+// visible_facets is stored as an array; ensure it's reactive.
+const visibleFacets = computed({
+  get: () => Array.isArray(settings.visible_facets) ? settings.visible_facets : [],
+  set: (v) => { settings.visible_facets = v; },
+});
+
+const buttonRadiusNum = computed({
+  get: () => parseInt(settings.rp_button_radius) || 8,
+  set: (v) => { settings.rp_button_radius = String(v); },
+});
+
+const rpElements = [
+  { key: 'rp_show_image', label: 'Product Image' },
+  { key: 'rp_show_category', label: 'Category' },
+  { key: 'rp_show_price', label: 'Price' },
+  { key: 'rp_show_sale_badge', label: 'Sale Badge / Discount' },
+  { key: 'rp_show_stock', label: 'Stock Status' },
+  { key: 'rp_show_rating', label: 'Rating Stars' },
+  { key: 'rp_show_sku', label: 'SKU' },
+  { key: 'rp_show_description', label: 'Short Description' },
+  { key: 'rp_show_add_to_cart', label: 'Add to Cart Button' },
+  { key: 'rp_show_shipping', label: 'Free Shipping Badge' },
+  { key: 'rp_show_sold', label: 'Sold Count' },
+];
 
 const rpColors = [
   { key: 'rp_card_bg', label: 'Card Background' },
@@ -196,6 +305,8 @@ const rpColors = [
   { key: 'rp_stars_color', label: 'Rating Stars' },
   { key: 'rp_button_bg', label: 'Button BG' },
   { key: 'rp_button_text', label: 'Button Text' },
+  { key: 'rp_button_hover_bg', label: 'Button BG (Hover)' },
+  { key: 'rp_button_hover_text', label: 'Button Text (Hover)' },
   { key: 'rp_sidebar_bg', label: 'Sidebar BG' },
   { key: 'rp_toolbar_bg', label: 'Toolbar BG' },
   { key: 'rp_page_bg', label: 'Page BG' },

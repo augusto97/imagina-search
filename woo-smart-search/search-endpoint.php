@@ -236,6 +236,18 @@ if ( ! empty( $filter_str ) ) {
 	$search_options['filters'] = $filter_str;
 }
 
+// Hide out-of-stock PRODUCTS if configured.
+// Use "!= outofstock" so WordPress content (no stock_status field) is kept.
+$show_oos = isset( $settings['show_out_of_stock_results'] ) ? $settings['show_out_of_stock_results'] : 'yes';
+if ( 'yes' !== $show_oos ) {
+	$stock_filter = 'stock_status != "outofstock"';
+	if ( ! empty( $search_options['filters'] ) ) {
+		$search_options['filters'] .= ' AND ' . $stock_filter;
+	} else {
+		$search_options['filters'] = $stock_filter;
+	}
+}
+
 if ( ! empty( $sort ) ) {
 	$search_options['sort'] = array( $sort );
 }

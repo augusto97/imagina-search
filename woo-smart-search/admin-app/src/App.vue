@@ -28,6 +28,10 @@
       <header class="wss-header">
         <h1>{{ currentTab.label }}</h1>
         <div class="wss-header-actions">
+          <span v-if="dirty" class="wss-unsaved-badge">
+            <el-icon><Warning /></el-icon>
+            Unsaved changes
+          </span>
           <span>
             <span class="wss-status-dot" :class="connectionStatus" />
             {{ connectionLabel }}
@@ -51,10 +55,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import {
   Link, DataBoard, Refresh, Setting, Brush,
-  Document, EditPen, DataAnalysis, Tickets,
+  Document, EditPen, DataAnalysis, Tickets, Warning,
 } from '@element-plus/icons-vue';
 import { useApi } from '@/composables/useApi';
 import { useSettings } from '@/composables/useSettings';
@@ -69,7 +73,17 @@ import AnalyticsTab from '@/components/tabs/AnalyticsTab.vue';
 import LogsTab from '@/components/tabs/LogsTab.vue';
 
 const { post } = useApi();
-const { load } = useSettings();
+const { load, dirty } = useSettings();
+
+// Warn before leaving the page with unsaved changes. Tab switches within
+// the panel are safe (state lives in the shared store and any Save button
+// persists everything), so we only guard against full page navigation.
+function onBeforeUnload(e) {
+  if (dirty.value) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+}
 
 const version = window.wssAdmin?.version || '5.2.0';
 
@@ -90,8 +104,13 @@ const connectionLabel = ref('Checking...');
 
 const currentTab = computed(() => tabs.find((t) => t.id === activeTab.value) || tabs[0]);
 
+onUnmounted(() => {
+  window.removeEventListener('beforeunload', onBeforeUnload);
+});
+
 onMounted(async () => {
   load();
+  window.addEventListener('beforeunload', onBeforeUnload);
   try {
     const res = await post('wss_get_connection_status');
     if (res.success && res.data) {
