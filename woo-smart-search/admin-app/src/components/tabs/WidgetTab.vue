@@ -38,9 +38,27 @@
           </div>
         </div>
         <div class="wss-form-row">
-          <div class="wss-form-label">Widget Layout</div>
+          <div class="wss-form-label">Widget Layout
+            <span class="wss-hint">Desktop layout.</span>
+          </div>
           <div class="wss-form-control">
             <el-select v-model="settings.widget_layout">
+              <el-option value="standard" label="Standard — Vertical list" />
+              <el-option value="expanded" label="Expanded — Two columns" />
+              <el-option value="compact" label="Compact — No images" />
+              <el-option value="amazon" label="Amazon — Text suggestions" />
+              <el-option value="falabella" label="Multi-column — Columns layout" />
+              <el-option value="fullscreen" label="Fullscreen — Overlay" />
+            </el-select>
+          </div>
+        </div>
+        <div class="wss-form-row">
+          <div class="wss-form-label">Mobile Widget Layout
+            <span class="wss-hint">Layout used on phones (≤767px). Choose “Same as desktop” to follow the layout above, or pick a different one just for mobile.</span>
+          </div>
+          <div class="wss-form-control">
+            <el-select v-model="settings.widget_layout_mobile">
+              <el-option value="same" label="Same as desktop" />
               <el-option value="standard" label="Standard — Vertical list" />
               <el-option value="expanded" label="Expanded — Two columns" />
               <el-option value="compact" label="Compact — No images" />

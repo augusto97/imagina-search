@@ -428,8 +428,28 @@ class WSS_Frontend {
 		$theme = $settings['theme'] ?? 'light';
 
 		// Allow layout override from shortcode/block attributes.
+		$desktop_layout = $settings['widget_layout'] ?? 'standard';
 		if ( ! empty( $atts['layout'] ) ) {
-			$settings['widget_layout'] = sanitize_text_field( $atts['layout'] );
+			$desktop_layout                = sanitize_text_field( $atts['layout'] );
+			$settings['widget_layout']     = $desktop_layout;
+		}
+
+		// Optional separate mobile layout. When set to something other than the
+		// desktop layout, we render the widget twice (one structure per viewport)
+		// because widget layouts differ in HTML structure, not just CSS, so a
+		// runtime class-swap cannot rebuild the markup the way the results page can.
+		$allowed_layouts = array( 'standard', 'expanded', 'compact', 'amazon', 'falabella', 'fullscreen' );
+		$mobile_layout   = $settings['widget_layout_mobile'] ?? 'same';
+		if ( ! in_array( $mobile_layout, $allowed_layouts, true ) ) {
+			$mobile_layout = 'same';
+		}
+
+		$renders = array();
+		if ( 'same' === $mobile_layout || $mobile_layout === $desktop_layout ) {
+			$renders[] = array( 'layout' => $desktop_layout, 'device' => '', 'sfx' => '' );
+		} else {
+			$renders[] = array( 'layout' => $desktop_layout, 'device' => 'wss-device-desktop', 'sfx' => '' );
+			$renders[] = array( 'layout' => $mobile_layout, 'device' => 'wss-device-mobile', 'sfx' => '-m' );
 		}
 
 		$template = locate_template( 'woo-smart-search/search-widget.php' );
@@ -438,7 +458,12 @@ class WSS_Frontend {
 		}
 
 		ob_start();
-		include $template;
+		foreach ( $renders as $render ) {
+			$render_layout = $render['layout'];
+			$render_device = $render['device'];
+			$render_id_sfx = $render['sfx'];
+			include $template;
+		}
 		$html = ob_get_clean();
 
 		return apply_filters( 'wss_search_widget_html', $html, $atts );

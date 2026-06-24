@@ -14,7 +14,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$widget_layout = $settings['widget_layout'] ?? 'standard';
+// $render_layout / $render_device / $render_id_sfx are set by the frontend
+// renderer when it outputs separate desktop + mobile widgets. They fall back
+// to the saved setting so the template still works when included directly.
+$widget_layout = isset( $render_layout ) && '' !== $render_layout ? $render_layout : ( $settings['widget_layout'] ?? 'standard' );
+$device_class  = isset( $render_device ) ? $render_device : '';
+$id_suffix     = isset( $render_id_sfx ) ? $render_id_sfx : '';
+$results_id    = 'wss-results-list' . $id_suffix;
 $i18n          = WSS_Frontend::get_frontend_i18n( $settings );
 $show_icon     = true;
 if ( isset( $atts['show_icon'] ) && ( false === $atts['show_icon'] || '0' === $atts['show_icon'] || 'false' === $atts['show_icon'] || 'no' === $atts['show_icon'] ) ) {
@@ -25,6 +31,9 @@ $input_height  = ! empty( $atts['input_height'] ) ? (int) $atts['input_height'] 
 $border_radius = ! empty( $atts['border_radius'] ) ? (int) $atts['border_radius'] : -1;
 
 $wrapper_classes = 'wss-search-wrapper wss-layout-' . esc_attr( $widget_layout );
+if ( '' !== $device_class ) {
+	$wrapper_classes .= ' ' . esc_attr( $device_class );
+}
 if ( $show_icon && 'right' === $icon_position ) {
 	$wrapper_classes .= ' wss-icon-right';
 }
@@ -49,7 +58,7 @@ if ( $border_radius >= 0 ) {
 			maxlength="100"
 			autocomplete="off"
 			aria-autocomplete="list"
-			aria-controls="wss-results-list"
+			aria-controls="<?php echo esc_attr( $results_id ); ?>"
 			aria-expanded="false"
 			role="combobox"
 		/>
@@ -71,6 +80,12 @@ if ( $border_radius >= 0 ) {
 	<?php if ( empty( $GLOBALS['wss_mobile_overlay_css_done'] ) ) : ?>
 		<?php $GLOBALS['wss_mobile_overlay_css_done'] = true; ?>
 	<style>
+	/* Separate desktop / mobile widgets. When a distinct mobile layout is
+	   configured the frontend renders TWO wrappers (each self-initialises);
+	   these rules show the right one per viewport. Inline so they can never
+	   desync from a cached stylesheet. Breakpoint matches the overlay below. */
+	@media (max-width:767px){.wss-search-wrapper.wss-device-desktop{display:none!important}}
+	@media (min-width:768px){.wss-search-wrapper.wss-device-mobile{display:none!important}}
 	/* Mobile overlay — inline with the widget HTML so HTML/CSS are always in
 	   sync regardless of stylesheet caching. Layout: ← [input] × */
 	.wss-mobile-back-btn{display:none}
@@ -126,7 +141,7 @@ if ( $border_radius >= 0 ) {
 	</div>
 	<?php else : ?>
 
-	<div class="wss-results-dropdown" role="listbox" id="wss-results-list" aria-label="<?php esc_attr_e( 'Search results', 'woo-smart-search' ); ?>">
+	<div class="wss-results-dropdown" role="listbox" id="<?php echo esc_attr( $results_id ); ?>" aria-label="<?php esc_attr_e( 'Search results', 'woo-smart-search' ); ?>">
 
 		<?php if ( 'expanded' === $widget_layout ) : ?>
 		<!-- Expanded layout: two-column -->
