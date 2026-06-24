@@ -70,7 +70,7 @@ class WSS_Admin_Ajax {
 			'synonyms', 'stop_words', 'widget_layout', 'content_source',
 			'search_engine',
 			// Results page appearance.
-			'results_layout', 'results_columns',
+			'results_layout', 'results_layout_mobile', 'results_columns',
 			'rp_card_bg', 'rp_card_border', 'rp_card_radius', 'rp_card_shadow',
 			'rp_price_color', 'rp_sale_color', 'rp_badge_bg', 'rp_badge_text',
 			'rp_stars_color', 'rp_button_bg', 'rp_button_text', 'rp_button_radius',
@@ -107,6 +107,11 @@ class WSS_Admin_Ajax {
 		// Validate results_layout field.
 		if ( isset( $settings['results_layout'] ) && ! in_array( $settings['results_layout'], array( 'default', 'amazon', 'temu', 'mercadolibre', 'aliexpress', 'shopify' ), true ) ) {
 			$settings['results_layout'] = 'default';
+		}
+
+		// Validate results_layout_mobile field ('same' = follow desktop layout).
+		if ( isset( $settings['results_layout_mobile'] ) && ! in_array( $settings['results_layout_mobile'], array( 'same', 'default', 'amazon', 'temu', 'mercadolibre', 'aliexpress', 'shopify' ), true ) ) {
+			$settings['results_layout_mobile'] = 'same';
 		}
 
 		// Handle local engine index name from its own field.

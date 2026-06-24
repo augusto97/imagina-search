@@ -144,6 +144,7 @@ class WSS_Activator {
 			'translations'              => array(),
 			// Results page appearance defaults.
 			'results_layout'            => 'default',
+			'results_layout_mobile'     => 'same',
 			'results_columns'           => '3',
 			'rp_card_bg'                => '#ffffff',
 			'rp_card_border'            => '#e5e7eb',

@@ -24,6 +24,45 @@
 
 	/* ---- Layout config ---- */
 	var layout = cfg.resultsLayout || 'default';
+	var layoutMobile = cfg.resultsLayoutMobile || 'same';
+	var allLayouts = [ 'default', 'amazon', 'temu', 'mercadolibre', 'aliexpress', 'shopify' ];
+	var currentLayout = layout;
+	var resizeTimer = null;
+
+	/**
+	 * Pick the layout that applies for the current viewport: the mobile
+	 * layout on small screens (when one is configured), otherwise desktop.
+	 */
+	function effectiveLayout() {
+		var isMobile = window.innerWidth <= 768;
+		if ( isMobile && layoutMobile && layoutMobile !== 'same' ) {
+			return layoutMobile;
+		}
+		return layout;
+	}
+
+	/**
+	 * Apply the effective layout class to the page, removing any other
+	 * layout class so only one is ever active.
+	 */
+	function applyResponsiveLayout() {
+		if ( ! dom.page ) return;
+		var target = effectiveLayout();
+		if ( target === currentLayout && dom.page.classList.contains( 'wss-layout-' + target ) ) {
+			return;
+		}
+		allLayouts.forEach( function ( l ) {
+			dom.page.classList.toggle( 'wss-layout-' + l, l === target && l !== 'default' );
+		} );
+		currentLayout = target;
+		// mercadolibre defaults to list view; others to grid. Only auto-switch
+		// when the user hasn't manually toggled the view this session.
+		if ( ! state.viewLocked ) {
+			var wantList = ( target === 'mercadolibre' );
+			state.view = wantList ? 'list' : 'grid';
+			if ( dom.grid ) dom.grid.classList.toggle( 'wss-view-list', wantList );
+		}
+	}
 
 	/* ---- State ---- */
 	var defaultView = ( layout === 'mercadolibre' ) ? 'list' : 'grid';
@@ -67,10 +106,14 @@
 
 		dom.page = page;
 
-		// Apply layout class (may already be set via PHP, but ensure JS also sets it).
-		if ( layout !== 'default' && ! page.classList.contains( 'wss-layout-' + layout ) ) {
-			page.classList.add( 'wss-layout-' + layout );
-		}
+		// Apply the layout for the current viewport (desktop vs mobile).
+		applyResponsiveLayout();
+
+		// Re-evaluate the layout when the viewport crosses the breakpoint.
+		window.addEventListener( 'resize', function () {
+			clearTimeout( resizeTimer );
+			resizeTimer = setTimeout( applyResponsiveLayout, 150 );
+		} );
 
 		// Apply image ratio utility class.
 		var imgRatio = cfg.rpImageRatio || '1:1';
@@ -178,6 +221,7 @@
 					btns.forEach( function ( b ) { b.classList.remove( 'wss-active' ); } );
 					btn.classList.add( 'wss-active' );
 					state.view = btn.dataset.view;
+					state.viewLocked = true; // user chose a view; don't auto-switch on layout change
 					if ( dom.grid ) {
 						dom.grid.classList.toggle( 'wss-view-list', state.view === 'list' );
 					}

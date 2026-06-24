@@ -20,10 +20,30 @@
           </div>
         </div>
         <div class="wss-form-row">
-          <div class="wss-form-label">Results Layout</div>
+          <div class="wss-form-label">
+            Results Layout
+            <span class="wss-hint">Desktop layout</span>
+          </div>
           <div class="wss-form-control">
             <el-select v-model="settings.results_layout">
               <el-option value="default" label="Default — Clean grid with sidebar" />
+              <el-option value="amazon" label="Amazon — Ratings, Add to Cart" />
+              <el-option value="temu" label="Temu — Vibrant discounts, dense grid" />
+              <el-option value="mercadolibre" label="MercadoLibre — List view, shipping badges" />
+              <el-option value="aliexpress" label="AliExpress — Multi-column, orders count" />
+              <el-option value="shopify" label="Shopify — Minimal, elegant" />
+            </el-select>
+          </div>
+        </div>
+        <div class="wss-form-row">
+          <div class="wss-form-label">
+            Mobile Layout
+            <span class="wss-hint">Layout used on phones (≤768px)</span>
+          </div>
+          <div class="wss-form-control">
+            <el-select v-model="settings.results_layout_mobile">
+              <el-option value="same" label="Same as desktop" />
+              <el-option value="default" label="Default — Clean grid" />
               <el-option value="amazon" label="Amazon — Ratings, Add to Cart" />
               <el-option value="temu" label="Temu — Vibrant discounts, dense grid" />
               <el-option value="mercadolibre" label="MercadoLibre — List view, shipping badges" />

@@ -13,10 +13,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$wss_settings    = get_option( 'wss_settings', array() );
-$i18n            = WSS_Frontend::get_frontend_i18n( $wss_settings );
-$results_layout  = $wss_settings['results_layout'] ?? 'default';
-$layout_class    = 'default' !== $results_layout ? ' wss-layout-' . esc_attr( $results_layout ) : '';
+$wss_settings        = get_option( 'wss_settings', array() );
+$i18n                = WSS_Frontend::get_frontend_i18n( $wss_settings );
+$results_layout      = $wss_settings['results_layout'] ?? 'default';
+$results_layout_m    = $wss_settings['results_layout_mobile'] ?? 'same';
+// Base class = desktop layout (JS swaps it for the mobile layout on small
+// screens when a distinct mobile layout is configured).
+$layout_class        = 'default' !== $results_layout ? ' wss-layout-' . esc_attr( $results_layout ) : '';
 ?>
 
 <style>
@@ -34,7 +37,7 @@ $layout_class    = 'default' !== $results_layout ? ' wss-layout-' . esc_attr( $r
 .wss-results-loading.wss-visible{display:flex}
 @media(max-width:768px){.wss-results-page{flex-direction:column}.wss-results-main{width:100%}.wss-filters-sidebar{width:100%;position:fixed;top:0;left:-100%;bottom:0;z-index:999999}.wss-mobile-filter-toggle{display:block;width:100%;padding:10px 16px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;font-weight:600;cursor:pointer;margin-bottom:16px;text-align:center}.wss-products-grid{grid-template-columns:repeat(2,1fr);gap:12px}}
 </style>
-<div class="wss-results-page<?php echo esc_attr( $layout_class ); ?>">
+<div class="wss-results-page<?php echo esc_attr( $layout_class ); ?>" data-wss-layout="<?php echo esc_attr( $results_layout ); ?>" data-wss-layout-mobile="<?php echo esc_attr( $results_layout_m ); ?>">
 
 	<!-- Mobile filter toggle -->
 	<button class="wss-mobile-filter-toggle" type="button">

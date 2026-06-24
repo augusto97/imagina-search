@@ -284,6 +284,7 @@ class WSS_Frontend {
 				'i18n'           => self::get_frontend_i18n( $settings ),
 				'widgetLayout'   => $settings['widget_layout'] ?? 'standard',
 				'resultsLayout'  => $settings['results_layout'] ?? 'default',
+				'resultsLayoutMobile' => $settings['results_layout_mobile'] ?? 'same',
 				'resultsColumns' => (int) ( $settings['results_columns'] ?? 3 ),
 				'resultsPerPage' => (int) ( $settings['results_per_page'] ?? 20 ),
 				'rpImageRatio'   => $settings['rp_image_ratio'] ?? '1:1',
