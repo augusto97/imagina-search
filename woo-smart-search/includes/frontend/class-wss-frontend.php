@@ -439,6 +439,9 @@ class WSS_Frontend {
 		// because widget layouts differ in HTML structure, not just CSS, so a
 		// runtime class-swap cannot rebuild the markup the way the results page can.
 		$allowed_layouts = array( 'standard', 'expanded', 'compact', 'amazon', 'falabella', 'fullscreen' );
+		// Layouts that share identical markup and differ only by CSS — these can
+		// be swapped at runtime with a class change, no second render needed.
+		$dropdown_family = array( 'standard', 'compact', 'amazon' );
 		$mobile_layout   = $settings['widget_layout_mobile'] ?? 'same';
 		if ( ! in_array( $mobile_layout, $allowed_layouts, true ) ) {
 			$mobile_layout = 'same';
@@ -446,10 +449,19 @@ class WSS_Frontend {
 
 		$renders = array();
 		if ( 'same' === $mobile_layout || $mobile_layout === $desktop_layout ) {
-			$renders[] = array( 'layout' => $desktop_layout, 'device' => '', 'sfx' => '' );
+			// No distinct mobile layout — render once.
+			$renders[] = array( 'layout' => $desktop_layout, 'device' => '', 'sfx' => '', 'mobile' => '' );
+		} elseif ( in_array( $desktop_layout, $dropdown_family, true ) && in_array( $mobile_layout, $dropdown_family, true ) ) {
+			// Both layouts share identical HTML (they differ only by CSS), so we
+			// render ONCE and let the JS swap the wss-layout-* class by viewport.
+			// No duplicated markup in this — the common — case.
+			$renders[] = array( 'layout' => $desktop_layout, 'device' => '', 'sfx' => '', 'mobile' => $mobile_layout );
 		} else {
-			$renders[] = array( 'layout' => $desktop_layout, 'device' => 'wss-device-desktop', 'sfx' => '' );
-			$renders[] = array( 'layout' => $mobile_layout, 'device' => 'wss-device-mobile', 'sfx' => '-m' );
+			// At least one layout changes the HTML structure (expanded/falabella/
+			// fullscreen), which a class-swap can't rebuild, so render both
+			// structures and show the right one per viewport.
+			$renders[] = array( 'layout' => $desktop_layout, 'device' => 'wss-device-desktop', 'sfx' => '', 'mobile' => '' );
+			$renders[] = array( 'layout' => $mobile_layout, 'device' => 'wss-device-mobile', 'sfx' => '-m', 'mobile' => '' );
 		}
 
 		$template = locate_template( 'woo-smart-search/search-widget.php' );
@@ -459,9 +471,10 @@ class WSS_Frontend {
 
 		ob_start();
 		foreach ( $renders as $render ) {
-			$render_layout = $render['layout'];
-			$render_device = $render['device'];
-			$render_id_sfx = $render['sfx'];
+			$render_layout        = $render['layout'];
+			$render_device        = $render['device'];
+			$render_id_sfx        = $render['sfx'];
+			$render_mobile_layout = $render['mobile'];
 			include $template;
 		}
 		$html = ob_get_clean();

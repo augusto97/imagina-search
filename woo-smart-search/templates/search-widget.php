@@ -21,6 +21,13 @@ $widget_layout = isset( $render_layout ) && '' !== $render_layout ? $render_layo
 $device_class  = isset( $render_device ) ? $render_device : '';
 $id_suffix     = isset( $render_id_sfx ) ? $render_id_sfx : '';
 $results_id    = 'wss-results-list' . $id_suffix;
+// When desktop + mobile layouts share the same markup, JS swaps the
+// wss-layout-* class by viewport using these attributes (no second render).
+$swap_mobile_layout = isset( $render_mobile_layout ) ? $render_mobile_layout : '';
+$layout_data_attrs  = '';
+if ( '' !== $swap_mobile_layout ) {
+	$layout_data_attrs = ' data-wss-layout-desktop="' . esc_attr( $widget_layout ) . '" data-wss-layout-mobile="' . esc_attr( $swap_mobile_layout ) . '"';
+}
 $i18n          = WSS_Frontend::get_frontend_i18n( $settings );
 $show_icon     = true;
 if ( isset( $atts['show_icon'] ) && ( false === $atts['show_icon'] || '0' === $atts['show_icon'] || 'false' === $atts['show_icon'] || 'no' === $atts['show_icon'] ) ) {
@@ -49,7 +56,7 @@ if ( $border_radius >= 0 ) {
 	$inline_styles .= ';--wss-border-radius:' . $border_radius . 'px';
 }
 ?>
-<div class="<?php echo esc_attr( $wrapper_classes ); ?>" role="search" aria-label="<?php esc_attr_e( 'Product search', 'woo-smart-search' ); ?>" style="<?php echo $inline_styles; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>">
+<div class="<?php echo esc_attr( $wrapper_classes ); ?>" role="search" aria-label="<?php esc_attr_e( 'Product search', 'woo-smart-search' ); ?>" style="<?php echo $inline_styles; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>"<?php echo $layout_data_attrs; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>>
 	<div class="wss-search-input-container">
 		<input
 			type="search"

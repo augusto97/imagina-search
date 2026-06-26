@@ -120,10 +120,41 @@
 		});
 	}
 
+	/**
+	 * For widgets whose desktop + mobile layouts share the same markup
+	 * (standard/compact/amazon), swap the wss-layout-* class by viewport.
+	 * These layouts differ only by CSS, so no re-initialisation is needed —
+	 * the JS behaviour is identical across the three.
+	 */
+	function applyResponsiveWidgetLayout(wrapper) {
+		var desktop = wrapper.getAttribute('data-wss-layout-desktop');
+		var mobile = wrapper.getAttribute('data-wss-layout-mobile');
+		if (!desktop || !mobile) return;
+		var isMobile = window.innerWidth <= 767;
+		var active = isMobile ? mobile : desktop;
+		var other = isMobile ? desktop : mobile;
+		if (active !== other && !wrapper.classList.contains('wss-layout-' + active)) {
+			wrapper.classList.remove('wss-layout-' + other);
+			wrapper.classList.add('wss-layout-' + active);
+		}
+	}
+
 	function init() {
 		var wrappers = document.querySelectorAll('.wss-search-wrapper');
 		wrappers.forEach(function (wrapper) {
+			// Set the correct layout class before init so detection is accurate
+			// when the page first loads at a mobile width.
+			applyResponsiveWidgetLayout(wrapper);
 			initWidget(wrapper);
+		});
+
+		// Re-evaluate the layout class on viewport changes (debounced).
+		var resizeTimer = null;
+		window.addEventListener('resize', function () {
+			if (resizeTimer) { clearTimeout(resizeTimer); }
+			resizeTimer = setTimeout(function () {
+				document.querySelectorAll('.wss-search-wrapper').forEach(applyResponsiveWidgetLayout);
+			}, 150);
 		});
 	}
 
