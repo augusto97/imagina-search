@@ -62,6 +62,9 @@ Basic support is included. Full multi-language indexing depends on your setup.
 
 == Changelog ==
 
+= 6.18.0 =
+* Optimisation for the widget mobile layout: when desktop and mobile both use a layout that shares the same markup (standard/compact/amazon), the widget is now rendered only once and the layout class is swapped by viewport — no duplicated HTML. The widget is still rendered per-viewport only when one of the layouts changes the HTML structure (expanded/falabella/fullscreen), where it is unavoidable.
+
 = 6.17.0 =
 * Search widget: separate mobile layout. You can now pick a different widget layout for phones (≤767px) independently of the desktop layout, under Widget → Mobile Widget Layout. When a distinct mobile layout is set, the widget is rendered per-viewport so each layout keeps its full structure.
 
