@@ -12,6 +12,16 @@ Plugin de búsqueda para WordPress/WooCommerce. El código del plugin vive en `w
 6. Footers de commit:
    - `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`
    - `Claude-Session: https://claude.ai/code/session_011HcCKfE5EpsjrfEjJyV3Mo`
+7. **Firmar todos los commits.** Antes de commitear, asegurar que la firma SSH está activa para que salgan como *Verified* en GitHub:
+   ```
+   git config commit.gpgsign true
+   git config gpg.format ssh
+   git config user.name Claude
+   git config user.email noreply@anthropic.com
+   git config user.signingkey /home/claude/.ssh/commit_signing_key.pub
+   git config gpg.ssh.program /tmp/code-sign
+   ```
+   Si un commit quedó `Unverified`, re-firmarlo con `git commit --amend --no-edit --reset-author` (o rebase) y `git push --force-with-lease`. Comprobar con `git cat-file commit HEAD | grep 'BEGIN SSH SIGNATURE'` (el entorno no trae `ssh-keygen`, así que `git log %G?` no da `G` localmente; la verificación real se ve en la UI de GitHub).
 
 ## Build del panel de administración
 El admin es **Vue 3 + Element Plus + Vite** en `admin-app/`. Si editas archivos `.vue` o `admin-app/src/**`, reconstruir:
