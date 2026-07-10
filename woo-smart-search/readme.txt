@@ -62,6 +62,10 @@ Basic support is included. Full multi-language indexing depends on your setup.
 
 == Changelog ==
 
+= 6.19.0 =
+* Search: SKUs and product codes are now findable by any fragment. Previously a code like "F-0065" was only matched by "f-0065"/"f0065"; now "0065", "065", etc. also find the product. Each code is expanded into its substrings and indexed as extra searchable tokens (new internal "search_codes" field). NOTE: run a full re-index once so existing products pick up the new tokens.
+* Incremental sync: product changes are now indexed at the end of the same request (after the response is flushed) instead of only waiting for the background cron. Saving/updating a product — via the editor, REST API, quick/bulk edit or import — reflects in search almost immediately, even on low-traffic stores or sites with WP-Cron disabled. The scheduled run remains as a fallback.
+
 = 6.18.0 =
 * Optimisation for the widget mobile layout: when desktop and mobile both use a layout that shares the same markup (standard/compact/amazon), the widget is now rendered only once and the layout class is swapped by viewport — no duplicated HTML. The widget is still rendered per-viewport only when one of the layouts changes the HTML structure (expanded/falabella/fullscreen), where it is unavoidable.
 

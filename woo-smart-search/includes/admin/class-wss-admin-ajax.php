@@ -474,7 +474,7 @@ class WSS_Admin_Ajax {
 		// Product searchable attributes.
 		$product_searchable = apply_filters(
 			'wss_searchable_attributes',
-			array( 'name', 'sku', 'all_skus', 'categories', 'tags', 'brand', 'description', 'attributes_text', 'variations_text' )
+			array( 'name', 'sku', 'all_skus', 'search_codes', 'categories', 'tags', 'brand', 'description', 'attributes_text', 'variations_text' )
 		);
 
 		// Post searchable attributes.

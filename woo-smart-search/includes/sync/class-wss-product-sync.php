@@ -822,7 +822,7 @@ class WSS_Product_Sync {
 	public function configure_index_settings( $engine, $index_name ): bool {
 		$searchable = apply_filters(
 			'wss_searchable_attributes',
-			array( 'name', 'sku', 'all_skus', 'categories', 'tags', 'brand', 'description', 'attributes_text', 'variations_text' )
+			array( 'name', 'sku', 'all_skus', 'search_codes', 'categories', 'tags', 'brand', 'description', 'attributes_text', 'variations_text' )
 		);
 
 		$filterable = apply_filters(

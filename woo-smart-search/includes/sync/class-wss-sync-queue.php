@@ -29,6 +29,13 @@ class WSS_Sync_Queue {
 	const MAX_RETRIES = 3;
 
 	/**
+	 * Whether request-end processing has already been registered this request.
+	 *
+	 * @var bool
+	 */
+	private static $shutdown_registered = false;
+
+	/**
 	 * Initialize queue processing hooks.
 	 */
 	public function init() {
@@ -74,8 +81,58 @@ class WSS_Sync_Queue {
 			);
 		}
 
-		// Schedule queue processing via the best available mechanism.
+		// Schedule queue processing via the best available mechanism (cron /
+		// Action Scheduler) as a reliable fallback...
 		self::ensure_processing_scheduled();
+
+		// ...and also process at the end of THIS request so the change is
+		// reflected almost immediately, instead of waiting for the next cron
+		// tick (which on low-traffic stores can be minutes away or, if WP-Cron
+		// is disabled, never). The response is flushed first so the editor /
+		// API caller is never kept waiting for the indexing HTTP round-trip.
+		self::register_shutdown_processing();
+	}
+
+	/**
+	 * Register a one-time request-end handler that drains the queue.
+	 */
+	private static function register_shutdown_processing() {
+		if ( self::$shutdown_registered ) {
+			return;
+		}
+		// On the CLI (e.g. WP-CLI imports) there is no request end to hook and
+		// the caller is long-running, so leave processing to the scheduler.
+		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+			return;
+		}
+		self::$shutdown_registered = true;
+		add_action( 'shutdown', array( __CLASS__, 'process_on_shutdown' ), 100 );
+	}
+
+	/**
+	 * Drain the queue at the end of the current request.
+	 *
+	 * Flushes the HTTP response first (when the SAPI supports it) so the user
+	 * or API client gets their response immediately and indexing happens after.
+	 */
+	public static function process_on_shutdown() {
+		// Send the response now; keep working in the background.
+		if ( function_exists( 'fastcgi_finish_request' ) ) {
+			@fastcgi_finish_request(); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		} elseif ( function_exists( 'litespeed_finish_request' ) ) {
+			@litespeed_finish_request(); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		}
+
+		// If the engine is down, leave the pending items for the scheduled run.
+		if ( ! wss_get_engine() ) {
+			return;
+		}
+
+		try {
+			( new self() )->process_queue();
+		} catch ( \Throwable $e ) {
+			wss_log( 'Sync queue shutdown processing error: ' . $e->getMessage(), 'error' );
+		}
 	}
 
 	/**

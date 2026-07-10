@@ -119,6 +119,7 @@ class WSS_Product_Transformer {
 			'full_description' => self::truncate_text( $full_description, 2000 ),
 			'sku'              => ! empty( $parent_sku ) ? $parent_sku : '',
 			'all_skus'         => $all_skus,
+			'search_codes'     => self::build_search_codes( $product->get_name(), $all_skus ),
 			'permalink'        => $permalink,
 			'image'            => $image_url,
 			'gallery'          => $gallery_urls,
@@ -171,6 +172,84 @@ class WSS_Product_Transformer {
 		 * @param WC_Product $product  The WooCommerce product.
 		 */
 		return apply_filters( 'wss_product_document', $document, $product );
+	}
+
+	/**
+	 * Build searchable code variants for SKUs and code-like words.
+	 *
+	 * Search engines (Meilisearch and the local engine) match by whole word or
+	 * prefix, so a code like "F-0065" is only found by "f-0065" / "f0065" — the
+	 * bare number "0065" or a fragment like "065" never matches because it is
+	 * neither the start of a token nor a full token. To make codes findable by
+	 * any fragment, we pre-compute every substring (length >= 3) of each code
+	 * and index them as extra searchable tokens. Codes are short, so this stays
+	 * small and bounded.
+	 *
+	 * @param string $name     Product name (may contain inline codes like "F-0065").
+	 * @param array  $all_skus All product/variation SKUs.
+	 * @return array Unique list of searchable code fragments.
+	 */
+	private static function build_search_codes( $name, array $all_skus ): array {
+		$sources = array();
+
+		// SKUs are always codes.
+		foreach ( $all_skus as $sku ) {
+			$sources[] = (string) $sku;
+		}
+
+		// Code-like words inside the name: any word containing a digit.
+		if ( is_string( $name ) && '' !== $name ) {
+			$words = preg_split( '/\s+/', $name, -1, PREG_SPLIT_NO_EMPTY );
+			foreach ( (array) $words as $word ) {
+				if ( preg_match( '/\d/', $word ) ) {
+					$sources[] = $word;
+				}
+			}
+		}
+
+		$variants = array();
+		foreach ( $sources as $src ) {
+			$src = mb_strtolower( trim( (string) $src ) );
+			if ( '' === $src || mb_strlen( $src ) > 24 ) {
+				continue;
+			}
+
+			// Candidates to expand: the collapsed alphanumeric form (drop
+			// hyphens/spaces/dots) plus each numeric run on its own.
+			$candidates = array();
+			$collapsed  = preg_replace( '/[^a-z0-9]+/', '', $src );
+			if ( '' !== $collapsed ) {
+				$candidates[] = $collapsed;
+			}
+			if ( preg_match_all( '/\d+/', $src, $m ) ) {
+				foreach ( $m[0] as $num ) {
+					$candidates[] = $num;
+				}
+			}
+
+			foreach ( array_unique( array_filter( $candidates ) ) as $cand ) {
+				$len = strlen( $cand );
+				// Every substring of length >= 3 → true "contains" matching.
+				for ( $i = 0; $i < $len; $i++ ) {
+					for ( $l = 3; $i + $l <= $len; $l++ ) {
+						$variants[] = substr( $cand, $i, $l );
+					}
+				}
+				// Keep short whole candidates (2-char codes) too.
+				if ( $len >= 2 ) {
+					$variants[] = $cand;
+				}
+			}
+		}
+
+		$variants = array_values( array_unique( $variants ) );
+
+		// Safety cap against pathological inputs.
+		if ( count( $variants ) > 150 ) {
+			$variants = array_slice( $variants, 0, 150 );
+		}
+
+		return $variants;
 	}
 
 	/**
