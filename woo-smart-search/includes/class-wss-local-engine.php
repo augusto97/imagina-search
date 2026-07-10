@@ -623,6 +623,9 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 			if ( isset( $doc_map[ $did ] ) ) {
 				$hit = $doc_map[ $did ];
 
+				// Internal search-only field — never needs to reach the client.
+				unset( $hit['search_codes'] );
+
 				// Add highlighting.
 				$hit['_formatted'] = array();
 				foreach ( $highlight_fields as $hf ) {
