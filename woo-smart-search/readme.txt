@@ -62,6 +62,9 @@ Basic support is included. Full multi-language indexing depends on your setup.
 
 == Changelog ==
 
+= 6.23.0 =
+* Analytics: results page searches made in direct Meilisearch mode are now recorded too. These never reach the server (the browser queries Meilisearch directly), so they were the last search path left unlogged; a non-blocking tracking beacon now reports them, without double-counting the proxy/local paths that already log server-side.
+
 = 6.22.0 =
 * Analytics: fixed the statistics panel showing all zeros. Local-engine searches were never recorded (they bypass the REST proxy that logs on the server and the direct-mode tracking beacon), so the search log stayed empty. Searches are now logged server-side directly from the local search endpoint, so volume, top queries, zero-result queries and CTR populate correctly. Also aligned the search-log timestamp to UTC to match the analytics date filters (fixes an off-by-timezone "Today" count).
 * Admin: the "Results Page" tab no longer duplicates the Synonyms / Stop Words fields — these are now managed only in the "Synonyms & Typos" tab (Stop Words moved there), and changes apply to the engine on save.

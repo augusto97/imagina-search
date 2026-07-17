@@ -490,9 +490,13 @@
 					hit.name_highlighted = formatted.name || hit.name || '';
 					return hit;
 				} );
+				var directTotal = data.estimatedTotalHits || hits.length;
+				// Log this search for analytics — direct Meili mode never touches
+				// the server, so without this beacon it would go unrecorded.
+				trackSearch( state.query, directTotal );
 				return {
 					hits: hits,
-					total: data.estimatedTotalHits || hits.length,
+					total: directTotal,
 					facets: data.facetDistribution || {},
 					processingTimeMs: data.processingTimeMs || 0
 				};
@@ -1185,6 +1189,25 @@
 			headers: { 'X-WP-Nonce': cfg.nonce },
 			body: formData
 		} ).catch( function () {} );
+	}
+
+	/**
+	 * Track a search for analytics via a non-blocking beacon.
+	 * Only used in direct Meilisearch mode: the WP proxy logs on the server,
+	 * and the local engine logs in its search endpoint, so those paths must
+	 * NOT beacon here or they would double-count.
+	 */
+	function trackSearch( query, totalResults ) {
+		if ( ! useDirect || ! cfg.apiUrl || ! query ) return;
+		try {
+			var url = cfg.apiUrl.replace( '/search', '/track-search' );
+			var data = JSON.stringify( { query: query, total: totalResults } );
+			if ( navigator.sendBeacon ) {
+				navigator.sendBeacon( url, new Blob( [ data ], { type: 'application/json' } ) );
+			} else {
+				fetch( url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: data, keepalive: true } ).catch( function () {} );
+			}
+		} catch ( err ) { /* silent fail */ }
 	}
 
 	/* ---- Boot ---- */
