@@ -80,6 +80,31 @@
       </div>
     </div>
 
+    <!-- Stop words -->
+    <div class="wss-section">
+      <div class="wss-section-header">
+        <div>
+          <h3>Stop Words</h3>
+          <p>
+            Common words to ignore when indexing and searching (comma-separated).
+            Leave empty to keep every word searchable.
+          </p>
+        </div>
+      </div>
+      <div class="wss-section-body">
+        <div class="wss-form-row">
+          <div class="wss-form-control" style="grid-column: 1 / -1">
+            <el-input
+              v-model="settings.stop_words"
+              type="textarea"
+              :rows="2"
+              placeholder="e.g. the, and, of, for"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Save -->
     <el-button type="primary" :loading="saving" @click="handleSave" size="large">
       Save Settings

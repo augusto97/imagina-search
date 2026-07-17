@@ -288,5 +288,32 @@ if ( ! empty( $result['_cacheHit'] ) ) {
 	header( 'X-WSS-Cache: MISS' );
 }
 
+// Log the search for analytics. The local engine never goes through the REST
+// proxy (which logs server-side) nor fires the direct-mode tracking beacon, so
+// without this every local-engine search would go unrecorded and the Analytics
+// panel would stay at zero. SHORTINIT has no plugin API, so write directly with
+// $wpdb. Gated by the enable_analytics setting (default on); empty queries are
+// skipped. Stored in UTC to match the analytics reader's date filters.
+$wss_analytics_on = ! isset( $settings['enable_analytics'] ) || 'yes' === $settings['enable_analytics'];
+if ( $wss_analytics_on && '' !== trim( (string) $query ) ) {
+	$wss_ua = isset( $_SERVER['HTTP_USER_AGENT'] ) // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+		? substr( preg_replace( '/[\x00-\x1F\x7F]/', '', wp_strip_all_tags( (string) $_SERVER['HTTP_USER_AGENT'] ) ), 0, 100 )
+		: '';
+	// Anonymize the IP (GDPR) — the REST logger hashes with wp_hash(), which is
+	// unavailable in SHORTINIT, so mirror it with an HMAC over a WP salt.
+	$wss_salt   = defined( 'AUTH_SALT' ) ? AUTH_SALT : ( defined( 'AUTH_KEY' ) ? AUTH_KEY : 'wss' );
+	$wss_ip_hash = hash_hmac( 'md5', $wss_client_ip, $wss_salt );
+	$wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->prepare(
+			"INSERT INTO {$wpdb->prefix}wss_search_log ( query, results_count, ip_address, user_agent, created_at ) VALUES ( %s, %d, %s, %s, %s )",
+			substr( wp_strip_all_tags( (string) $query ), 0, 191 ),
+			(int) $result['estimatedTotalHits'],
+			$wss_ip_hash,
+			$wss_ua,
+			gmdate( 'Y-m-d H:i:s' )
+		)
+	);
+}
+
 echo wp_json_encode( $response );
 exit;
