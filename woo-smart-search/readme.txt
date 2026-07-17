@@ -62,6 +62,9 @@ Basic support is included. Full multi-language indexing depends on your setup.
 
 == Changelog ==
 
+= 6.20.0 =
+* Search: accent-insensitive matching in the local engine. Words with tildes/diacritics are now folded to their base form at both index and query time, so "aviación" and "aviacion", "jabón" and "jabon", etc. find each other regardless of accents. Also applies to synonyms and stop words for consistency. (Meilisearch was already accent-insensitive.) NOTE: run a full re-index once so existing products are stored in the new normalized form.
+
 = 6.19.0 =
 * Search: SKUs and product codes are now findable by any fragment. Previously a code like "F-0065" was only matched by "f-0065"/"f0065"; now "0065", "065", etc. also find the product. Each code is expanded into its substrings and indexed as extra searchable tokens (new internal "search_codes" field). NOTE: run a full re-index once so existing products pick up the new tokens.
 * Incremental sync: product changes are now indexed at the end of the same request (after the response is flushed) instead of only waiting for the background cron. Saving/updating a product — via the editor, REST API, quick/bulk edit or import — reflects in search almost immediately, even on low-traffic stores or sites with WP-Cron disabled. The scheduled run remains as a fallback.

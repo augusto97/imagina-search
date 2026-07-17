@@ -83,8 +83,23 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	 */
 	private function load_settings() {
 		$this->index_settings = get_option( 'wss_local_index_settings', array() );
-		$this->stop_words     = get_option( 'wss_local_stop_words', array() );
-		$this->synonyms       = get_option( 'wss_local_synonyms', array() );
+
+		// Fold stop words so they match accent-normalized tokens.
+		$stop_words       = get_option( 'wss_local_stop_words', array() );
+		$this->stop_words = is_array( $stop_words ) ? array_map( array( $this, 'fold_term' ), $stop_words ) : array();
+
+		// Fold synonym keys so lookups work against accent-normalized query tokens.
+		$synonyms        = get_option( 'wss_local_synonyms', array() );
+		$this->synonyms  = array();
+		if ( is_array( $synonyms ) ) {
+			foreach ( $synonyms as $key => $values ) {
+				$folded_key = $this->fold_term( (string) $key );
+				if ( '' === $folded_key ) {
+					continue;
+				}
+				$this->synonyms[ $folded_key ] = is_array( $values ) ? $values : array( $values );
+			}
+		}
 	}
 
 	/**
@@ -335,7 +350,7 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 			foreach ( array_keys( $all_tokens ) as $token ) {
 				if ( isset( $this->synonyms[ $token ] ) ) {
 					foreach ( $this->synonyms[ $token ] as $syn ) {
-						$syn_lower = mb_strtolower( $syn );
+						$syn_lower = $this->fold_term( $syn );
 						if ( ! isset( $all_tokens[ $syn_lower ] ) && ! isset( $synonym_tokens[ $syn_lower ] ) ) {
 							$synonym_tokens[ $syn_lower ] = 1;
 						}
@@ -504,7 +519,7 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 		foreach ( $query_tokens as $token ) {
 			if ( isset( $this->synonyms[ $token ] ) ) {
 				foreach ( $this->synonyms[ $token ] as $syn ) {
-					$expanded_tokens[] = mb_strtolower( $syn );
+					$expanded_tokens[] = $this->fold_term( $syn );
 				}
 			}
 		}
@@ -682,7 +697,7 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	 * @return bool
 	 */
 	public function set_stop_words( string $index_name, array $stop_words ): bool {
-		$this->stop_words = array_map( 'mb_strtolower', $stop_words );
+		$this->stop_words = array_map( array( $this, 'fold_term' ), $stop_words );
 		update_option( 'wss_local_stop_words', $this->stop_words );
 		return true;
 	}
@@ -708,6 +723,24 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	// ---- Internal helpers ----
 
 	/**
+	 * Normalize a single term: lowercase + strip diacritics (accents).
+	 *
+	 * This makes the local engine accent-insensitive, so "aviación" and
+	 * "aviacion" resolve to the same token. Applied at both index and query
+	 * time, and to stop words / synonyms, so all comparisons stay consistent.
+	 *
+	 * @param string $text Term to normalize.
+	 * @return string Folded term.
+	 */
+	private function fold_term( $text ): string {
+		$text = mb_strtolower( (string) $text );
+		if ( function_exists( 'remove_accents' ) ) {
+			$text = remove_accents( $text );
+		}
+		return $text;
+	}
+
+	/**
 	 * Tokenize a string into normalized terms.
 	 *
 	 * @param string $text Text to tokenize.
@@ -728,8 +761,11 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 			return array();
 		}
 
-		// Lowercase.
+		// Lowercase + strip diacritics so search is accent-insensitive.
 		$text = mb_strtolower( $text );
+		if ( function_exists( 'remove_accents' ) ) {
+			$text = remove_accents( $text );
+		}
 
 		// Remove HTML tags.
 		$text = wp_strip_all_tags( $text );
@@ -1031,7 +1067,7 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	private function build_cache_key( string $index_name, string $query, array $options ): string {
 		$key_parts = array(
 			'idx'     => $index_name,
-			'q'       => mb_strtolower( trim( $query ) ),
+			'q'       => $this->fold_term( trim( $query ) ),
 			'limit'   => $options['limit'] ?? 12,
 			'offset'  => $options['offset'] ?? 0,
 			'filters' => $options['filters'] ?? '',
