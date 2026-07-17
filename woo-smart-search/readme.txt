@@ -62,6 +62,11 @@ Basic support is included. Full multi-language indexing depends on your setup.
 
 == Changelog ==
 
+= 6.22.0 =
+* Analytics: fixed the statistics panel showing all zeros. Local-engine searches were never recorded (they bypass the REST proxy that logs on the server and the direct-mode tracking beacon), so the search log stayed empty. Searches are now logged server-side directly from the local search endpoint, so volume, top queries, zero-result queries and CTR populate correctly. Also aligned the search-log timestamp to UTC to match the analytics date filters (fixes an off-by-timezone "Today" count).
+* Admin: the "Results Page" tab no longer duplicates the Synonyms / Stop Words fields — these are now managed only in the "Synonyms & Typos" tab (Stop Words moved there), and changes apply to the engine on save.
+* Admin: re-exposed local search cache statistics (cached entries and size) on the Connection tab next to the Purge Cache button; the endpoint existed but was not surfaced in the current admin.
+
 = 6.21.0 =
 * Search: typo tolerance for the local engine. Small misspellings now still find products — e.g. "pantlon" or "pantilon" match "pantalón". Uses Levenshtein distance as a fallback only on searches that would otherwise return nothing (so correctly spelled searches are not slowed down); tolerance scales with word length (1 typo for 5–8 letters, 2 for 9+). Can be toggled off in the new Synonyms & Typos tab. (Meilisearch was already typo-tolerant.)
 * Admin: new "Synonyms & Typos" tab to manage search synonyms from the panel (word → equivalent terms) and toggle local-engine typo tolerance. Synonyms are applied to the active engine immediately on save, no full re-index required.

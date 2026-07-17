@@ -100,8 +100,19 @@
           </div>
         </div>
         <div class="wss-form-row">
-          <div class="wss-form-label">Cache</div>
+          <div class="wss-form-label">
+            Cache
+            <span class="wss-hint">Frequent queries are cached for near-instant responses</span>
+          </div>
           <div class="wss-form-control">
+            <div class="wss-cache-stats">
+              <span v-if="cacheStats">
+                <strong>{{ cacheStats.entries }}</strong> cached
+                {{ cacheStats.entries === 1 ? 'query' : 'queries' }}
+                <span class="wss-hint">({{ cacheStats.size }})</span>
+              </span>
+              <span v-else class="wss-hint">Loading cache stats…</span>
+            </div>
             <el-button @click="purgeCache" :loading="purging" size="small">Purge Cache</el-button>
           </div>
         </div>
@@ -116,7 +127,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useSettings } from '@/composables/useSettings';
 import { useApi } from '@/composables/useApi';
@@ -128,6 +139,16 @@ const apiKey = ref('');
 const testing = ref(false);
 const testResult = ref(null);
 const purging = ref(false);
+const cacheStats = ref(null);
+
+async function loadCacheStats() {
+  try {
+    const res = await post('wss_get_cache_stats');
+    if (res.success && res.data) cacheStats.value = res.data;
+  } catch { /* non-critical — leave stats hidden */ }
+}
+
+onMounted(loadCacheStats);
 
 async function testConnection() {
   testing.value = true;
@@ -157,6 +178,7 @@ async function purgeCache() {
   try {
     await post('wss_purge_search_cache');
     ElMessage.success('Cache purged');
+    loadCacheStats();
   } catch {
     ElMessage.error('Failed to purge cache');
   } finally {
@@ -177,3 +199,10 @@ async function handleSave() {
   }
 }
 </script>
+
+<style scoped>
+.wss-cache-stats {
+  margin-bottom: 8px;
+  color: var(--el-text-color-primary);
+}
+</style>

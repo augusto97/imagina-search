@@ -116,21 +116,13 @@
           </div>
         </div>
         <div class="wss-form-row">
-          <div class="wss-form-label">
-            Synonyms
-            <span class="wss-hint">JSON: {"hoodie": ["sweatshirt"]}</span>
-          </div>
-          <div class="wss-form-control">
-            <el-input v-model="settings.synonyms" type="textarea" :rows="3" style="font-family:monospace" />
-          </div>
-        </div>
-        <div class="wss-form-row">
-          <div class="wss-form-label">
-            Stop Words
-            <span class="wss-hint">Comma-separated</span>
-          </div>
-          <div class="wss-form-control">
-            <el-input v-model="settings.stop_words" type="textarea" :rows="2" />
+          <div class="wss-form-control" style="grid-column: 1 / -1">
+            <el-alert
+              type="info"
+              :closable="false"
+              show-icon
+              title="Synonyms and stop words are managed in the “Synonyms & Typos” tab."
+            />
           </div>
         </div>
       </div>

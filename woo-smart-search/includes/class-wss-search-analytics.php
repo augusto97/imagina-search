@@ -135,7 +135,8 @@ class WSS_Search_Analytics {
 				'results_count' => absint( $results_count ),
 				'ip_address'    => sanitize_text_field( $ip ),
 				'user_agent'    => sanitize_text_field( substr( $user_agent, 0, 255 ) ),
-				'created_at'    => current_time( 'mysql' ),
+				// UTC to match the reader's gmdate() date filters (get_search_volume).
+				'created_at'    => gmdate( 'Y-m-d H:i:s' ),
 			),
 			array( '%s', '%d', '%s', '%s', '%s' )
 		);
