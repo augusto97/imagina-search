@@ -25,6 +25,7 @@ export function useSettings() {
     // versions, so selects show a sensible value instead of blank.
     if (settings.results_layout_mobile === undefined) settings.results_layout_mobile = 'same';
     if (settings.widget_layout_mobile === undefined) settings.widget_layout_mobile = 'same';
+    if (settings.local_fuzzy === undefined) settings.local_fuzzy = 'yes';
 
     // Coerce numeric selects to numbers — legacy values saved by the old
     // jQuery admin may be strings, and el-select compares with ===.

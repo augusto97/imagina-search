@@ -47,6 +47,13 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	private $synonyms = array();
 
 	/**
+	 * Whether typo-tolerant (fuzzy) matching is enabled as a fallback.
+	 *
+	 * @var bool
+	 */
+	private $fuzzy_enabled = true;
+
+	/**
 	 * In-memory result cache for the current request.
 	 *
 	 * @var array
@@ -100,6 +107,10 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 				$this->synonyms[ $folded_key ] = is_array( $values ) ? $values : array( $values );
 			}
 		}
+
+		// Typo tolerance is on unless explicitly disabled in the main settings.
+		$main                = get_option( 'wss_settings', array() );
+		$this->fuzzy_enabled = ! is_array( $main ) || ! isset( $main['local_fuzzy'] ) || 'no' !== $main['local_fuzzy'];
 	}
 
 	/**
@@ -556,27 +567,31 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 
 		$term_where = implode( ' OR ', $term_conditions );
 
-		// Calculate TF-IDF scores.
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
-		$sql = $wpdb->prepare(
-			"SELECT p.doc_id,
-				SUM( p.tf * LOG( ( %d + 1 ) / ( term_doc_count.cnt + 1 ) ) ) AS score
-			FROM {$postings_table} p
-			INNER JOIN {$terms_table} t ON t.id = p.term_id
-			INNER JOIN (
-				SELECT term_id, COUNT( DISTINCT doc_id ) AS cnt
-				FROM {$postings_table}
-				WHERE index_name = %s
-				GROUP BY term_id
-			) AS term_doc_count ON term_doc_count.term_id = p.term_id
-			WHERE p.index_name = %s AND ( {$term_where} )
-			GROUP BY p.doc_id
-			ORDER BY score DESC",
-			array_merge( array( $total_docs, $index_name, $index_name ), $term_params )
-		);
-		// phpcs:enable
+		// Calculate TF-IDF scores for the exact/prefix matches.
+		$all_scored = $this->score_documents( $index_name, $total_docs, $term_where, $term_params );
 
-		$all_scored = $wpdb->get_results( $sql ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+		// Typo tolerance (local engine): if the exact/prefix pass found nothing,
+		// fall back to fuzzy matching (Levenshtein) so small misspellings still
+		// resolve — e.g. "pantlon" / "pantilon" -> "pantalon". This only runs on
+		// otherwise zero-result queries, so correctly spelled searches pay no
+		// extra cost.
+		if ( empty( $all_scored ) && $this->fuzzy_enabled ) {
+			$fuzzy_terms = $this->find_fuzzy_terms( $expanded_tokens );
+			if ( ! empty( $fuzzy_terms ) ) {
+				$fuzzy_conditions = array();
+				$fuzzy_params     = array();
+				foreach ( $fuzzy_terms as $ft ) {
+					$fuzzy_conditions[] = 't.term = %s';
+					$fuzzy_params[]     = $ft;
+				}
+				$all_scored = $this->score_documents(
+					$index_name,
+					$total_docs,
+					implode( ' OR ', $fuzzy_conditions ),
+					$fuzzy_params
+				);
+			}
+		}
 
 		if ( empty( $all_scored ) ) {
 			return $this->empty_result( $query, $start_time );
@@ -721,6 +736,110 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	}
 
 	// ---- Internal helpers ----
+
+	/**
+	 * Run the TF-IDF scoring query for a set of term-match conditions.
+	 *
+	 * Extracted so it can be reused for both the primary (exact/prefix) pass
+	 * and the fuzzy fallback pass.
+	 *
+	 * @param string $index_name  Index name.
+	 * @param int    $total_docs  Total documents (for IDF).
+	 * @param string $term_where  OR-joined term conditions (with placeholders).
+	 * @param array  $term_params Params bound to the term conditions.
+	 * @return array Scored rows (doc_id, score) ordered by score DESC.
+	 */
+	private function score_documents( string $index_name, int $total_docs, string $term_where, array $term_params ): array {
+		global $wpdb;
+
+		if ( '' === $term_where || empty( $term_params ) ) {
+			return array();
+		}
+
+		$terms_table    = $wpdb->prefix . 'wss_index_terms';
+		$postings_table = $wpdb->prefix . 'wss_index_postings';
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+		$sql = $wpdb->prepare(
+			"SELECT p.doc_id,
+				SUM( p.tf * LOG( ( %d + 1 ) / ( term_doc_count.cnt + 1 ) ) ) AS score
+			FROM {$postings_table} p
+			INNER JOIN {$terms_table} t ON t.id = p.term_id
+			INNER JOIN (
+				SELECT term_id, COUNT( DISTINCT doc_id ) AS cnt
+				FROM {$postings_table}
+				WHERE index_name = %s
+				GROUP BY term_id
+			) AS term_doc_count ON term_doc_count.term_id = p.term_id
+			WHERE p.index_name = %s AND ( {$term_where} )
+			GROUP BY p.doc_id
+			ORDER BY score DESC",
+			array_merge( array( $total_docs, $index_name, $index_name ), $term_params )
+		);
+
+		$result = $wpdb->get_results( $sql );
+		// phpcs:enable
+
+		return is_array( $result ) ? $result : array();
+	}
+
+	/**
+	 * Find index terms within a small edit distance of the query tokens.
+	 *
+	 * Candidates are narrowed in SQL by first character and length (typos
+	 * rarely change the first letter, and length differs by at most the
+	 * allowed distance), so the PHP levenshtein() pass runs on a small set.
+	 * The distance threshold scales with word length, mirroring Meilisearch:
+	 * 1 edit for 5-8 chars, 2 edits for 9+; words under 5 chars are skipped
+	 * to avoid noise. Only called as a fallback on zero-result queries.
+	 *
+	 * @param array $tokens Folded query tokens.
+	 * @return array Matching term strings present in the index.
+	 */
+	private function find_fuzzy_terms( array $tokens ): array {
+		global $wpdb;
+
+		$terms_table = $wpdb->prefix . 'wss_index_terms';
+		$matches     = array();
+
+		foreach ( array_unique( $tokens ) as $token ) {
+			$len = mb_strlen( $token );
+			if ( $len < 5 ) {
+				continue;
+			}
+			$max_dist = ( $len >= 9 ) ? 2 : 1;
+			$first    = mb_substr( $token, 0, 1 );
+
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared
+			$candidates = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT term FROM {$terms_table}
+					WHERE term LIKE %s
+					AND CHAR_LENGTH( term ) BETWEEN %d AND %d
+					LIMIT 2000",
+					$wpdb->esc_like( $first ) . '%',
+					$len - $max_dist,
+					$len + $max_dist
+				)
+			);
+			// phpcs:enable
+
+			if ( empty( $candidates ) ) {
+				continue;
+			}
+
+			foreach ( $candidates as $cand ) {
+				if ( $cand === $token ) {
+					continue;
+				}
+				if ( levenshtein( $token, $cand ) <= $max_dist ) {
+					$matches[ $cand ] = true;
+				}
+			}
+		}
+
+		return array_keys( $matches );
+	}
 
 	/**
 	 * Normalize a single term: lowercase + strip diacritics (accents).

@@ -178,6 +178,10 @@ class WSS_Admin_Ajax {
 			'index_out_of_stock', 'index_hidden',
 		);
 
+		$synonyms_bools = array(
+			'local_fuzzy',
+		);
+
 		$bool_fields = array();
 		if ( 'appearance' === $submitted_tab ) {
 			$bool_fields = $appearance_bools;
@@ -186,6 +190,8 @@ class WSS_Admin_Ajax {
 			$bool_fields = array_diff( $search_bools, $indexing_bools );
 		} elseif ( 'indexing' === $submitted_tab ) {
 			$bool_fields = $indexing_bools;
+		} elseif ( 'synonyms' === $submitted_tab ) {
+			$bool_fields = $synonyms_bools;
 		}
 
 		// Process every bool explicitly present in POST regardless of tab —
@@ -311,6 +317,24 @@ class WSS_Admin_Ajax {
 		// Reset engine singletons so they pick up new config.
 		WSS_Meilisearch::reset();
 		WSS_Local_Engine::reset();
+
+		// Push synonyms / stop words to the active engine immediately when the
+		// Synonyms tab is saved, so changes take effect right away without
+		// waiting for a full re-sync.
+		if ( 'synonyms' === $submitted_tab ) {
+			$engine = wss_get_engine();
+			if ( $engine ) {
+				$index_name = $settings['index_name'] ?? 'woo_products';
+
+				$syn_json = isset( $settings['synonyms'] ) ? $settings['synonyms'] : '';
+				$syn_map  = ! empty( $syn_json ) ? json_decode( $syn_json, true ) : array();
+				$engine->set_synonyms( $index_name, is_array( $syn_map ) ? $syn_map : array() );
+
+				$stop_raw   = isset( $settings['stop_words'] ) ? $settings['stop_words'] : '';
+				$stop_words = ! empty( $stop_raw ) ? array_filter( array_map( 'trim', explode( ',', $stop_raw ) ) ) : array();
+				$engine->set_stop_words( $index_name, $stop_words );
+			}
+		}
 
 		// Update Meilisearch filterable attributes (only in ecommerce mode).
 		if ( wss_is_ecommerce_mode() ) {

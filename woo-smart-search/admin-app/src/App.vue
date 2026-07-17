@@ -46,6 +46,7 @@
         <IndexingTab        v-if="activeTab === 'indexing'" />
         <WidgetTab          v-if="activeTab === 'appearance'" />
         <ResultsPageTab     v-if="activeTab === 'search'" />
+        <SynonymsTab        v-if="activeTab === 'synonyms'" />
         <TranslationsTab    v-if="activeTab === 'translations'" />
         <AnalyticsTab       v-if="activeTab === 'analytics'" />
         <LogsTab            v-if="activeTab === 'logs'" />
@@ -58,7 +59,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import {
   Link, DataBoard, Refresh, Setting, Brush,
-  Document, EditPen, DataAnalysis, Tickets, Warning,
+  Document, EditPen, DataAnalysis, Tickets, Warning, MagicStick,
 } from '@element-plus/icons-vue';
 import { useApi } from '@/composables/useApi';
 import { useSettings } from '@/composables/useSettings';
@@ -68,6 +69,7 @@ import ContentSourcesTab from '@/components/tabs/ContentSourcesTab.vue';
 import IndexingTab from '@/components/tabs/IndexingTab.vue';
 import WidgetTab from '@/components/tabs/WidgetTab.vue';
 import ResultsPageTab from '@/components/tabs/ResultsPageTab.vue';
+import SynonymsTab from '@/components/tabs/SynonymsTab.vue';
 import TranslationsTab from '@/components/tabs/TranslationsTab.vue';
 import AnalyticsTab from '@/components/tabs/AnalyticsTab.vue';
 import LogsTab from '@/components/tabs/LogsTab.vue';
@@ -93,6 +95,7 @@ const tabs = [
   { id: 'indexing',        label: 'Indexing',         icon: Refresh },
   { id: 'appearance',      label: 'Widget',           icon: Brush },
   { id: 'search',          label: 'Results Page',     icon: Document },
+  { id: 'synonyms',        label: 'Synonyms & Typos', icon: MagicStick },
   { id: 'translations',    label: 'Translations',     icon: EditPen },
   { id: 'analytics',       label: 'Analytics',        icon: DataAnalysis },
   { id: 'logs',            label: 'Logs',             icon: Tickets },
