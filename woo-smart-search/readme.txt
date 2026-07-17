@@ -62,6 +62,10 @@ Basic support is included. Full multi-language indexing depends on your setup.
 
 == Changelog ==
 
+= 6.21.0 =
+* Search: typo tolerance for the local engine. Small misspellings now still find products — e.g. "pantlon" or "pantilon" match "pantalón". Uses Levenshtein distance as a fallback only on searches that would otherwise return nothing (so correctly spelled searches are not slowed down); tolerance scales with word length (1 typo for 5–8 letters, 2 for 9+). Can be toggled off in the new Synonyms & Typos tab. (Meilisearch was already typo-tolerant.)
+* Admin: new "Synonyms & Typos" tab to manage search synonyms from the panel (word → equivalent terms) and toggle local-engine typo tolerance. Synonyms are applied to the active engine immediately on save, no full re-index required.
+
 = 6.20.0 =
 * Search: accent-insensitive matching in the local engine. Words with tildes/diacritics are now folded to their base form at both index and query time, so "aviación" and "aviacion", "jabón" and "jabon", etc. find each other regardless of accents. Also applies to synonyms and stop words for consistency. (Meilisearch was already accent-insensitive.) NOTE: run a full re-index once so existing products are stored in the new normalized form.
 
