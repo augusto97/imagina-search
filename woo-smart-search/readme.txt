@@ -62,6 +62,9 @@ Basic support is included. Full multi-language indexing depends on your setup.
 
 == Changelog ==
 
+= 6.24.0 =
+* Search: SKU/code fragments typed with their separator now match too (local engine). Codes are indexed in collapsed form ("abc1234"), so a fragment like "abc-12" or "0-123" previously did not match; the query now also tries a collapsed alphanumeric form of separator/number tokens. NOTE: fragment search for SKUs relies on the search_codes field introduced in 6.19.0 — existing products must be re-indexed once (Indexing > Full Sync) for any SKU fragment search to work.
+
 = 6.23.0 =
 * Analytics: results page searches made in direct Meilisearch mode are now recorded too. These never reach the server (the browser queries Meilisearch directly), so they were the last search path left unlogged; a non-blocking tracking beacon now reports them, without double-counting the proxy/local paths that already log server-side.
 
