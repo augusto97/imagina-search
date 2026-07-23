@@ -278,7 +278,20 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 		$this->invalidate_cache( $index_name );
 
 		$settings    = isset( $this->index_settings[ $index_name ] ) ? $this->index_settings[ $index_name ] : array();
-		$searchable  = isset( $settings['searchableAttributes'] ) ? $settings['searchableAttributes'] : array( 'name', 'description' );
+		$searchable  = isset( $settings['searchableAttributes'] ) ? (array) $settings['searchableAttributes'] : array( 'name', 'description' );
+
+		// Safety net: always index the core identity/code fields when present,
+		// even if the stored index config is stale. Index settings saved before
+		// 6.19.0 have 'sku'/'all_skus' but not 'search_codes', which silently
+		// dropped SKU-fragment search (exact SKU still matched via 'sku', but a
+		// fragment like "551", which only lives in search_codes, did not). Fields
+		// absent from a document are skipped by the empty() check below anyway.
+		foreach ( array( 'name', 'sku', 'all_skus', 'search_codes' ) as $core_field ) {
+			if ( ! in_array( $core_field, $searchable, true ) ) {
+				$searchable[] = $core_field;
+			}
+		}
+
 		$indexed     = 0;
 
 		foreach ( $documents as $doc ) {

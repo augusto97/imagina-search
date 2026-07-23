@@ -62,6 +62,9 @@ Basic support is included. Full multi-language indexing depends on your setup.
 
 == Changelog ==
 
+= 6.25.0 =
+* Fix (local engine): SKU/code fragment search ("551" for SKU "UTD55108") did not work when the local index had been configured before 6.19.0. The stored searchable-fields list still had "sku"/"all_skus" but not "search_codes", so a full re-index rebuilt the documents (with the field) but never tokenized it — the exact SKU matched via the "sku" field, but a fragment, which only lives in "search_codes", did not. The indexer now always includes the core identity/code fields (name, sku, all_skus, search_codes) regardless of the stored config, so the index config can no longer silently drop fragment search. IMPORTANT: run one Full Sync (Indexing > Full Sync) after updating so the fragments are tokenized into the index.
+
 = 6.24.0 =
 * Search: SKU/code fragments typed with their separator now match too (local engine). Codes are indexed in collapsed form ("abc1234"), so a fragment like "abc-12" or "0-123" previously did not match; the query now also tries a collapsed alphanumeric form of separator/number tokens. NOTE: fragment search for SKUs relies on the search_codes field introduced in 6.19.0 — existing products must be re-indexed once (Indexing > Full Sync) for any SKU fragment search to work.
 
