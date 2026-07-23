@@ -534,6 +534,21 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 				}
 			}
 		}
+
+		// Code fragments: also try a collapsed (alphanumeric-only) form of any
+		// token that carries a separator or a digit. SKUs are indexed in
+		// search_codes in collapsed form ("abc1234"), so a fragment typed with
+		// its separator ("abc-12", "00-123") would otherwise never match. The
+		// hyphen is the only separator the tokenizer keeps inside a word.
+		foreach ( $query_tokens as $token ) {
+			if ( preg_match( '/[^a-z0-9]/', $token ) || preg_match( '/\d/', $token ) ) {
+				$collapsed = preg_replace( '/[^a-z0-9]+/', '', $token );
+				if ( '' !== $collapsed && $collapsed !== $token && mb_strlen( $collapsed ) >= 3 ) {
+					$expanded_tokens[] = $collapsed;
+				}
+			}
+		}
+
 		$expanded_tokens = array_unique( $expanded_tokens );
 
 		if ( empty( $expanded_tokens ) ) {
