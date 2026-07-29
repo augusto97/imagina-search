@@ -1162,6 +1162,54 @@ class WSS_Product_Sync {
 	 * @param int $product_id Product ID.
 	 * @return bool
 	 */
+	/**
+	 * Decide whether a product currently qualifies to live in the index.
+	 *
+	 * Applies the SAME rules as the full sync (published, in stock when
+	 * "index out of stock" is off, not hidden when "index hidden" is off, and
+	 * not in an excluded category). The full sync enforces these through its
+	 * WC_Product_Query, but the incremental path used to check only the publish
+	 * status — so a product that went out of stock (or was hidden, or moved to
+	 * an excluded category) while still published was re-indexed instead of
+	 * removed, and lingered in the index forever. Centralizing the rule here
+	 * lets the incremental path remove it the moment it stops qualifying.
+	 *
+	 * @param WC_Product $product Product object.
+	 * @return bool
+	 */
+	private function should_index_product( $product ): bool {
+		if ( ! $product || ! method_exists( $product, 'get_id' ) ) {
+			return false;
+		}
+
+		// Must be published.
+		if ( 'publish' !== get_post_status( $product->get_id() ) ) {
+			return false;
+		}
+
+		// Respect "index out of stock" — mirror the full sync, which keeps only
+		// stock_status = 'instock'.
+		if ( 'yes' !== wss_get_option( 'index_out_of_stock', 'yes' ) && 'instock' !== $product->get_stock_status() ) {
+			return false;
+		}
+
+		// Respect "index hidden".
+		if ( 'yes' !== wss_get_option( 'index_hidden', 'no' ) && 'hidden' === $product->get_catalog_visibility() ) {
+			return false;
+		}
+
+		// Respect excluded categories.
+		$exclude_cats = wss_get_option( 'exclude_categories', array() );
+		if ( ! empty( $exclude_cats ) && is_array( $exclude_cats ) ) {
+			$product_cats = $product->get_category_ids();
+			if ( ! empty( $product_cats ) && array_intersect( array_map( 'absint', $product_cats ), array_map( 'absint', $exclude_cats ) ) ) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
 	public function sync_single_product( int $product_id ): bool {
 		$engine = wss_get_engine();
 
@@ -1177,8 +1225,10 @@ class WSS_Product_Sync {
 
 		$index_name = wss_get_option( 'index_name', 'woo_products' );
 
-		// Check if product should be indexed.
-		$should_index = 'publish' === get_post_status( $product_id );
+		// Check if product should be indexed (publish + stock + visibility +
+		// category rules, matching the full sync). If it no longer qualifies it
+		// is removed from the index below.
+		$should_index = $this->should_index_product( $product );
 		$should_index = apply_filters( 'wss_should_index_product', $should_index, $product );
 
 		if ( ! $should_index ) {
