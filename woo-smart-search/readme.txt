@@ -62,6 +62,9 @@ Basic support is included. Full multi-language indexing depends on your setup.
 
 == Changelog ==
 
+= 6.26.0 =
+* Sync: products are now removed from the index the moment they stop qualifying, not just on the next full sync. The incremental sync only checked the publish status, so a product that went out of stock (with "Index out of stock" off), was hidden, or moved to an excluded category while still published was re-indexed instead of removed and lingered forever. It now applies the same rules as the full sync (published + in stock + not hidden + not in an excluded category) and deletes the product when it no longer qualifies (and re-adds it when it qualifies again, e.g. back in stock). Default behavior is unchanged: with "Index out of stock" on (the default) all products stay indexed as before. NOTE: to purge products that already lingered in the index, run Indexing > Clear Index once, then Full Sync.
+
 = 6.25.0 =
 * Fix (local engine): SKU/code fragment search ("551" for SKU "UTD55108") did not work when the local index had been configured before 6.19.0. The stored searchable-fields list still had "sku"/"all_skus" but not "search_codes", so a full re-index rebuilt the documents (with the field) but never tokenized it — the exact SKU matched via the "sku" field, but a fragment, which only lives in "search_codes", did not. The indexer now always includes the core identity/code fields (name, sku, all_skus, search_codes) regardless of the stored config, so the index config can no longer silently drop fragment search. IMPORTANT: run one Full Sync (Indexing > Full Sync) after updating so the fragments are tokenized into the index.
 
