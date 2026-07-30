@@ -62,6 +62,9 @@ Basic support is included. Full multi-language indexing depends on your setup.
 
 == Changelog ==
 
+= 6.27.0 =
+* Admin: added inline help next to the stock/visibility toggles so it is clear what each does — "Index Out of Stock" and "Index Hidden Products" (Indexing tab) explain that Off removes those products from the index, and "Show Out of Stock" (Results Page tab) explains it is a search-time filter that hides products without removing them from the index.
+
 = 6.26.0 =
 * Sync: products are now removed from the index the moment they stop qualifying, not just on the next full sync. The incremental sync only checked the publish status, so a product that went out of stock (with "Index out of stock" off), was hidden, or moved to an excluded category while still published was re-indexed instead of removed and lingered forever. It now applies the same rules as the full sync (published + in stock + not hidden + not in an excluded category) and deletes the product when it no longer qualifies (and re-adds it when it qualifies again, e.g. back in stock). Default behavior is unchanged: with "Index out of stock" on (the default) all products stay indexed as before. NOTE: to purge products that already lingered in the index, run Indexing > Clear Index once, then Full Sync.
 

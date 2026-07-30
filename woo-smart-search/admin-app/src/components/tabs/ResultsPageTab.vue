@@ -98,7 +98,15 @@
           </div>
         </div>
         <div class="wss-form-row">
-          <div class="wss-form-label">Show Out of Stock</div>
+          <div class="wss-form-label">
+            Show Out of Stock
+            <span class="wss-hint">
+              Whether out-of-stock products appear in search results. This is a
+              search-time filter and works even while the products stay indexed
+              (see “Index Out of Stock” on the Indexing tab). Turn off to hide
+              them from shoppers without removing them from the index.
+            </span>
+          </div>
           <div class="wss-form-control">
             <el-switch v-model="settings.show_out_of_stock_results" active-value="yes" inactive-value="no" />
           </div>
