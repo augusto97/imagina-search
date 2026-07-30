@@ -76,13 +76,28 @@
           </div>
         </div>
         <div class="wss-form-row">
-          <div class="wss-form-label">Index Out of Stock</div>
+          <div class="wss-form-label">
+            Index Out of Stock
+            <span class="wss-hint">
+              On: out-of-stock products stay in the index (control their
+              visibility with “Show Out of Stock” on the Results Page tab).
+              Off: they are removed from the index and re-added automatically
+              when restocked — keeps the index smaller on large catalogs.
+            </span>
+          </div>
           <div class="wss-form-control">
             <el-switch v-model="settings.index_out_of_stock" active-value="yes" inactive-value="no" />
           </div>
         </div>
         <div class="wss-form-row">
-          <div class="wss-form-label">Index Hidden Products</div>
+          <div class="wss-form-label">
+            Index Hidden Products
+            <span class="wss-hint">
+              Include products whose WooCommerce catalog visibility is
+              “Hidden”. Off by default; when off, hidden products are removed
+              from the index.
+            </span>
+          </div>
           <div class="wss-form-control">
             <el-switch v-model="settings.index_hidden" active-value="yes" inactive-value="no" />
           </div>
