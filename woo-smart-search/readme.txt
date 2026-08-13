@@ -62,6 +62,9 @@ Basic support is included. Full multi-language indexing depends on your setup.
 
 == Changelog ==
 
+= 6.28.0 =
+* Sync: product changes now reflect in search almost immediately, regardless of how the product was saved. The queue was drained only by Action Scheduler / WP-Cron, which is unreliable on low-traffic sites and on headless requests (integrations, the WooCommerce REST API, bulk uploads), so changes only appeared on the next scheduled run or a forced re-index. The queue is now also drained at the end of the request that made the change — after the response is flushed (fastcgi/LiteSpeed finish_request), so the caller is not kept waiting — with Action Scheduler kept as a fallback for large bulk imports and WP-CLI. This makes the "near-instant incremental sync" work for external API and bulk-upload workflows, not just edits in wp-admin.
+
 = 6.27.0 =
 * Admin: added inline help next to the stock/visibility toggles so it is clear what each does — "Index Out of Stock" and "Index Hidden Products" (Indexing tab) explain that Off removes those products from the index, and "Show Out of Stock" (Results Page tab) explains it is a search-time filter that hides products without removing them from the index.
 
