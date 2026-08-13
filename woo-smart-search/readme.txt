@@ -62,6 +62,9 @@ Basic support is included. Full multi-language indexing depends on your setup.
 
 == Changelog ==
 
+= 6.30.0 =
+* Sync: WooCommerce Advanced Bulk Edit (WCABE) integration, verified against the plugin's actual source (v6.2). Its bulk save writes with direct SQL and does NOT fire the standard WooCommerce/WordPress hooks — which is why bulk edits only showed up on a scheduled reindex — but it fires a per-product action, wcabe_product_save_completed, with each saved product's ID. The plugin now listens to that action and re-indexes exactly the edited products (a variation re-indexes its parent) in the same request, so WCABE bulk edits appear in search immediately. Supersedes the 6.29.0 approach, which hooked the argument-less wcabe_after_bulk_save with a delta-reindex fallback.
+
 = 6.29.0 =
 * Fix: reverted a regression in 6.28.0 that rewrote the sync queue from an out-of-date copy and removed WSS_Sync_Queue::add_wake_up(), which caused a fatal error when the Meilisearch connection recovered or a WP All Import finished. The complete queue is restored — request-end draining (which has existed since 6.19.0, flushing the response first so the caller is never blocked) plus the Action Scheduler / WP-Cron fallback, retries and error handling.
 * Sync: added integration with "WooCommerce Advanced Bulk Edit" (WCABE, by WPMelon / Algol Plus). That plugin saves via direct SQL and bypasses the standard WooCommerce/WordPress hooks, so its edits were only reflected on the next scheduled reindex. The plugin now listens for its wcabe_after_bulk_save action and re-indexes the affected products in the same request; when the action does not pass a product-ID list it falls back to the delta reindex.
