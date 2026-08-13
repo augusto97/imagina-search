@@ -62,8 +62,12 @@ Basic support is included. Full multi-language indexing depends on your setup.
 
 == Changelog ==
 
+= 6.29.0 =
+* Fix: reverted a regression in 6.28.0 that rewrote the sync queue from an out-of-date copy and removed WSS_Sync_Queue::add_wake_up(), which caused a fatal error when the Meilisearch connection recovered or a WP All Import finished. The complete queue is restored — request-end draining (which has existed since 6.19.0, flushing the response first so the caller is never blocked) plus the Action Scheduler / WP-Cron fallback, retries and error handling.
+* Sync: added integration with "WooCommerce Advanced Bulk Edit" (WCABE, by WPMelon / Algol Plus). That plugin saves via direct SQL and bypasses the standard WooCommerce/WordPress hooks, so its edits were only reflected on the next scheduled reindex. The plugin now listens for its wcabe_after_bulk_save action and re-indexes the affected products in the same request; when the action does not pass a product-ID list it falls back to the delta reindex.
+
 = 6.28.0 =
-* Sync: product changes now reflect in search almost immediately, regardless of how the product was saved. The queue was drained only by Action Scheduler / WP-Cron, which is unreliable on low-traffic sites and on headless requests (integrations, the WooCommerce REST API, bulk uploads), so changes only appeared on the next scheduled run or a forced re-index. The queue is now also drained at the end of the request that made the change — after the response is flushed (fastcgi/LiteSpeed finish_request), so the caller is not kept waiting — with Action Scheduler kept as a fallback for large bulk imports and WP-CLI. This makes the "near-instant incremental sync" work for external API and bulk-upload workflows, not just edits in wp-admin.
+* Superseded by 6.29.0 — this release contained a sync-queue regression (fatal error on Meilisearch reconnect / WP All Import completion). Update to 6.29.0.
 
 = 6.27.0 =
 * Admin: added inline help next to the stock/visibility toggles so it is clear what each does — "Index Out of Stock" and "Index Hidden Products" (Indexing tab) explain that Off removes those products from the index, and "Show Out of Stock" (Results Page tab) explains it is a search-time filter that hides products without removing them from the index.
