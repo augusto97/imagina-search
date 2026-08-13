@@ -57,6 +57,12 @@ class WSS_Product_Sync {
 		// WP All Import — fires after the entire import is complete.
 		add_action( 'pmxi_after_xml_import', array( $this, 'on_wp_all_import_complete' ), 10, 0 );
 
+		// WooCommerce Advanced Bulk Edit (WCABE — WPMelon / Algol Plus). It saves
+		// via direct SQL, bypassing WooCommerce/WP hooks, but fires this action
+		// when a bulk save finishes. Re-index the affected products (or run a
+		// delta reindex when it does not pass an ID list).
+		add_action( 'wcabe_after_bulk_save', array( $this, 'on_advanced_bulk_edit_save' ), 10, 5 );
+
 		// ATUM Inventory / any plugin that fires this generic WC hook.
 		add_action( 'woocommerce_product_object_updated_props', array( $this, 'on_product_props_updated' ), 10, 1 );
 
@@ -318,6 +324,46 @@ class WSS_Product_Sync {
 	 */
 	public function on_wp_all_import_complete() {
 		WSS_Sync_Queue::add_wake_up();
+	}
+
+	/**
+	 * WooCommerce Advanced Bulk Edit — fires when a bulk save completes.
+	 *
+	 * The plugin writes with direct SQL, so none of the standard WooCommerce /
+	 * WordPress save hooks fire. The action's signature has varied across
+	 * versions, so we accept whatever it passes: any array of numeric values is
+	 * treated as the list of edited product IDs and those are queued (each is
+	 * validated as a product in schedule_product_update). If no ID list is
+	 * passed we fall back to the delta reindex, which detects changed rows by
+	 * post_modified / new meta so the edits are still picked up in this request.
+	 */
+	public function on_advanced_bulk_edit_save() {
+		$ids = array();
+
+		foreach ( func_get_args() as $arg ) {
+			if ( is_array( $arg ) ) {
+				array_walk_recursive(
+					$arg,
+					function ( $value ) use ( &$ids ) {
+						if ( is_numeric( $value ) ) {
+							$ids[] = absint( $value );
+						}
+					}
+				);
+			}
+		}
+
+		$ids = array_filter( array_unique( $ids ) );
+
+		if ( ! empty( $ids ) ) {
+			foreach ( $ids as $id ) {
+				$this->schedule_product_update( $id );
+			}
+			return;
+		}
+
+		// No usable ID list — catch the changes via the delta reindex.
+		$this->run_periodic_reindex();
 	}
 
 	/**
