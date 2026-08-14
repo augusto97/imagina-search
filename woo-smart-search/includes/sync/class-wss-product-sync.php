@@ -212,7 +212,23 @@ class WSS_Product_Sync {
 			return;
 		}
 
-		// Only react to configured custom fields.
+		// Core WooCommerce fields that ERPs / API integrations frequently write
+		// straight to postmeta with update_post_meta(), bypassing the CRUD save
+		// that fires woocommerce_update_product. Without this, a price or stock
+		// push made that way would never re-index and search would keep showing
+		// the old value until a full sync.
+		$core_keys = array(
+			'_price', '_regular_price', '_sale_price',
+			'_sale_price_dates_from', '_sale_price_dates_to',
+			'_stock', '_stock_status', '_manage_stock', '_backorders',
+			'_sku', '_weight', '_length', '_width', '_height',
+		);
+		if ( in_array( $meta_key, $core_keys, true ) ) {
+			$this->schedule_product_update( $object_id );
+			return;
+		}
+
+		// Otherwise only react to configured custom fields.
 		$configured_fields = wss_get_option( 'custom_fields', array() );
 
 		if ( empty( $configured_fields ) || ! is_array( $configured_fields ) ) {

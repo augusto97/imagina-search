@@ -62,6 +62,9 @@ Basic support is included. Full multi-language indexing depends on your setup.
 
 == Changelog ==
 
+= 6.31.0 =
+* Sync: price/stock changes pushed straight to postmeta are now picked up. Some API integrations and ERPs update a product with update_post_meta('_price', ...) instead of the WooCommerce CRUD save, so woocommerce_update_product never fires and the meta-change handler ignored those keys (it only watched configured custom fields) — search kept showing the old price/stock until a full sync. The handler now also re-indexes the product when a core WooCommerce field changes (_price, _regular_price, _sale_price, sale dates, _stock, _stock_status, _manage_stock, _backorders, _sku, dimensions). Note: integrations that write with raw SQL (no update_post_meta) still fire no hook and are covered only by the periodic reindex.
+
 = 6.30.0 =
 * Sync: WooCommerce Advanced Bulk Edit (WCABE) integration, verified against the plugin's actual source (v6.2). Its bulk save writes with direct SQL and does NOT fire the standard WooCommerce/WordPress hooks — which is why bulk edits only showed up on a scheduled reindex — but it fires a per-product action, wcabe_product_save_completed, with each saved product's ID. The plugin now listens to that action and re-indexes exactly the edited products (a variation re-indexes its parent) in the same request, so WCABE bulk edits appear in search immediately. Supersedes the 6.29.0 approach, which hooked the argument-less wcabe_after_bulk_save with a delta-reindex fallback.
 
