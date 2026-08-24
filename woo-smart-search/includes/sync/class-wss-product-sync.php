@@ -77,6 +77,8 @@ class WSS_Product_Sync {
 		// Periodic re-indexation — the ultimate safety net for changes that
 		// bypass ALL WordPress hooks (direct SQL, ERPs, WP-CLI, etc.).
 		add_action( 'wss_periodic_reindex', array( $this, 'run_periodic_reindex' ) );
+		// WP-Cron fallback hook (used when Action Scheduler is unavailable).
+		add_action( 'wss_cron_periodic_reindex', array( $this, 'run_periodic_reindex' ) );
 	}
 
 	/**
