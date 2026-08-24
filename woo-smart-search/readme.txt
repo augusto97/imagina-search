@@ -62,6 +62,9 @@ Basic support is included. Full multi-language indexing depends on your setup.
 
 == Changelog ==
 
+= 6.32.0 =
+* Admin: the "Last Sync" indicator now reflects real sync activity. It was only updated by a manual Full Sync, so it could read "days ago" even while incremental syncs kept the index current — making it look like indexing had stopped when it had not. It now also updates whenever the queue processes items (incremental and periodic syncs), so a genuinely stale value is a real signal that nothing is syncing (usually WP-Cron / Action Scheduler not running on the site).
+
 = 6.31.0 =
 * Sync: price/stock changes pushed straight to postmeta are now picked up. Some API integrations and ERPs update a product with update_post_meta('_price', ...) instead of the WooCommerce CRUD save, so woocommerce_update_product never fires and the meta-change handler ignored those keys (it only watched configured custom fields) — search kept showing the old price/stock until a full sync. The handler now also re-indexes the product when a core WooCommerce field changes (_price, _regular_price, _sale_price, sale dates, _stock, _stock_status, _manage_stock, _backorders, _sku, dimensions). Note: integrations that write with raw SQL (no update_post_meta) still fire no hook and are covered only by the periodic reindex.
 

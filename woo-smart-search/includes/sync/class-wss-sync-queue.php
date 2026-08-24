@@ -301,6 +301,13 @@ class WSS_Sync_Queue {
 			);
 		}
 
+		// Record real sync activity so the admin "Last Sync" reflects
+		// incremental / periodic syncs, not only manual Full Syncs. Lets the
+		// field work as a health signal (a stale value = nothing is syncing).
+		if ( $processed > 0 ) {
+			wss_update_option( 'last_sync', time() );
+		}
+
 		// Clean old completed entries (older than 24 hours).
 		$wpdb->query(
 			$wpdb->prepare(
