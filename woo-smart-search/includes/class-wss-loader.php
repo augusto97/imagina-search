@@ -82,11 +82,14 @@ class WSS_Loader {
 		$analytics = new WSS_Search_Analytics();
 		$analytics->init();
 
-		// Schedule health check every 5 minutes.
-		$this->schedule_health_check();
-
-		// Schedule periodic re-indexation.
-		$this->schedule_periodic_reindex();
+		// Schedule background jobs on `init`, not here (plugins_loaded): Action
+		// Scheduler's API is not guaranteed to be loaded/ready this early, so
+		// scheduling here could silently no-op and the recurring action would
+		// never register. Register a custom WP-Cron interval as a fallback for
+		// sites where Action Scheduler is unavailable.
+		add_filter( 'cron_schedules', array( $this, 'add_reindex_cron_schedule' ) );
+		add_action( 'init', array( $this, 'schedule_health_check' ), 20 );
+		add_action( 'init', array( $this, 'schedule_periodic_reindex' ), 20 );
 
 		// Auto-fallback filter for when Meilisearch is down.
 		add_filter( 'wss_use_native_search', array( $this, 'maybe_fallback_to_native' ) );
@@ -99,13 +102,47 @@ class WSS_Loader {
 	}
 
 	/**
-	 * Schedule periodic health check every 5 minutes via Action Scheduler.
+	 * Register a custom WP-Cron recurrence matching the reindex interval, used
+	 * as a fallback when Action Scheduler is unavailable.
+	 *
+	 * @param array $schedules Existing cron schedules.
+	 * @return array
 	 */
-	private function schedule_health_check() {
-		if ( function_exists( 'as_has_scheduled_action' ) && ! as_has_scheduled_action( 'wss_health_check' ) ) {
-			as_schedule_recurring_action( time() + 300, 300, 'wss_health_check', array(), 'woo-smart-search' );
+	public function add_reindex_cron_schedule( $schedules ) {
+		$minutes = (int) wss_get_option( 'reindex_interval', 360 );
+		if ( $minutes > 0 ) {
+			$schedules['wss_reindex'] = array(
+				'interval' => $minutes * 60,
+				'display'  => __( 'Woo Smart Search re-index interval', 'woo-smart-search' ),
+			);
 		}
+		return $schedules;
+	}
+
+	/**
+	 * Schedule periodic health check every 5 minutes.
+	 *
+	 * Hooked to `init` so Action Scheduler is loaded; falls back to WP-Cron.
+	 */
+	public function schedule_health_check() {
 		add_action( 'wss_health_check', array( $this, 'run_health_check' ) );
+		add_action( 'wss_cron_health_check', array( $this, 'run_health_check' ) );
+
+		if ( function_exists( 'as_has_scheduled_action' ) && function_exists( 'as_schedule_recurring_action' ) ) {
+			if ( ! as_has_scheduled_action( 'wss_health_check' ) ) {
+				as_schedule_recurring_action( time() + 300, 300, 'wss_health_check', array(), 'woo-smart-search' );
+			}
+			$ts = wp_next_scheduled( 'wss_cron_health_check' );
+			if ( $ts ) {
+				wp_unschedule_event( $ts, 'wss_cron_health_check' );
+			}
+			return;
+		}
+
+		// WP-Cron fallback.
+		if ( ! wp_next_scheduled( 'wss_cron_health_check' ) ) {
+			wp_schedule_event( time() + 300, 'wss_reindex', 'wss_cron_health_check' );
+		}
 	}
 
 	/**
@@ -113,21 +150,42 @@ class WSS_Loader {
 	 *
 	 * Runs every 6 hours by default. Catches: direct DB updates, REST API changes
 	 * from external apps, bulk edit plugins, scheduled sales, CSV imports.
+	 *
+	 * Hooked to `init` (Action Scheduler ready) and falls back to WP-Cron so the
+	 * safety net still registers on sites where Action Scheduler is unavailable.
 	 */
-	private function schedule_periodic_reindex() {
+	public function schedule_periodic_reindex() {
 		$minutes  = (int) wss_get_option( 'reindex_interval', 360 );
 		$interval = (int) apply_filters( 'wss_reindex_interval', $minutes * 60 );
 
 		if ( $interval <= 0 ) {
-			// Disabled — unschedule if it exists.
-			if ( function_exists( 'as_has_scheduled_action' ) && as_has_scheduled_action( 'wss_periodic_reindex' ) ) {
+			// Disabled — unschedule from both mechanisms.
+			if ( function_exists( 'as_unschedule_all_actions' ) ) {
 				as_unschedule_all_actions( 'wss_periodic_reindex', array(), 'woo-smart-search' );
+			}
+			$ts = wp_next_scheduled( 'wss_cron_periodic_reindex' );
+			if ( $ts ) {
+				wp_unschedule_event( $ts, 'wss_cron_periodic_reindex' );
 			}
 			return;
 		}
 
-		if ( function_exists( 'as_has_scheduled_action' ) && ! as_has_scheduled_action( 'wss_periodic_reindex' ) ) {
-			as_schedule_recurring_action( time() + $interval, $interval, 'wss_periodic_reindex', array(), 'woo-smart-search' );
+		// Prefer Action Scheduler when it is actually available.
+		if ( function_exists( 'as_has_scheduled_action' ) && function_exists( 'as_schedule_recurring_action' ) ) {
+			if ( ! as_has_scheduled_action( 'wss_periodic_reindex' ) ) {
+				as_schedule_recurring_action( time() + $interval, $interval, 'wss_periodic_reindex', array(), 'woo-smart-search' );
+			}
+			// Drop any duplicate WP-Cron fallback event.
+			$ts = wp_next_scheduled( 'wss_cron_periodic_reindex' );
+			if ( $ts ) {
+				wp_unschedule_event( $ts, 'wss_cron_periodic_reindex' );
+			}
+			return;
+		}
+
+		// WP-Cron fallback when Action Scheduler is unavailable.
+		if ( ! wp_next_scheduled( 'wss_cron_periodic_reindex' ) ) {
+			wp_schedule_event( time() + $interval, 'wss_reindex', 'wss_cron_periodic_reindex' );
 		}
 	}
 

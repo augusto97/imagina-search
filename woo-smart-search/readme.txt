@@ -62,6 +62,9 @@ Basic support is included. Full multi-language indexing depends on your setup.
 
 == Changelog ==
 
+= 6.33.0 =
+* Fix: the periodic re-index safety net could silently never register. It was scheduled during plugins_loaded — when Action Scheduler's API may not be loaded yet — and had no fallback, so on some sites the recurring wss_periodic_reindex action never appeared under WooCommerce > Status > Scheduled Actions and the index was refreshed only by manual Full Syncs. Scheduling now runs on `init` (Action Scheduler is ready) and falls back to a WP-Cron event when Action Scheduler is unavailable; the same hardening is applied to the health check. NOTE: this guarantees the job is registered, but the site's WP-Cron / Action Scheduler must actually run for it to execute — if scheduled tasks are disabled on the server, configure a real system cron hitting wp-cron.php.
+
 = 6.32.0 =
 * Admin: the "Last Sync" indicator now reflects real sync activity. It was only updated by a manual Full Sync, so it could read "days ago" even while incremental syncs kept the index current — making it look like indexing had stopped when it had not. It now also updates whenever the queue processes items (incremental and periodic syncs), so a genuinely stale value is a real signal that nothing is syncing (usually WP-Cron / Action Scheduler not running on the site).
 
