@@ -22,6 +22,7 @@ class WSS_Admin_Ajax {
 		add_action( 'wp_ajax_wss_test_connection', array( $this, 'test_connection' ) );
 		add_action( 'wp_ajax_wss_full_sync', array( $this, 'full_sync' ) );
 		add_action( 'wp_ajax_wss_sync_progress', array( $this, 'sync_progress' ) );
+		add_action( 'wp_ajax_wss_run_sync_batch', array( $this, 'run_sync_batch' ) );
 		add_action( 'wp_ajax_wss_clear_index', array( $this, 'clear_index' ) );
 		add_action( 'wp_ajax_wss_get_logs', array( $this, 'get_logs' ) );
 		add_action( 'wp_ajax_wss_clear_logs', array( $this, 'clear_logs' ) );
@@ -659,6 +660,58 @@ class WSS_Admin_Ajax {
 		}
 
 		wp_send_json_success( $progress );
+	}
+
+	/**
+	 * Process one Full Sync batch synchronously, driven by the admin browser.
+	 *
+	 * The normal Full Sync chains its batches through Action Scheduler, which
+	 * never runs on sites where WP-Cron / Action Scheduler is broken — the
+	 * progress bar then sits at 0%. This lets the open admin page pump the
+	 * batches itself, independent of cron. It takes ownership of the Action
+	 * Scheduler chain (unschedules the pending batch actions) so the same page
+	 * is not processed twice, and serializes with a short lock.
+	 */
+	public function run_sync_batch() {
+		$this->verify_request();
+
+		$progress = get_option( 'wss_sync_progress' );
+
+		if ( ! is_array( $progress ) || 'running' !== ( $progress['status'] ?? '' ) ) {
+			wp_send_json_success( is_array( $progress ) ? $progress : array( 'status' => 'idle' ) );
+			return;
+		}
+
+		// Serialize: a concurrent poll or an Action Scheduler run must not
+		// process the same page at the same time.
+		if ( get_transient( 'wss_sync_batch_lock' ) ) {
+			wp_send_json_success( $progress );
+			return;
+		}
+		set_transient( 'wss_sync_batch_lock', 1, 120 );
+
+		// Take ownership from Action Scheduler so batches are not run twice.
+		if ( function_exists( 'as_unschedule_all_actions' ) ) {
+			as_unschedule_all_actions( 'wss_bulk_sync_batch', array(), 'woo-smart-search' );
+			as_unschedule_all_actions( 'wss_bulk_post_sync_batch', array(), 'woo-smart-search' );
+		}
+
+		$next_page = (int) ( $progress['current'] ?? 0 ) + 1;
+
+		$content_source = wss_get_content_source();
+
+		if ( ( wss_is_ecommerce_mode() || 'mixed' === $content_source ) && class_exists( 'WSS_Product_Sync' ) ) {
+			$sync = new WSS_Product_Sync();
+			$sync->process_bulk_sync_batch( array( 'page' => $next_page ), false );
+		} elseif ( class_exists( 'WSS_Post_Sync' ) ) {
+			$sync = new WSS_Post_Sync();
+			$sync->process_bulk_sync_batch( array( 'page' => $next_page ), false );
+		}
+
+		delete_transient( 'wss_sync_batch_lock' );
+
+		$updated = get_option( 'wss_sync_progress' );
+		wp_send_json_success( is_array( $updated ) ? $updated : array( 'status' => 'idle' ) );
 	}
 
 	/**

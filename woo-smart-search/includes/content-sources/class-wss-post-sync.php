@@ -346,7 +346,7 @@ class WSS_Post_Sync {
 	 *
 	 * @param array $batch_args Batch arguments containing 'page'.
 	 */
-	public function process_bulk_sync_batch( $batch_args ) {
+	public function process_bulk_sync_batch( $batch_args, $schedule_next = true ) {
 		$engine = wss_get_engine();
 
 		if ( ! $engine ) {
@@ -427,19 +427,21 @@ class WSS_Post_Sync {
 			update_option( 'wss_sync_progress', $progress, false );
 		}
 
-		// Schedule next batch.
-		$next_page = $page + 1;
-		$next_args = array( 'page' => $next_page );
+		// Schedule next batch (skipped when the caller drives batches itself).
+		if ( $schedule_next ) {
+			$next_page = $page + 1;
+			$next_args = array( 'page' => $next_page );
 
-		if ( function_exists( 'as_schedule_single_action' ) ) {
-			as_schedule_single_action(
-				time() + 5,
-				'wss_bulk_post_sync_batch',
-				array( $next_args ),
-				'woo-smart-search'
-			);
-		} else {
-			$this->process_bulk_sync_batch( $next_args );
+			if ( function_exists( 'as_schedule_single_action' ) ) {
+				as_schedule_single_action(
+					time() + 5,
+					'wss_bulk_post_sync_batch',
+					array( $next_args ),
+					'woo-smart-search'
+				);
+			} else {
+				$this->process_bulk_sync_batch( $next_args );
+			}
 		}
 	}
 

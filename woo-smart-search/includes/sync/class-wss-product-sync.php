@@ -617,7 +617,7 @@ class WSS_Product_Sync {
 	 *
 	 * @param array $batch_args Batch arguments containing 'page'.
 	 */
-	public function process_bulk_sync_batch( $batch_args ) {
+	public function process_bulk_sync_batch( $batch_args, $schedule_next = true ) {
 		$engine = wss_get_engine();
 
 		if ( ! $engine ) {
@@ -721,20 +721,24 @@ class WSS_Product_Sync {
 			}
 		}
 
-		// Schedule next batch (chain pattern).
-		$next_page  = $page + 1;
-		$next_args  = array( 'page' => $next_page );
+		// Schedule next batch (chain pattern). Skipped when a caller (the
+		// browser-driven Full Sync) drives the batches itself, so Action
+		// Scheduler and the browser do not process the same pages.
+		if ( $schedule_next ) {
+			$next_page = $page + 1;
+			$next_args = array( 'page' => $next_page );
 
-		if ( function_exists( 'as_schedule_single_action' ) ) {
-			as_schedule_single_action(
-				time() + 5,
-				'wss_bulk_sync_batch',
-				array( $next_args ),
-				'woo-smart-search'
-			);
-		} else {
-			// Fallback: process next batch immediately.
-			$this->process_bulk_sync_batch( $next_args );
+			if ( function_exists( 'as_schedule_single_action' ) ) {
+				as_schedule_single_action(
+					time() + 5,
+					'wss_bulk_sync_batch',
+					array( $next_args ),
+					'woo-smart-search'
+				);
+			} else {
+				// Fallback: process next batch immediately.
+				$this->process_bulk_sync_batch( $next_args );
+			}
 		}
 	}
 

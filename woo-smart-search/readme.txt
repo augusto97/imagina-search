@@ -62,6 +62,9 @@ Basic support is included. Full multi-language indexing depends on your setup.
 
 == Changelog ==
 
+= 6.34.0 =
+* Fix: Full Sync could stay stuck at 0% on sites where WP-Cron / Action Scheduler does not run. Full Sync chained its batches through Action Scheduler, so if scheduled tasks never fired, the first batch was queued but never processed (and nothing appeared in the Logs, because no batch ran). Full Sync is now driven by the admin browser: while the Indexing page is open it processes each batch over AJAX and advances the progress bar itself, independent of cron. It takes ownership of the Action Scheduler chain (and uses a short lock) so batches are never processed twice. Keep the tab open until it finishes.
+
 = 6.33.0 =
 * Fix: the periodic re-index safety net could silently never register. It was scheduled during plugins_loaded — when Action Scheduler's API may not be loaded yet — and had no fallback, so on some sites the recurring wss_periodic_reindex action never appeared under WooCommerce > Status > Scheduled Actions and the index was refreshed only by manual Full Syncs. Scheduling now runs on `init` (Action Scheduler is ready) and falls back to a WP-Cron event when Action Scheduler is unavailable; the same hardening is applied to the health check. NOTE: this guarantees the job is registered, but the site's WP-Cron / Action Scheduler must actually run for it to execute — if scheduled tasks are disabled on the server, configure a real system cron hitting wp-cron.php.
 
