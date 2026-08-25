@@ -217,49 +217,80 @@ async function startSync() {
 
   try {
     await post('wss_full_sync');
-    pollProgress();
+    await pumpSync();
   } catch (e) {
     ElMessage.error(e.message);
     syncing.value = false;
   }
 }
 
-function pollProgress() {
-  // Safety cap: ~1 hour at 3s intervals. If the sync hangs server-side,
-  // stop polling instead of hammering admin-ajax forever.
-  let polls = 0;
-  pollTimer = setInterval(async () => {
-    if (++polls > 1200) {
-      clearInterval(pollTimer);
+// Drive the batches from the browser instead of waiting for Action Scheduler /
+// WP-Cron. Each call processes one batch server-side and returns progress, so a
+// Full Sync completes even on sites where scheduled tasks are not running (which
+// is exactly when it used to sit stuck at 0%). Keeping the admin tab open is all
+// that is required.
+async function pumpSync() {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  let guard = 0;      // hard cap on iterations (very large catalogs)
+  let stalls = 0;     // consecutive errors / no-progress
+  let last = -1;
+
+  while (guard++ < 20000) {
+    let res;
+    try {
+      res = await post('wss_run_sync_batch');
+    } catch {
+      if (++stalls > 20) break;
+      await sleep(2000);
+      continue;
+    }
+
+    if (!res || !res.success || !res.data) {
+      if (++stalls > 20) break;
+      await sleep(1000);
+      continue;
+    }
+
+    const d = res.data;
+
+    if (d.status === 'failed') {
       syncing.value = false;
-      ElMessage.warning('Sync is taking too long — check the Logs tab.');
+      progressText.value = 'Failed';
+      ElMessage.error('Sync failed — check the Logs tab for details.');
       return;
     }
-    try {
-      const res = await post('wss_sync_progress');
-      if (!res.success) return;
-      const d = res.data;
-      if (d.status === 'running') {
-        const pct = d.total > 0 ? Math.round((d.processed / d.total) * 100) : 0;
-        progress.value = pct;
-        progressText.value = `${pct}% (${d.processed}/${d.total})`;
-      } else if (d.status === 'failed') {
-        clearInterval(pollTimer);
-        syncing.value = false;
-        progressText.value = 'Failed';
-        ElMessage.error('Sync failed — check the Logs tab for details.');
-      } else {
-        clearInterval(pollTimer);
-        syncing.value = false;
-        progress.value = 100;
-        progressText.value = 'Completed';
-        ElMessage.success('Sync completed');
-        // Refresh stats.
+
+    if (d.status !== 'running') {
+      progress.value = 100;
+      progressText.value = 'Completed';
+      syncing.value = false;
+      ElMessage.success('Sync completed');
+      try {
         const sr = await post('wss_get_index_stats');
         if (sr.success) stats.indexed = sr.data.numberOfDocuments ?? 0;
+      } catch { /* ignore */ }
+      return;
+    }
+
+    const pct = d.total > 0 ? Math.round((d.processed / d.total) * 100) : 0;
+    progress.value = pct;
+    progressText.value = `${pct}% (${d.processed}/${d.total})`;
+
+    // Detect a genuine stall (another process holds the lock, or no advance).
+    if (d.processed === last) {
+      if (++stalls > 40) {
+        syncing.value = false;
+        ElMessage.warning('Sync is not advancing — check the Logs tab.');
+        return;
       }
-    } catch { /* retry next tick */ }
-  }, 3000);
+      await sleep(1500);
+    } else {
+      stalls = 0;
+      last = d.processed;
+    }
+  }
+
+  syncing.value = false;
 }
 
 async function clearIndex() {
