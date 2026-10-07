@@ -249,6 +249,8 @@ function wss_get_sync_progress() {
  */
 function wss_touch_last_sync() {
 	update_option( 'wss_last_sync', time(), false );
+	// Indexed content changed: start a new search-cache generation.
+	update_option( 'wss_cache_gen', (int) get_option( 'wss_cache_gen', 0 ) + 1, true );
 }
 
 /**

@@ -150,6 +150,14 @@ if ( strlen( $filter_str ) > 1000 || preg_match_all( '/\s(AND|OR)\s/i', $filter_
 	$filter_str = '';
 }
 
+// Outside mixed mode the index only holds one content source, so the
+// `content_source = "…"` condition the widget always sends matches every
+// document — drop it instead of decoding thousands of documents to check.
+if ( 'mixed' !== ( $wss_settings_arr['content_source'] ?? 'auto' ) && '' !== $filter_str ) {
+	$filter_str = trim( preg_replace( '/(^|\s+AND\s+)content_source\s*=\s*"(woocommerce|wordpress)"(?=\s+AND\s+|$)/i', '', trim( $filter_str ) ) );
+	$filter_str = trim( preg_replace( '/^AND\s+/i', '', $filter_str ) );
+}
+
 // Sanitize filter string — strip dangerous characters (only allow field names, operators, values).
 $filter_str = preg_replace( '/[^\w\s=<>!"\'\-.,()&\/]/u', '', $filter_str );
 

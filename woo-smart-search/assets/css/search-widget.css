@@ -214,13 +214,25 @@
 	opacity: 0;
 	transform: translateY(-8px);
 	pointer-events: none;
-	transition: opacity 0.2s ease, transform 0.2s ease;
+	/* visibility keeps the closed dropdown out of the Tab order and away
+	   from screen readers (opacity alone left invisible links focusable). */
+	visibility: hidden;
+	transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.2s;
 }
 
 .wss-results-dropdown.wss-visible {
 	opacity: 1;
 	transform: translateY(0);
 	pointer-events: auto;
+	visibility: visible;
+	transition-delay: 0s;
+}
+
+/* Narrow header inputs: give results room to breathe on desktop. */
+@media (min-width: 768px) {
+	.wss-search-wrapper:not(.wss-layout-expanded):not(.wss-layout-falabella) .wss-results-dropdown {
+		min-width: min(400px, calc(100vw - 24px));
+	}
 }
 
 /* ============================================
@@ -378,7 +390,8 @@
 
 .wss-result-item:hover,
 .wss-result-item.wss-result-active {
-	background-color: rgba(37, 99, 235, 0.04);
+	background-color: rgba(37, 99, 235, 0.08);
+	box-shadow: inset 3px 0 0 var(--wss-primary-color);
 }
 
 /* ============================================
@@ -769,7 +782,7 @@
 
 .wss-layout-expanded .wss-results-dropdown {
 	position: absolute;
-	width: 750px;
+	width: min(750px, calc(100vw - 24px));
 	left: 50%;
 	right: auto;
 	transform: translateX(-50%);
@@ -1128,7 +1141,7 @@
 		flex: none;
 		border-right: none;
 		border-bottom: 1px solid var(--wss-border-color);
-		max-height: 200px;
+		max-height: 40vh;
 		overflow-y: auto;
 	}
 
@@ -1148,6 +1161,33 @@
 
 	.wss-layout-expanded .wss-result-image {
 		height: 110px;
+	}
+
+	/* Categories / suggestions as wrapping pills instead of a tall list. */
+	.wss-layout-expanded .wss-sidebar-categories-list,
+	.wss-layout-expanded .wss-suggestions-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+
+	.wss-layout-expanded .wss-sidebar-categories-list li,
+	.wss-layout-expanded .wss-suggestions-list li {
+		flex: 0 0 auto;
+		width: auto !important;
+		margin: 0;
+	}
+
+	.wss-layout-expanded .wss-sidebar-cat-item,
+	.wss-layout-expanded .wss-suggestion-item {
+		display: inline-flex;
+		align-items: center;
+		width: auto;
+		padding: 6px 12px;
+		border: 1px solid var(--wss-border-color);
+		border-radius: 999px;
+		background: var(--wss-bg-color);
+		white-space: nowrap;
 	}
 }
 
@@ -1270,7 +1310,7 @@
    ============================================ */
 
 .wss-layout-falabella .wss-results-dropdown {
-	min-width: 650px;
+	min-width: min(650px, calc(100vw - 24px));
 	max-height: min(440px, 65vh);
 }
 
@@ -1456,19 +1496,26 @@
 }
 
 .wss-fullscreen-search .wss-search-icon {
-	left: 40px;
+	left: 42px !important; /* base rule uses !important (12px) */
 }
 
 .wss-fullscreen-input {
-	width: 100%;
-	height: 52px;
-	padding: 0 48px 0 50px;
+	/* !important like .wss-search-input: theme input[type=search] rules
+	   (padding, background, inset shadow) otherwise push the text under the
+	   icon and the icon onto the border. */
+	width: 100% !important;
+	height: 52px !important;
+	margin: 0 !important;
+	padding: 0 48px 0 50px !important;
 	font-size: 1em;
 	font-family: inherit;
-	color: var(--wss-text-color);
-	background: var(--wss-bg-color);
-	border: 1.5px solid var(--wss-border-color);
-	border-radius: 999px;
+	line-height: normal !important;
+	color: var(--wss-text-color) !important;
+	background: var(--wss-bg-color) !important;
+	border: 1.5px solid var(--wss-border-color) !important;
+	border-radius: 999px !important;
+	box-shadow: none !important;
+	box-sizing: border-box !important;
 	outline: none;
 	transition: border-color 0.2s ease, box-shadow 0.2s ease;
 	-webkit-appearance: none;
@@ -1488,7 +1535,7 @@
 
 .wss-fullscreen-clear {
 	position: absolute;
-	right: 32px;
+	right: 32px !important; /* base .wss-search-clear uses !important */
 	top: 50%;
 	transform: translateY(-50%);
 }
@@ -1706,3 +1753,94 @@
 /* Mobile back button + overlay layout: styled by the inline <style>
    block in templates/search-widget.php so the rules always ship in the
    same response as the HTML (immune to stylesheet caching). */
+
+/* ============================================
+   Accessibility & mobile ergonomics (6.35.0)
+   ============================================ */
+
+.wss-search-clear:focus-visible,
+.wss-category-pill:focus-visible,
+.wss-results-dropdown a:focus-visible,
+.wss-mobile-back-btn:focus-visible,
+.wss-fullscreen-close:focus-visible {
+	outline: 2px solid var(--wss-primary-color);
+	outline-offset: 2px;
+}
+
+@media (max-width: 767px) {
+	/* iOS Safari zooms the page when focusing a field under 16px — it used
+	   to happen on the first tap, before the overlay CSS applied. */
+	.wss-search-input,
+	.wss-fullscreen-input {
+		font-size: 16px !important;
+	}
+
+	/* Comfortable tap targets (~44px). */
+	.wss-search-clear,
+	.wss-mobile-back-btn,
+	.wss-fullscreen-close {
+		min-width: 44px;
+		min-height: 44px;
+	}
+	.wss-category-pill {
+		padding-top: 7px;
+		padding-bottom: 7px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.wss-search-wrapper *,
+	.wss-search-wrapper *::before,
+	.wss-search-wrapper *::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+}
+
+/* ============================================
+   Theme isolation (6.35.0)
+   Themes style links by context (Storefront: ".site-footer a" underline,
+   ".storefront-handheld-footer-bar ul li>a" hides text with text-indent
+   and fixes height/borders; many themes underline ".entry-content a" or
+   ".widget a"). The widget often lives inside those containers (mobile
+   footer search bar, sidebars, page content), so neutralise them here.
+   ============================================ */
+
+.wss-search-wrapper a {
+	text-decoration: none !important;
+	text-indent: 0 !important;
+	box-shadow: none;
+}
+
+/* Storefront's mobile footer search bar: undo its icon-button list styles
+   ("ul li" inline-block/float/centered, "li > a" fixed height + text-indent). */
+.storefront-handheld-footer-bar .wss-search-wrapper ul li {
+	display: block;
+	float: none;
+	width: auto;
+	text-align: left;
+}
+
+.storefront-handheld-footer-bar .wss-search-wrapper li > a {
+	height: auto;
+	border-right: 0;
+	z-index: auto;
+	overflow: visible;
+}
+
+.wss-search-wrapper .wss-view-all:hover,
+.wss-search-wrapper .wss-fullscreen-view-all {
+	text-decoration: underline !important;
+}
+
+.wss-search-wrapper mark {
+	background: var(--wss-highlight-bg);
+	color: var(--wss-highlight-text);
+	padding: 0 1px;
+	border-radius: 2px;
+}
+
+.wss-search-wrapper del {
+	text-decoration: line-through !important;
+}

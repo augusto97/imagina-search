@@ -388,9 +388,16 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 				}
 			}
 
-			// Also index all string/array values for facet filtering.
+			// Also index the human-readable filterable values (categories,
+			// brands, attributes…) as searchable words. Machine values are
+			// skipped: filters read the document JSON, and words like "simple"
+			// or "instock" matched every product of that type/status.
 			$filterable = isset( $settings['filterableAttributes'] ) ? $settings['filterableAttributes'] : array();
+			$machine    = array( 'type', 'stock_status', 'content_source', 'post_type', 'on_sale', 'featured', 'visibility', 'rating', 'price', 'price_min', 'price_max', 'category_ids', 'category_slugs', 'date_created', 'date_modified', 'id' );
 			foreach ( $filterable as $field ) {
+				if ( in_array( $field, $machine, true ) ) {
+					continue;
+				}
 				$value = $this->extract_field_value( $doc, $field );
 				if ( ! empty( $value ) ) {
 					$tokens = $this->tokenize( $value );
@@ -829,7 +836,9 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 		// Calculate facets if requested.
 		$facet_distribution = array();
 		if ( ! empty( $options['facets'] ) ) {
-			$facet_distribution = $this->calculate_facets( $index_name, $scored_ids, (array) $options['facets'] );
+			// Facet counts come from the most relevant 3000 matches: exact for
+			// normal result sets, approximate (but fast) for very broad queries.
+			$facet_distribution = $this->calculate_facets( $index_name, array_slice( $scored_ids, 0, 3000 ), (array) $options['facets'] );
 		}
 
 		$elapsed = ( microtime( true ) - $start_time ) * 1000;
@@ -1202,10 +1211,14 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 			)
 		);
 
+		// Parse once, evaluate per document (it used to be re-parsed by regex
+		// for every candidate document).
+		$parsed = $this->parse_filter( $filter_str );
+
 		$result = array();
 		foreach ( $rows as $row ) {
 			$doc = json_decode( $row->doc_data, true );
-			if ( $this->evaluate_filter( $doc, $filter_str ) ) {
+			if ( is_array( $doc ) && $this->evaluate_parsed_filter( $doc, $parsed ) ) {
 				$result[] = (int) $row->doc_id;
 			}
 		}
@@ -1214,40 +1227,146 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	}
 
 	/**
-	 * Evaluate a filter expression against a document.
+	 * Parse a Meilisearch-style filter into AND-ed groups of OR-ed conditions.
 	 *
-	 * @param array  $doc    Document data.
+	 * Quote-aware: values such as "Bath and Body" or "Shoes (kids)" are no
+	 * longer split on the AND/OR inside them.
+	 *
 	 * @param string $filter Filter expression.
+	 * @return array List of groups; each group is a list of [field, op, value]
+	 *               (null for an unparseable condition, which never matches).
+	 */
+	private function parse_filter( string $filter ): array {
+		$groups = array();
+		foreach ( $this->split_top_level( $filter, 'AND' ) as $part ) {
+			$part = trim( $part );
+			if ( '' === $part ) {
+				continue;
+			}
+			if ( '(' === $part[0] && ')' === substr( $part, -1 ) ) {
+				$part = substr( $part, 1, -1 );
+			}
+			$group = array();
+			foreach ( $this->split_top_level( $part, 'OR' ) as $cond ) {
+				$group[] = $this->parse_condition( trim( $cond ) );
+			}
+			$groups[] = $group;
+		}
+		return $groups;
+	}
+
+	/**
+	 * Split on a keyword (AND / OR) outside quotes and parentheses.
+	 *
+	 * @param string $str     Expression.
+	 * @param string $keyword Keyword.
+	 * @return string[]
+	 */
+	private function split_top_level( string $str, string $keyword ): array {
+		$parts  = array();
+		$buf    = '';
+		$quote  = '';
+		$depth  = 0;
+		$len    = strlen( $str );
+		$kwlen  = strlen( $keyword );
+		for ( $i = 0; $i < $len; $i++ ) {
+			$ch = $str[ $i ];
+			if ( '' !== $quote ) {
+				if ( '\\' === $ch && $i + 1 < $len ) {
+					$buf .= $ch . $str[ ++$i ];
+					continue;
+				}
+				if ( $ch === $quote ) {
+					$quote = '';
+				}
+				$buf .= $ch;
+				continue;
+			}
+			if ( '"' === $ch || "'" === $ch ) {
+				$quote = $ch;
+			} elseif ( '(' === $ch ) {
+				++$depth;
+			} elseif ( ')' === $ch ) {
+				$depth = max( 0, $depth - 1 );
+			} elseif ( 0 === $depth && ctype_space( $ch ) && 0 === strcasecmp( substr( $str, $i + 1, $kwlen ), $keyword ) && ( $i + 1 + $kwlen < $len ) && ctype_space( $str[ $i + 1 + $kwlen ] ) ) {
+				$parts[] = $buf;
+				$buf     = '';
+				$i      += $kwlen + 1;
+				continue;
+			}
+			$buf .= $ch;
+		}
+		$parts[] = $buf;
+		return $parts;
+	}
+
+	/**
+	 * Parse `field op value` into [field, op, value], or null if invalid.
+	 *
+	 * @param string $condition Condition.
+	 * @return array|null
+	 */
+	private function parse_condition( string $condition ) {
+		if ( ! preg_match( '/^([A-Za-z0-9_.\- ]+?)\s*(>=|<=|!=|=|>|<)\s*(?:"((?:[^"\\\\]|\\\\.)*)"|\'([^\']*)\'|(\S+))\s*$/u', $condition, $m ) ) {
+			return null;
+		}
+		$value = '';
+		if ( isset( $m[3] ) && '' !== $m[3] ) {
+			$value = stripslashes( $m[3] );
+		} elseif ( isset( $m[4] ) && '' !== $m[4] ) {
+			$value = $m[4];
+		} elseif ( isset( $m[5] ) ) {
+			$value = $m[5];
+		}
+		return array( trim( $m[1] ), $m[2], $value );
+	}
+
+	/**
+	 * Evaluate a parsed filter against a document.
+	 *
+	 * @param array $doc    Document.
+	 * @param array $groups Output of parse_filter().
 	 * @return bool
 	 */
-	private function evaluate_filter( array $doc, string $filter ): bool {
-		// Split by AND (top level).
-		$and_parts = preg_split( '/\s+AND\s+/i', $filter );
+	private function evaluate_parsed_filter( array $doc, array $groups ): bool {
+		foreach ( $groups as $group ) {
+			$ok = false;
+			foreach ( $group as $cond ) {
+				if ( null !== $cond && $this->evaluate_condition( $doc, $cond[0], $cond[1], $cond[2] ) ) {
+					$ok = true;
+					break;
+				}
+			}
+			if ( ! $ok ) {
+				return false;
+			}
+		}
+		return true;
+	}
 
-		foreach ( $and_parts as $and_part ) {
-			$and_part = trim( $and_part );
+	/**
+	 * Evaluate one parsed condition.
+	 *
+	 * @param array  $doc      Document.
+	 * @param string $field    Field (dot notation allowed).
+	 * @param string $operator Operator.
+	 * @param string $value    Value.
+	 * @return bool
+	 */
+	private function evaluate_condition( array $doc, string $field, string $operator, string $value ): bool {
+		$doc_val = $this->extract_field_value( $doc, $field );
 
-			// Handle OR groups wrapped in parentheses.
-			if ( preg_match( '/^\((.+)\)$/', $and_part, $m ) ) {
-				$or_parts = preg_split( '/\s+OR\s+/i', $m[1] );
-				$or_match = false;
-				foreach ( $or_parts as $or_part ) {
-					if ( $this->evaluate_single_condition( $doc, trim( $or_part ) ) ) {
-						$or_match = true;
-						break;
-					}
-				}
-				if ( ! $or_match ) {
-					return false;
-				}
-			} else {
-				if ( ! $this->evaluate_single_condition( $doc, $and_part ) ) {
-					return false;
-				}
+		// Booleans are stored as true/false; filters say "true"/"false".
+		if ( is_bool( $doc_val ) ) {
+			$doc_val = $doc_val ? 'true' : 'false';
+			if ( '1' === $value ) {
+				$value = 'true';
+			} elseif ( '0' === $value ) {
+				$value = 'false';
 			}
 		}
 
-		return true;
+		return $this->evaluate_single_condition( $doc, $field . ' ' . $operator . ' "' . addcslashes( $value, '"' ) . '"', $doc_val, $value, $operator );
 	}
 
 	/**
@@ -1257,16 +1376,16 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	 * @param string $condition Single condition string.
 	 * @return bool
 	 */
-	private function evaluate_single_condition( array $doc, string $condition ): bool {
-		// Match: field operator "value" or field operator number.
-		if ( ! preg_match( '/^(.+?)\s*(>=|<=|!=|=|>|<)\s*"?([^"]*)"?\s*$/', $condition, $m ) ) {
-			return true; // Skip unparseable conditions.
+	private function evaluate_single_condition( array $doc, string $condition, $doc_val = null, $value = null, $operator = null ): bool {
+		if ( null === $operator ) {
+			// Legacy string form.
+			$parsed = $this->parse_condition( $condition );
+			if ( null === $parsed ) {
+				return false; // Unparseable conditions never match.
+			}
+			list( $field, $operator, $value ) = $parsed;
+			$doc_val = $this->extract_field_value( $doc, $field );
 		}
-
-		$field    = trim( $m[1] );
-		$operator = $m[2];
-		$value    = $m[3];
-		$doc_val  = $this->extract_field_value( $doc, $field );
 
 		// Array field: check if any element matches.
 		if ( is_array( $doc_val ) ) {
@@ -1374,20 +1493,51 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	 * @return string
 	 */
 	private function highlight_text( string $text, array $tokens ): string {
+		$tokens = array_filter( array_map( 'strval', $tokens ), 'strlen' );
 		if ( empty( $tokens ) ) {
 			return htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' );
 		}
 
-		// Escape HTML first to prevent XSS, then add highlight marks.
-		$safe = htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' );
-
+		// Tokens are accent-folded ("aviacion"): match any accented spelling
+		// in the original text, on the raw text (escaping first could match
+		// inside entities like "&amp;"), then escape each piece.
+		$variants = array(
+			'a' => '[aáàâäãå]',
+			'e' => '[eéèêë]',
+			'i' => '[iíìîï]',
+			'o' => '[oóòôöõ]',
+			'u' => '[uúùûü]',
+			'n' => '[nñ]',
+			'c' => '[cç]',
+		);
 		$patterns = array();
 		foreach ( $tokens as $token ) {
-			$patterns[] = preg_quote( htmlspecialchars( $token, ENT_QUOTES, 'UTF-8' ), '/' );
+			$chars = preg_split( '//u', $token, -1, PREG_SPLIT_NO_EMPTY );
+			$pat   = '';
+			foreach ( (array) $chars as $ch ) {
+				$pat .= $variants[ $ch ] ?? preg_quote( $ch, '/' );
+			}
+			$patterns[] = $pat;
 		}
-		$regex = '/(' . implode( '|', $patterns ) . ')/iu';
+		// Longest first so "pantalones" wins over "pantalon".
+		usort(
+			$patterns,
+			function ( $a, $b ) {
+				return strlen( $b ) <=> strlen( $a );
+			}
+		);
 
-		return preg_replace( $regex, '<mark>$1</mark>', $safe );
+		$parts = preg_split( '/(' . implode( '|', $patterns ) . ')/iu', $text, -1, PREG_SPLIT_DELIM_CAPTURE );
+		if ( false === $parts ) {
+			return htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' );
+		}
+
+		$out = '';
+		foreach ( $parts as $i => $part ) {
+			$safe = htmlspecialchars( $part, ENT_QUOTES, 'UTF-8' );
+			$out .= ( 1 === $i % 2 && '' !== $part ) ? '<mark>' . $safe . '</mark>' : $safe;
+		}
+		return $out;
 	}
 
 	/**

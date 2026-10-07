@@ -404,6 +404,18 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 		}
 
 		$result = json_decode( wp_remote_retrieve_body( $response ), true );
+		$code   = (int) wp_remote_retrieve_response_code( $response );
+
+		// HTTP errors (bad filter/sort, auth, 5xx) are errors, not "0 results"
+		// — returning empty hits got them cached as a valid answer.
+		if ( $code < 200 || $code >= 300 ) {
+			return array(
+				'hits'               => array(),
+				'query'              => $query,
+				'estimatedTotalHits' => 0,
+				'error'              => is_array( $result ) && isset( $result['message'] ) ? $result['message'] : 'HTTP ' . $code,
+			);
+		}
 
 		return array(
 			'hits'               => isset( $result['hits'] ) ? $result['hits'] : array(),
@@ -657,7 +669,9 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 				'Content-Type'  => 'application/json',
 				'Authorization' => 'Bearer ' . $this->api_key,
 			),
-			'timeout' => 30,
+			// Searches are interactive: fail fast so an outage doesn't hold a
+			// PHP worker for 30 s per visitor (the caller falls back).
+			'timeout' => ( 'POST' === $method && preg_match( '#/search$#', $path ) ) ? 5 : 30,
 		);
 		if ( null !== $body ) {
 			$args['body'] = wp_json_encode( $body );

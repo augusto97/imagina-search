@@ -113,6 +113,13 @@ class WSS_Loader {
 	 * @return array
 	 */
 	public function add_reindex_cron_schedule( $schedules ) {
+		// Health check fallback interval (the reindex one is far too long and
+		// isn't registered at all when re-indexing is disabled).
+		$schedules['wss_5min'] = array(
+			'interval' => 300,
+			'display'  => __( 'Every 5 minutes (Woo Smart Search)', 'woo-smart-search' ),
+		);
+
 		$minutes = (int) wss_get_option( 'reindex_interval', 360 );
 		if ( $minutes > 0 ) {
 			$schedules['wss_reindex'] = array(
@@ -162,7 +169,7 @@ class WSS_Loader {
 
 		// WP-Cron fallback.
 		if ( ! wp_next_scheduled( 'wss_cron_health_check' ) ) {
-			wp_schedule_event( time() + 300, 'wss_reindex', 'wss_cron_health_check' );
+			wp_schedule_event( time() + 300, 'wss_5min', 'wss_cron_health_check' );
 		}
 	}
 
@@ -220,6 +227,13 @@ class WSS_Loader {
 		if ( wss_is_local_engine() ) {
 			delete_transient( 'wss_connection_error' );
 			update_option( 'wss_meilisearch_available', true );
+			return;
+		}
+
+		// Not configured yet (fresh install): nothing is down, so don't email
+		// the admin every hour about it.
+		$settings = get_option( 'wss_settings', array() );
+		if ( empty( $settings['api_key'] ) ) {
 			return;
 		}
 

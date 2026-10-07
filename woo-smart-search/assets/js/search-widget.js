@@ -467,6 +467,21 @@
 			showState(suggestionsContainer);
 		}
 
+		// Hide a facet column whose list ended up empty (no stray headings
+		// like "Related Tags" / "Brands" over a blank column).
+		function toggleFacetColumn(list, selector) {
+			var col = list ? list.closest(selector) : null;
+			if (col) col.style.display = list.children.length ? '' : 'none';
+		}
+
+		// Facet entries sorted by count, without empty values.
+		function facetEntries(data) {
+			if (!data || typeof data !== 'object') return [];
+			return Object.entries(data)
+				.filter(function (e) { return e[0] !== '' && e[0] != null; })
+				.sort(function (a, b) { return b[1] - a[1]; });
+		}
+
 		/* ---- Falabella: Render columns ---- */
 
 		function renderFalabellaColumns(facets) {
@@ -484,7 +499,7 @@
 					if (headingEl) headingEl.textContent = facets.brand ? (config.i18n.relatedBrands || 'Related Brands') : (config.i18n.relatedTags || 'Related Tags');
 				}
 				if (brandData && typeof brandData === 'object') {
-					var entries = Object.entries(brandData).sort(function (a, b) { return b[1] - a[1]; });
+					var entries = facetEntries(brandData);
 					entries.slice(0, 10).forEach(function (entry) {
 						var li = document.createElement('li');
 						var a = document.createElement('a');
@@ -494,6 +509,7 @@
 						falabellaBrandsList.appendChild(li);
 					});
 				}
+				toggleFacetColumn(falabellaBrandsList, '.wss-falabella-col');
 			}
 
 			// Categories column.
@@ -501,7 +517,7 @@
 				falabellaCategoriesList.innerHTML = '';
 				var cats = facets.categories;
 				if (cats && typeof cats === 'object') {
-					var catEntries = Object.entries(cats).sort(function (a, b) { return b[1] - a[1]; });
+					var catEntries = facetEntries(cats);
 					catEntries.slice(0, 10).forEach(function (entry) {
 						var li = document.createElement('li');
 						var a = document.createElement('a');
@@ -511,6 +527,7 @@
 						falabellaCategoriesList.appendChild(li);
 					});
 				}
+				toggleFacetColumn(falabellaCategoriesList, '.wss-falabella-col');
 			}
 		}
 
@@ -524,7 +541,7 @@
 				fullscreenCatList.innerHTML = '';
 				var cats = facets.categories;
 				if (cats && typeof cats === 'object') {
-					var catEntries = Object.entries(cats).sort(function (a, b) { return b[1] - a[1]; });
+					var catEntries = facetEntries(cats);
 					catEntries.slice(0, 8).forEach(function (entry) {
 						var catName = decodeHtml(entry[0]);
 						var count = entry[1];
@@ -532,11 +549,12 @@
 						var a = document.createElement('a');
 						a.href = getSearchPageUrl(query, 'filter_categories=' + encodeURIComponent(catName));
 						a.innerHTML = '<span class="wss-fullscreen-cat-name">' + escHtml(catName) + '</span>' +
-							'<span class="wss-fullscreen-cat-count">' + count + ' articles</span>';
+							'<span class="wss-fullscreen-cat-count">' + count + ' ' + escHtml((config.i18n && config.i18n.articles) || 'articles') + '</span>';
 						li.appendChild(a);
 						fullscreenCatList.appendChild(li);
 					});
 				}
+				toggleFacetColumn(fullscreenCatList, '.wss-fullscreen-col');
 			}
 
 			// Brands column.
@@ -544,7 +562,7 @@
 				fullscreenBrandsList.innerHTML = '';
 				var brands = facets.brand;
 				if (brands && typeof brands === 'object') {
-					var brandEntries = Object.entries(brands).sort(function (a, b) { return b[1] - a[1]; });
+					var brandEntries = facetEntries(brands);
 					brandEntries.slice(0, 8).forEach(function (entry) {
 						var li = document.createElement('li');
 						var a = document.createElement('a');
@@ -554,6 +572,7 @@
 						fullscreenBrandsList.appendChild(li);
 					});
 				}
+				toggleFacetColumn(fullscreenBrandsList, '.wss-fullscreen-col');
 			}
 
 			// View all link.
@@ -1038,7 +1057,22 @@
 				wrapper.classList.add('wss-mobile-open');
 				document.body.classList.add('wss-body-locked');
 				if (backdrop) backdrop.classList.add('wss-visible');
+			} else {
+				keepDropdownInViewport();
 			}
+		}
+
+		// Desktop: a dropdown wider than its input (min-width / wide layouts)
+		// must not spill past the screen edge when the search sits at the
+		// right (or left) of the header — that caused horizontal scrolling.
+		function keepDropdownInViewport() {
+			dropdown.style.marginLeft = '';
+			var rect = dropdown.getBoundingClientRect();
+			var gutter = 12;
+			var shift = 0;
+			if (rect.right > window.innerWidth - gutter) shift = (window.innerWidth - gutter) - rect.right;
+			if (rect.left + shift < gutter) shift = gutter - rect.left;
+			if (shift) dropdown.style.marginLeft = Math.round(shift) + 'px';
 		}
 
 		function hideDropdown() {
@@ -1074,18 +1108,14 @@
 
 		function hideLoading() {
 			if (spinner) spinner.style.display = 'none';
-			var activeInput = isFullscreen ? fullscreenInput : input;
-			if (!activeInput.value.trim() && icon) icon.style.display = '';
+			// Always bring the magnifier back: hiding it while text was typed
+			// left an empty gap at the start of the input.
+			if (icon) icon.style.display = '';
 		}
 
 		function toggleClear(show) {
-			if (show) {
-				if (clearBtn) clearBtn.style.display = '';
-				if (icon) icon.style.display = 'none';
-			} else {
-				if (clearBtn) clearBtn.style.display = 'none';
-				if (icon) icon.style.display = '';
-			}
+			// The magnifier stays visible (the clear button has its own spot).
+			if (clearBtn) clearBtn.style.display = show ? '' : 'none';
 		}
 
 		function showState(el) { if (el) el.classList.add('wss-visible'); }

@@ -44,6 +44,7 @@ class WSS_Post_Sync {
 
 		// Periodic re-indexation for WordPress content.
 		add_action( 'wss_periodic_reindex', array( $this, 'run_periodic_reindex' ) );
+		add_action( 'wss_cron_periodic_reindex', array( $this, 'run_periodic_reindex' ) ); // WP-Cron fallback.
 	}
 
 	/**

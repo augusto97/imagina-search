@@ -531,6 +531,17 @@
     max-width: 100%;
   }
 
+  /* In the stacked (column) layout el-select had no intrinsic width and
+     collapsed to its arrow (~40px), hiding the selected value. */
+  #wss-admin-root .wss-form-row > * {
+    width: 100%;
+    min-width: 0;
+  }
+
+  #wss-admin-root .wss-form-row .el-select {
+    width: 100%;
+  }
+
   .wss-stats-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 10px;
@@ -542,6 +553,16 @@
 
   .wss-section-body {
     padding: 14px;
+  }
+}
+
+/* iOS Safari zooms in on fields under 16px. */
+@media (max-width: 782px) {
+  #wss-admin-root .el-input__inner,
+  #wss-admin-root .el-textarea__inner,
+  #wss-admin-root .el-select__selected-item,
+  #wss-admin-root .el-select__input {
+    font-size: 16px;
   }
 }
 

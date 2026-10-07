@@ -210,7 +210,19 @@ class WSS_Product_Sync {
 	 * @param mixed  $meta_value Meta value.
 	 */
 	public function on_meta_change( $meta_id, $object_id, $meta_key, $meta_value ) {
-		if ( 'product' !== get_post_type( $object_id ) ) {
+		$post_type = get_post_type( $object_id );
+
+		// Variation price/stock lives in the parent's document.
+		if ( 'product_variation' === $post_type ) {
+			$parent_id = (int) wp_get_post_parent_id( $object_id );
+			if ( ! $parent_id ) {
+				return;
+			}
+			$object_id = $parent_id;
+			$post_type = 'product';
+		}
+
+		if ( 'product' !== $post_type ) {
 			return;
 		}
 
@@ -397,53 +409,85 @@ class WSS_Product_Sync {
 
 		$last_reindex = (int) get_option( 'wss_last_periodic_reindex', 0 );
 		$cutoff       = $last_reindex > 0 ? gmdate( 'Y-m-d H:i:s', $last_reindex ) : gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS );
+		$batch_limit  = 2000;
+		$next_cutoff  = time();
 
-		// 1) Products whose post row was modified (covers title, status,
-		//    slug, description, and any plugin that calls wp_update_post).
-		$stale_ids = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		// 1) Products whose post row was modified (title, status, slug,
+		//    description, any plugin that calls wp_update_post). Any status:
+		//    a product moved to draft/private must leave the index too.
+		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts}
-				WHERE post_type = 'product' AND post_status = 'publish'
+				"SELECT ID, post_modified_gmt FROM {$wpdb->posts}
+				WHERE post_type = 'product' AND post_status NOT IN ('auto-draft','inherit')
 				AND post_modified_gmt > %s
 				ORDER BY post_modified_gmt ASC
-				LIMIT 500",
-				$cutoff
+				LIMIT %d",
+				$cutoff,
+				$batch_limit
 			)
 		);
+		$stale_ids = wp_list_pluck( (array) $rows, 'ID' );
+		// More changes than one batch: continue from the last one next run
+		// (moving the cutoff to "now" used to skip everything past the limit).
+		if ( count( $rows ) >= $batch_limit ) {
+			$last_row    = end( $rows );
+			$next_cutoff = max( 1, (int) strtotime( $last_row->post_modified_gmt . ' UTC' ) - 1 );
+		}
 
-		// 2) Products whose meta was changed (covers direct-DB price/stock
-		//    updates from ERPs, WP All Import, bulk-edit plugins, etc.).
-		//    WooCommerce stores a _last_stock_change timestamp on stock
-		//    updates and _price_last_change in some versions, but the most
-		//    reliable check is looking at the postmeta table directly for
-		//    any row modified after our cutoff by checking the meta_id
-		//    auto-increment (larger ID = newer row).
+		// 2) Products whose core meta rows were added since the last run
+		//    (API / ERP / bulk-edit writes through update_post_meta on new
+		//    rows). Variation meta maps to the parent product.
 		$last_meta_id = (int) get_option( 'wss_last_periodic_reindex_meta_id', 0 );
+		$max_meta_id  = (int) $wpdb->get_var( "SELECT MAX(meta_id) FROM {$wpdb->postmeta}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		if ( $last_meta_id > 0 ) {
-			$meta_stale_ids = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$meta_rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 				$wpdb->prepare(
-					"SELECT DISTINCT p.ID
+					"SELECT pm.meta_id, IF( p.post_type = 'product_variation', p.post_parent, p.ID ) AS pid
 					FROM {$wpdb->postmeta} pm
 					INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
-					WHERE p.post_type = 'product' AND p.post_status = 'publish'
-					AND pm.meta_id > %d
+					WHERE pm.meta_id > %d
+					AND p.post_type IN ('product','product_variation')
 					AND pm.meta_key IN ('_price','_regular_price','_sale_price','_stock','_stock_status','_sku','_sale_price_dates_from','_sale_price_dates_to')
 					ORDER BY pm.meta_id ASC
-					LIMIT 500",
-					$last_meta_id
+					LIMIT %d",
+					$last_meta_id,
+					$batch_limit
 				)
 			);
-
-			if ( ! empty( $meta_stale_ids ) ) {
-				$stale_ids = array_unique( array_merge( $stale_ids ?: array(), $meta_stale_ids ) );
+			if ( ! empty( $meta_rows ) ) {
+				$stale_ids = array_merge( $stale_ids, wp_list_pluck( $meta_rows, 'pid' ) );
+				if ( count( $meta_rows ) >= $batch_limit ) {
+					$last_meta    = end( $meta_rows );
+					$max_meta_id  = (int) $last_meta->meta_id; // Resume here next run.
+				}
 			}
 		}
-
-		// Store the current max meta_id for next run's comparison.
-		$current_max_meta_id = (int) $wpdb->get_var( "SELECT MAX(meta_id) FROM {$wpdb->postmeta}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-		if ( $current_max_meta_id > 0 ) {
-			update_option( 'wss_last_periodic_reindex_meta_id', $current_max_meta_id, false );
+		if ( $max_meta_id > 0 ) {
+			update_option( 'wss_last_periodic_reindex_meta_id', $max_meta_id, false );
 		}
+
+		// 3) Rolling refresh: raw SQL UPDATEs (some ERPs/importers) change
+		//    neither post_modified nor meta_id, so re-queue a slice of the
+		//    catalog on every run — the whole catalog is refreshed about
+		//    once a week.
+		$total_products = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'product' AND post_status = 'publish'" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		if ( $total_products > 0 ) {
+			$interval_min = max( 5, (int) wss_get_option( 'reindex_interval', 360 ) );
+			$runs_a_week  = max( 1, (int) floor( WEEK_IN_SECONDS / ( $interval_min * 60 ) ) );
+			$slice        = min( 2000, max( 100, (int) ceil( $total_products / $runs_a_week ) ) );
+			$cursor       = (int) get_option( 'wss_reindex_cursor', 0 );
+			$slice_ids    = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+				$wpdb->prepare(
+					"SELECT ID FROM {$wpdb->posts} WHERE post_type = 'product' AND post_status = 'publish' AND ID > %d ORDER BY ID ASC LIMIT %d",
+					$cursor,
+					$slice
+				)
+			);
+			$stale_ids = array_merge( $stale_ids, $slice_ids );
+			update_option( 'wss_reindex_cursor', count( $slice_ids ) < $slice ? 0 : (int) end( $slice_ids ), false );
+		}
+
+		$stale_ids = array_values( array_unique( array_filter( array_map( 'absint', $stale_ids ) ) ) );
 
 		if ( ! empty( $stale_ids ) ) {
 			foreach ( $stale_ids as $product_id ) {
@@ -460,7 +504,7 @@ class WSS_Product_Sync {
 			);
 		}
 
-		update_option( 'wss_last_periodic_reindex', time(), false );
+		update_option( 'wss_last_periodic_reindex', $next_cutoff, false );
 
 		// Prune orphaned index entries, but at most once every 6 hours to
 		// avoid the full index scan on every short reindex interval.
@@ -695,6 +739,12 @@ class WSS_Product_Sync {
 
 		$documents = array();
 		$errors    = 0;
+
+		// Load posts, meta and terms for the whole page in a few queries
+		// instead of several per product (N+1).
+		if ( function_exists( '_prime_post_caches' ) ) {
+			_prime_post_caches( array_map( 'absint', $product_ids ), true, true );
+		}
 
 		foreach ( $product_ids as $product_id ) {
 			$product = wc_get_product( $product_id );
@@ -1248,6 +1298,13 @@ class WSS_Product_Sync {
 		if ( get_option( $version_key, '' ) === WSS_VERSION ) {
 			return;
 		}
+
+		// While the engine is unreachable this would otherwise retry (two HTTP
+		// calls) on every admin page load, including heartbeat requests.
+		if ( get_transient( 'wss_fa_retry' ) ) {
+			return;
+		}
+		set_transient( 'wss_fa_retry', 1, 15 * MINUTE_IN_SECONDS );
 
 		if ( self::update_filterable_attributes() ) {
 			update_option( $version_key, WSS_VERSION, true );

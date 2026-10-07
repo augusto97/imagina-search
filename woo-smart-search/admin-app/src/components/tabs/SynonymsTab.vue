@@ -196,6 +196,18 @@ async function handleSave() {
   color: var(--el-text-color-secondary);
   flex: 0 0 auto;
 }
+@media (max-width: 600px) {
+  .wss-syn-row {
+    flex-wrap: wrap;
+  }
+  .wss-syn-word,
+  .wss-syn-terms {
+    flex: 1 1 100%;
+  }
+  .wss-syn-arrow {
+    display: none;
+  }
+}
 .wss-empty {
   padding: 8px 0 16px;
   color: var(--el-text-color-secondary);

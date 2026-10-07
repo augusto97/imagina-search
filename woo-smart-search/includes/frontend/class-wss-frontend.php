@@ -589,6 +589,9 @@ class WSS_Frontend {
 			'addToCart'        => ! empty( $t['addToCart'] ) ? $t['addToCart'] : __( 'Add to Cart', 'woo-smart-search' ),
 			'freeShipping'     => ! empty( $t['freeShipping'] ) ? $t['freeShipping'] : __( 'Free shipping', 'woo-smart-search' ),
 			'sold'             => ! empty( $t['sold'] ) ? $t['sold'] : __( 'sold', 'woo-smart-search' ),
+			'articles'         => ! empty( $t['articles'] ) ? $t['articles'] : __( 'articles', 'woo-smart-search' ),
+			'off'              => ! empty( $t['off'] ) ? $t['off'] : __( 'OFF', 'woo-smart-search' ),
+			'removeFilter'     => ! empty( $t['removeFilter'] ) ? $t['removeFilter'] : __( 'Remove filter', 'woo-smart-search' ),
 			// Facet / filter labels.
 			'tags'             => ! empty( $t['tags'] ) ? $t['tags'] : __( 'Tags', 'woo-smart-search' ),
 			'stock'            => ! empty( $t['stock'] ) ? $t['stock'] : __( 'Stock', 'woo-smart-search' ),

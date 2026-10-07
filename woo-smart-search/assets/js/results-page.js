@@ -648,7 +648,8 @@
 					saleBadge = '<span class="wss-sale-badge">-' + discountPercent + '%</span>';
 				}
 				priceHtml = '<span class="wss-price-current wss-on-sale">' + formatPrice( hit.price ) + '</span>' +
-					'<span class="wss-price-regular">' + formatPrice( hit.regular_price ) + '</span>';
+					'<span class="wss-price-regular">' + formatPrice( hit.regular_price ) + '</span>' +
+					( discountPercent > 0 ? '<span class="wss-price-off">' + discountPercent + '% ' + escapeHtml( ( cfg.i18n && cfg.i18n.off ) || 'OFF' ) + '</span>' : '' );
 			} else if ( hit.price_min && hit.price_max && hit.price_min !== hit.price_max ) {
 				priceHtml = '<span class="wss-price-range">' +
 					formatPrice( hit.price_min ) + ' – ' + formatPrice( hit.price_max ) + '</span>';
