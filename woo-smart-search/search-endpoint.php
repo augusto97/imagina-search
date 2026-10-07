@@ -18,9 +18,30 @@ if ( ! isset( $_GET['wss_action'] ) || 'search' !== $_GET['wss_action'] ) { // p
 // Load WordPress in SHORTINIT mode (minimal bootstrap).
 define( 'SHORTINIT', true );
 
-// Find wp-load.php by walking up directories.
-$wp_load = dirname( dirname( dirname( dirname( __FILE__ ) ) ) ) . '/wp-load.php';
-if ( ! file_exists( $wp_load ) ) {
+// Find wp-load.php by walking up directories. Start from both the resolved
+// file path and the requested script path (they differ when the plugin folder
+// is a symlink), and also check a "wp/" subfolder (Bedrock-style installs
+// where wp-content lives outside the WordPress core directory).
+$wp_load    = '';
+$wss_starts = array( dirname( __FILE__ ) );
+if ( ! empty( $_SERVER['SCRIPT_FILENAME'] ) ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+	$wss_starts[] = dirname( $_SERVER['SCRIPT_FILENAME'] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+}
+foreach ( array_unique( $wss_starts ) as $wss_dir ) {
+	for ( $wss_i = 0; $wss_i < 6 && ! $wp_load; $wss_i++ ) {
+		$wss_dir = dirname( $wss_dir );
+		foreach ( array( $wss_dir . '/wp-load.php', $wss_dir . '/wp/wp-load.php' ) as $wss_candidate ) {
+			if ( file_exists( $wss_candidate ) ) {
+				$wp_load = $wss_candidate;
+				break;
+			}
+		}
+	}
+	if ( $wp_load ) {
+		break;
+	}
+}
+if ( ! $wp_load ) {
 	http_response_code( 500 );
 	echo '{"error":"WordPress not found"}';
 	exit;
@@ -122,6 +143,16 @@ if ( ! defined( 'WSS_VERSION' ) ) {
 }
 if ( ! defined( 'WSS_PLUGIN_DIR' ) ) {
 	define( 'WSS_PLUGIN_DIR', dirname( __FILE__ ) . '/' );
+}
+
+// remove_accents() (used to fold accents in queries) calls get_locale(),
+// which SHORTINIT doesn't load — without this, any accented query was a fatal.
+if ( ! function_exists( 'get_locale' ) ) {
+	function get_locale() {
+		global $wpdb;
+		$locale = $wpdb->get_var( "SELECT option_value FROM {$wpdb->options} WHERE option_name = 'WPLANG' LIMIT 1" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		return $locale ? $locale : 'en_US';
+	}
 }
 
 // Provide minimal wp_strip_all_tags if not available.

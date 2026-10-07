@@ -618,14 +618,64 @@ class WSS_Product_Sync {
 	 * @param array $batch_args Batch arguments containing 'page'.
 	 */
 	public function process_bulk_sync_batch( $batch_args, $schedule_next = true ) {
+		$page = isset( $batch_args['page'] ) ? (int) $batch_args['page'] : 1;
+
+		// One batch at a time across processes (browser pump + Action Scheduler).
+		if ( ! wss_acquire_lock( 'sync_batch' ) ) {
+			if ( $schedule_next && function_exists( 'as_schedule_single_action' ) ) {
+				// Retry later; it is skipped if the page was handled meanwhile.
+				as_schedule_single_action( time() + 15, 'wss_bulk_sync_batch', array( array( 'page' => $page ) ), 'woo-smart-search' );
+			}
+			return;
+		}
+
+		$result = $this->run_bulk_sync_batch( $page, $schedule_next );
+
+		wss_release_lock( 'sync_batch' );
+
+		// Schedule next batch (chain pattern). Skipped when a caller (the
+		// browser-driven Full Sync) drives the batches itself.
+		if ( 'processed' === $result && $schedule_next ) {
+			$next_args = array( 'page' => $page + 1 );
+
+			if ( function_exists( 'as_schedule_single_action' ) ) {
+				as_schedule_single_action( time() + 5, 'wss_bulk_sync_batch', array( $next_args ), 'woo-smart-search' );
+			} else {
+				// Fallback: process next batch immediately.
+				$this->process_bulk_sync_batch( $next_args );
+			}
+		}
+	}
+
+	/**
+	 * Process one page of the full sync. Caller must hold the sync lock.
+	 *
+	 * @param int  $page          Page number (1-based).
+	 * @param bool $schedule_next Whether Action Scheduler drives the chain.
+	 * @return string 'processed', 'done', 'skipped' or 'failed'.
+	 */
+	private function run_bulk_sync_batch( $page, $schedule_next ) {
+		$progress = wss_get_sync_progress();
+
+		// Skip stale or duplicate jobs: sync not running, not the products phase
+		// of a mixed sync, or this page was already processed by another worker.
+		if ( empty( $progress ) || 'running' !== ( $progress['status'] ?? '' ) ) {
+			return 'skipped';
+		}
+		if ( ! empty( $progress['mixed'] ) && 'products' !== ( $progress['phase'] ?? 'products' ) ) {
+			return 'skipped';
+		}
+		if ( $page <= (int) ( $progress['current'] ?? 0 ) ) {
+			return 'skipped';
+		}
+
 		$engine = wss_get_engine();
 
 		if ( ! $engine ) {
 			self::mark_sync_failed( __( 'Search engine not available during batch processing.', 'woo-smart-search' ) );
-			return;
+			return 'failed';
 		}
 
-		$page       = isset( $batch_args['page'] ) ? (int) $batch_args['page'] : 1;
 		$batch_size = (int) wss_get_option( 'batch_size', 100 );
 		$index_name = wss_get_option( 'index_name', 'woo_products' );
 
@@ -639,8 +689,8 @@ class WSS_Product_Sync {
 
 		if ( empty( $product_ids ) ) {
 			// No more products; mark sync as completed.
-			self::complete_sync();
-			return;
+			self::complete_sync( $schedule_next );
+			return 'done';
 		}
 
 		$documents = array();
@@ -701,7 +751,7 @@ class WSS_Product_Sync {
 		// Update progress + circuit breaker: abort after 3 consecutive failed
 		// batches instead of queueing hundreds of doomed jobs while the engine
 		// is down.
-		$progress = get_option( 'wss_sync_progress', array() );
+		$progress = wss_get_sync_progress();
 
 		if ( ! empty( $progress ) ) {
 			$progress['processed']            += count( $product_ids );
@@ -717,38 +767,32 @@ class WSS_Product_Sync {
 				$progress['status'] = 'failed';
 				update_option( 'wss_sync_progress', $progress, false );
 				wss_log( __( 'Bulk sync aborted: 3 consecutive batch failures (engine unavailable?).', 'woo-smart-search' ), 'error' );
-				return;
+				return 'failed';
 			}
 		}
 
-		// Schedule next batch (chain pattern). Skipped when a caller (the
-		// browser-driven Full Sync) drives the batches itself, so Action
-		// Scheduler and the browser do not process the same pages.
-		if ( $schedule_next ) {
-			$next_page = $page + 1;
-			$next_args = array( 'page' => $next_page );
-
-			if ( function_exists( 'as_schedule_single_action' ) ) {
-				as_schedule_single_action(
-					time() + 5,
-					'wss_bulk_sync_batch',
-					array( $next_args ),
-					'woo-smart-search'
-				);
-			} else {
-				// Fallback: process next batch immediately.
-				$this->process_bulk_sync_batch( $next_args );
-			}
-		}
+		return 'processed';
 	}
 
 	/**
 	 * Mark sync as completed and fire completion hooks.
 	 */
-	private static function complete_sync() {
-		$progress = get_option( 'wss_sync_progress', array() );
+	private static function complete_sync( $schedule_next = true ) {
+		$progress = wss_get_sync_progress();
 
 		if ( empty( $progress ) ) {
+			return;
+		}
+
+		// Mixed mode runs products first, then content: hand over to posts.
+		if ( ! empty( $progress['mixed'] ) && 'products' === ( $progress['phase'] ?? 'products' ) ) {
+			$progress['phase']   = 'posts';
+			$progress['current'] = 0;
+			update_option( 'wss_sync_progress', $progress, false );
+
+			if ( $schedule_next && function_exists( 'as_schedule_single_action' ) ) {
+				as_schedule_single_action( time(), 'wss_bulk_post_sync_batch', array( array( 'page' => 1 ) ), 'woo-smart-search' );
+			}
 			return;
 		}
 

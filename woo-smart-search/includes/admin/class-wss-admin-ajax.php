@@ -311,6 +311,8 @@ class WSS_Admin_Ajax {
 		if ( isset( $_POST['reindex_interval'] ) && function_exists( 'as_unschedule_all_actions' ) ) {
 			as_unschedule_all_actions( 'wss_periodic_reindex', array(), 'woo-smart-search' );
 		}
+		// Re-check the recurring jobs on the next request.
+		delete_option( 'wss_jobs_checked_at' );
 
 		// Invalidate cached CSS variables.
 		delete_transient( 'wss_css_vars_' . WSS_VERSION );
@@ -444,6 +446,12 @@ class WSS_Admin_Ajax {
 
 			delete_option( 'wss_skip_index_configure' );
 
+			// Run products first, then content (see complete_sync handover):
+			// two concurrent chains would fight over the shared progress.
+			if ( function_exists( 'as_unschedule_all_actions' ) && wss_is_woocommerce_active() ) {
+				as_unschedule_all_actions( 'wss_bulk_post_sync_batch', array(), 'woo-smart-search' );
+			}
+
 			$total = 0;
 			$messages = array();
 			foreach ( $results as $r ) {
@@ -463,6 +471,8 @@ class WSS_Admin_Ajax {
 					'status'    => 'running',
 					'started'   => time(),
 					'errors'    => 0,
+					'mixed'     => wss_is_woocommerce_active(),
+					'phase'     => 'products',
 				),
 				false
 			);
@@ -670,37 +680,35 @@ class WSS_Admin_Ajax {
 	 * progress bar then sits at 0%. This lets the open admin page pump the
 	 * batches itself, independent of cron. It takes ownership of the Action
 	 * Scheduler chain (unschedules the pending batch actions) so the same page
-	 * is not processed twice, and serializes with a short lock.
+	 * is not processed twice; batches serialize on a cross-process lock.
 	 */
 	public function run_sync_batch() {
 		$this->verify_request();
 
-		$progress = get_option( 'wss_sync_progress' );
+		$progress = wss_get_sync_progress();
 
-		if ( ! is_array( $progress ) || 'running' !== ( $progress['status'] ?? '' ) ) {
-			wp_send_json_success( is_array( $progress ) ? $progress : array( 'status' => 'idle' ) );
+		if ( empty( $progress ) || 'running' !== ( $progress['status'] ?? '' ) ) {
+			if ( ! empty( $progress ) ) {
+				$ts                          = (int) wss_get_option( 'last_sync', 0, true );
+				$progress['last_sync_label'] = $ts ? date_i18n( 'Y-m-d H:i', $ts ) : '';
+			}
+			wp_send_json_success( ! empty( $progress ) ? $progress : array( 'status' => 'idle' ) );
 			return;
 		}
-
-		// Serialize: a concurrent poll or an Action Scheduler run must not
-		// process the same page at the same time.
-		if ( get_transient( 'wss_sync_batch_lock' ) ) {
-			wp_send_json_success( $progress );
-			return;
-		}
-		set_transient( 'wss_sync_batch_lock', 1, 120 );
 
 		// Take ownership from Action Scheduler so batches are not run twice.
+		// (process_bulk_sync_batch also holds a cross-process lock and skips
+		// pages another worker already handled.)
 		if ( function_exists( 'as_unschedule_all_actions' ) ) {
 			as_unschedule_all_actions( 'wss_bulk_sync_batch', array(), 'woo-smart-search' );
 			as_unschedule_all_actions( 'wss_bulk_post_sync_batch', array(), 'woo-smart-search' );
 		}
 
-		$next_page = (int) ( $progress['current'] ?? 0 ) + 1;
-
+		$next_page      = (int) ( $progress['current'] ?? 0 ) + 1;
 		$content_source = wss_get_content_source();
+		$posts_phase    = ! empty( $progress['mixed'] ) && 'posts' === ( $progress['phase'] ?? '' );
 
-		if ( ( wss_is_ecommerce_mode() || 'mixed' === $content_source ) && class_exists( 'WSS_Product_Sync' ) ) {
+		if ( ! $posts_phase && ( wss_is_ecommerce_mode() || 'mixed' === $content_source ) && class_exists( 'WSS_Product_Sync' ) ) {
 			$sync = new WSS_Product_Sync();
 			$sync->process_bulk_sync_batch( array( 'page' => $next_page ), false );
 		} elseif ( class_exists( 'WSS_Post_Sync' ) ) {
@@ -708,10 +716,12 @@ class WSS_Admin_Ajax {
 			$sync->process_bulk_sync_batch( array( 'page' => $next_page ), false );
 		}
 
-		delete_transient( 'wss_sync_batch_lock' );
-
-		$updated = get_option( 'wss_sync_progress' );
-		wp_send_json_success( is_array( $updated ) ? $updated : array( 'status' => 'idle' ) );
+		$updated = wss_get_sync_progress();
+		if ( ! empty( $updated ) && 'completed' === ( $updated['status'] ?? '' ) ) {
+			$ts                         = (int) wss_get_option( 'last_sync', 0, true );
+			$updated['last_sync_label'] = $ts ? date_i18n( 'Y-m-d H:i', $ts ) : '';
+		}
+		wp_send_json_success( ! empty( $updated ) ? $updated : array( 'status' => 'idle' ) );
 	}
 
 	/**

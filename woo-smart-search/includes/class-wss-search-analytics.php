@@ -28,11 +28,18 @@ class WSS_Search_Analytics {
 	 * Initialize hooks.
 	 */
 	public function init() {
-		// Schedule daily cleanup of old logs.
+		// Scheduling happens from WSS_Loader::maybe_schedule_jobs() on `init`:
+		// Action Scheduler's data store isn't ready on plugins_loaded.
+		add_action( 'wss_cleanup_search_logs', array( $this, 'cleanup_old_logs' ) );
+	}
+
+	/**
+	 * Schedule the daily log cleanup.
+	 */
+	public static function schedule_cleanup() {
 		if ( function_exists( 'as_has_scheduled_action' ) && ! as_has_scheduled_action( 'wss_cleanup_search_logs' ) ) {
 			as_schedule_recurring_action( time() + DAY_IN_SECONDS, DAY_IN_SECONDS, 'wss_cleanup_search_logs', array(), 'woo-smart-search' );
 		}
-		add_action( 'wss_cleanup_search_logs', array( $this, 'cleanup_old_logs' ) );
 	}
 
 	/**

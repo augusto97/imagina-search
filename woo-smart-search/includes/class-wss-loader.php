@@ -25,6 +25,9 @@ class WSS_Loader {
 	 * Run the loader to initialize all plugin components.
 	 */
 	public function run() {
+		// Create missing tables after updates that skipped the activation hook.
+		WSS_Activator::maybe_upgrade();
+
 		// One-time fix: restore defaults for display settings that were incorrectly reset.
 		$this->maybe_fix_display_settings();
 
@@ -88,8 +91,9 @@ class WSS_Loader {
 		// never register. Register a custom WP-Cron interval as a fallback for
 		// sites where Action Scheduler is unavailable.
 		add_filter( 'cron_schedules', array( $this, 'add_reindex_cron_schedule' ) );
-		add_action( 'init', array( $this, 'schedule_health_check' ), 20 );
-		add_action( 'init', array( $this, 'schedule_periodic_reindex' ), 20 );
+		add_action( 'wss_health_check', array( $this, 'run_health_check' ) );
+		add_action( 'wss_cron_health_check', array( $this, 'run_health_check' ) );
+		add_action( 'init', array( $this, 'maybe_schedule_jobs' ), 20 );
 
 		// Auto-fallback filter for when Meilisearch is down.
 		add_filter( 'wss_use_native_search', array( $this, 'maybe_fallback_to_native' ) );
@@ -120,14 +124,31 @@ class WSS_Loader {
 	}
 
 	/**
+	 * Make sure the recurring jobs are scheduled.
+	 *
+	 * Checking Action Scheduler costs DB queries, so it runs at most every
+	 * 10 minutes (timestamp kept in an autoloaded option = no extra query).
+	 * Saving the settings clears the timestamp to force an immediate check.
+	 */
+	public function maybe_schedule_jobs() {
+		$last = (int) get_option( 'wss_jobs_checked_at', 0 );
+		$now  = time();
+		if ( $last > $now - 600 && $last <= $now ) {
+			return;
+		}
+		update_option( 'wss_jobs_checked_at', $now, true );
+
+		$this->schedule_health_check();
+		$this->schedule_periodic_reindex();
+		WSS_Search_Analytics::schedule_cleanup();
+	}
+
+	/**
 	 * Schedule periodic health check every 5 minutes.
 	 *
 	 * Hooked to `init` so Action Scheduler is loaded; falls back to WP-Cron.
 	 */
 	public function schedule_health_check() {
-		add_action( 'wss_health_check', array( $this, 'run_health_check' ) );
-		add_action( 'wss_cron_health_check', array( $this, 'run_health_check' ) );
-
 		if ( function_exists( 'as_has_scheduled_action' ) && function_exists( 'as_schedule_recurring_action' ) ) {
 			if ( ! as_has_scheduled_action( 'wss_health_check' ) ) {
 				as_schedule_recurring_action( time() + 300, 300, 'wss_health_check', array(), 'woo-smart-search' );

@@ -265,6 +265,7 @@ async function pumpSync() {
       progressText.value = 'Completed';
       syncing.value = false;
       ElMessage.success('Sync completed');
+      if (d.last_sync_label) stats.lastSync = d.last_sync_label;
       try {
         const sr = await post('wss_get_index_stats');
         if (sr.success) stats.indexed = sr.data.numberOfDocuments ?? 0;

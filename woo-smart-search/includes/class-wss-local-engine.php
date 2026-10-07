@@ -339,18 +339,25 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 			}
 
 			// Build inverted index from searchable fields.
-			$all_tokens = array();
+			// Name and SKU matches weigh more than description/category matches.
+			$field_weights = array(
+				'name'     => 3,
+				'sku'      => 3,
+				'all_skus' => 2,
+			);
+			$all_tokens    = array();
 			foreach ( $searchable as $field ) {
 				$value = $this->extract_field_value( $doc, $field );
 				if ( empty( $value ) ) {
 					continue;
 				}
+				$weight = $field_weights[ $field ] ?? 1;
 				$tokens = $this->tokenize( $value );
 				foreach ( $tokens as $token ) {
 					if ( ! isset( $all_tokens[ $token ] ) ) {
 						$all_tokens[ $token ] = 0;
 					}
-					++$all_tokens[ $token ];
+					$all_tokens[ $token ] += $weight;
 				}
 			}
 
@@ -381,7 +388,10 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 					}
 				}
 			}
-			$all_tokens = array_merge( $all_tokens, $synonym_tokens );
+			// '+' keeps numeric-string keys ("551", "0065"); array_merge() renumbered
+			// them to 0, 1, 2…, so purely numeric terms (SKU fragments) were never
+			// indexed under their real value.
+			$all_tokens = $all_tokens + $synonym_tokens;
 
 			if ( empty( $all_tokens ) ) {
 				continue;
@@ -390,39 +400,29 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 			// Total tokens for TF calculation.
 			$total_tokens = array_sum( $all_tokens );
 
-			// Insert terms and postings.
-			foreach ( $all_tokens as $token => $count ) {
-				$tf = $count / max( $total_tokens, 1 );
+			// Insert terms and postings in bulk (one lookup + one multi-row
+			// insert per document instead of 2-3 queries per term).
+			$term_ids = $this->get_term_ids( array_map( 'strval', array_keys( $all_tokens ) ) );
+			$rows     = array();
+			$values   = array();
 
-				// Get or create term.
-				$term_id = $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			foreach ( $all_tokens as $token => $count ) {
+				$token = (string) $token;
+				if ( empty( $term_ids[ $token ] ) ) {
+					continue;
+				}
+				$rows[] = '(%s, %d, %d, %f)';
+				array_push( $values, $index_name, (int) $term_ids[ $token ], $doc_id, $count / max( $total_tokens, 1 ) );
+			}
+
+			foreach ( array_chunk( $rows, 500 ) as $i => $chunk ) {
+				$chunk_values = array_slice( $values, $i * 500 * 4, count( $chunk ) * 4 );
+				$wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 					$wpdb->prepare(
-						"SELECT id FROM {$terms_table} WHERE term = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-						$token
+						"INSERT INTO {$postings_table} (index_name, term_id, doc_id, tf) VALUES " . implode( ',', $chunk ), // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						$chunk_values
 					)
 				);
-
-				if ( ! $term_id ) {
-					$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-						$terms_table,
-						array( 'term' => $token ),
-						array( '%s' )
-					);
-					$term_id = $wpdb->insert_id;
-				}
-
-				if ( $term_id ) {
-					$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-						$postings_table,
-						array(
-							'index_name' => $index_name,
-							'term_id'    => $term_id,
-							'doc_id'     => $doc_id,
-							'tf'         => $tf,
-						),
-						array( '%s', '%d', '%d', '%f' )
-					);
-				}
 			}
 
 			++$indexed;
@@ -432,6 +432,58 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 			'success' => true,
 			'indexed' => $indexed,
 		);
+	}
+
+	/**
+	 * Resolve term IDs for a list of terms, creating the missing ones.
+	 *
+	 * @param string[] $terms Folded terms.
+	 * @return array term => id
+	 */
+	private function get_term_ids( array $terms ): array {
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'wss_index_terms';
+		$terms = array_values( array_unique( array_filter( $terms, 'strlen' ) ) );
+		$map   = array();
+
+		foreach ( array_chunk( $terms, 200 ) as $chunk ) {
+			$placeholders = implode( ',', array_fill( 0, count( $chunk ), '%s' ) );
+			$lookup       = function () use ( $wpdb, $table, $placeholders, $chunk, &$map ) {
+				$found = $wpdb->get_results( $wpdb->prepare( "SELECT id, term FROM {$table} WHERE term IN ({$placeholders})", $chunk ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				foreach ( (array) $found as $row ) {
+					$map[ (string) $row->term ] = (int) $row->id;
+				}
+			};
+
+			$lookup();
+
+			$missing = array();
+			foreach ( $chunk as $term ) {
+				if ( ! isset( $map[ $term ] ) ) {
+					$missing[] = $term;
+				}
+			}
+			if ( empty( $missing ) ) {
+				continue;
+			}
+
+			// INSERT IGNORE: concurrent indexers may create the same term.
+			$wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$table} (term) VALUES " . implode( ',', array_fill( 0, count( $missing ), '(%s)' ) ), $missing ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$lookup();
+
+			// Collation-equivalent spellings map to an existing row: resolve one by one.
+			foreach ( $missing as $term ) {
+				if ( ! isset( $map[ $term ] ) ) {
+					$id = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table} WHERE term = %s", $term ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					if ( $id ) {
+						$map[ $term ] = (int) $id;
+					}
+				}
+			}
+		}
+
+		return $map;
 	}
 
 	/**
@@ -538,33 +590,30 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 		// Tokenize the query.
 		$query_tokens = $this->tokenize( $query );
 
-		// Expand query with synonyms.
-		$expanded_tokens = $query_tokens;
-		foreach ( $query_tokens as $token ) {
+		// Group the query: each original word plus its synonyms and collapsed
+		// code form. Documents matching more groups (words) rank first.
+		$token_groups = array();
+		foreach ( array_values( array_unique( $query_tokens ) ) as $gi => $token ) {
+			$group = array( $token );
 			if ( isset( $this->synonyms[ $token ] ) ) {
 				foreach ( $this->synonyms[ $token ] as $syn ) {
-					$expanded_tokens[] = $this->fold_term( $syn );
+					$group[] = $this->fold_term( $syn );
 				}
 			}
-		}
-
-		// Code fragments: also try a collapsed (alphanumeric-only) form of any
-		// token that carries a separator or a digit. SKUs are indexed in
-		// search_codes in collapsed form ("abc1234"), so a fragment typed with
-		// its separator ("abc-12", "00-123") would otherwise never match. The
-		// hyphen is the only separator the tokenizer keeps inside a word.
-		foreach ( $query_tokens as $token ) {
+			// Code fragments: also try a collapsed (alphanumeric-only) form of any
+			// token that carries a separator or a digit. SKUs are indexed in
+			// search_codes in collapsed form ("abc1234"), so a fragment typed with
+			// its separator ("abc-12", "00-123") would otherwise never match.
 			if ( preg_match( '/[^a-z0-9]/', $token ) || preg_match( '/\d/', $token ) ) {
 				$collapsed = preg_replace( '/[^a-z0-9]+/', '', $token );
 				if ( '' !== $collapsed && $collapsed !== $token && mb_strlen( $collapsed ) >= 3 ) {
-					$expanded_tokens[] = $collapsed;
+					$group[] = $collapsed;
 				}
 			}
+			$token_groups[ $gi ] = array_values( array_unique( array_filter( $group, 'strlen' ) ) );
 		}
 
-		$expanded_tokens = array_unique( $expanded_tokens );
-
-		if ( empty( $expanded_tokens ) ) {
+		if ( empty( $token_groups ) ) {
 			return $this->empty_result( $query );
 		}
 
@@ -580,23 +629,8 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 			return $this->empty_result( $query );
 		}
 
-		// Find matching term IDs — use LIKE for prefix matching (basic typo tolerance).
-		$term_conditions = array();
-		$term_params     = array();
-		foreach ( $expanded_tokens as $token ) {
-			$term_conditions[] = 't.term = %s';
-			$term_params[]     = $token;
-			// Prefix match for partial typing.
-			if ( mb_strlen( $token ) >= 3 ) {
-				$term_conditions[] = 't.term LIKE %s';
-				$term_params[]     = $wpdb->esc_like( $token ) . '%';
-			}
-		}
-
-		$term_where = implode( ' OR ', $term_conditions );
-
-		// Calculate TF-IDF scores for the exact/prefix matches.
-		$all_scored = $this->score_documents( $index_name, $total_docs, $term_where, $term_params );
+		// Exact + prefix matches (prefix = basic typo tolerance while typing).
+		$all_scored = $this->score_documents( $index_name, $total_docs, $token_groups, true );
 
 		// Typo tolerance (local engine): if the exact/prefix pass found nothing,
 		// fall back to fuzzy matching (Levenshtein) so small misspellings still
@@ -604,20 +638,15 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 		// otherwise zero-result queries, so correctly spelled searches pay no
 		// extra cost.
 		if ( empty( $all_scored ) && $this->fuzzy_enabled ) {
-			$fuzzy_terms = $this->find_fuzzy_terms( $expanded_tokens );
-			if ( ! empty( $fuzzy_terms ) ) {
-				$fuzzy_conditions = array();
-				$fuzzy_params     = array();
-				foreach ( $fuzzy_terms as $ft ) {
-					$fuzzy_conditions[] = 't.term = %s';
-					$fuzzy_params[]     = $ft;
+			$fuzzy_groups = array();
+			foreach ( $token_groups as $gi => $group ) {
+				$fuzzy = $this->find_fuzzy_terms( $group );
+				if ( ! empty( $fuzzy ) ) {
+					$fuzzy_groups[ $gi ] = $fuzzy;
 				}
-				$all_scored = $this->score_documents(
-					$index_name,
-					$total_docs,
-					implode( ' OR ', $fuzzy_conditions ),
-					$fuzzy_params
-				);
+			}
+			if ( ! empty( $fuzzy_groups ) ) {
+				$all_scored = $this->score_documents( $index_name, $total_docs, $fuzzy_groups, false );
 			}
 		}
 
@@ -766,49 +795,127 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	// ---- Internal helpers ----
 
 	/**
-	 * Run the TF-IDF scoring query for a set of term-match conditions.
+	 * Score documents with TF-IDF for groups of query tokens.
 	 *
-	 * Extracted so it can be reused for both the primary (exact/prefix) pass
-	 * and the fuzzy fallback pass.
+	 * Only the postings of the matching terms are read (the IDF used to be
+	 * computed over the whole postings table on every uncached search). Ranking:
+	 * documents matching more query words come first (like Meilisearch's
+	 * "words" rule), then by TF-IDF, with prefix matches weighted below exact.
 	 *
-	 * @param string $index_name  Index name.
-	 * @param int    $total_docs  Total documents (for IDF).
-	 * @param string $term_where  OR-joined term conditions (with placeholders).
-	 * @param array  $term_params Params bound to the term conditions.
+	 * @param string $index_name   Index name.
+	 * @param int    $total_docs   Total documents (for IDF).
+	 * @param array  $token_groups group index => folded tokens (word + synonyms).
+	 * @param bool   $allow_prefix Also match terms starting with a token (3+ chars).
 	 * @return array Scored rows (doc_id, score) ordered by score DESC.
 	 */
-	private function score_documents( string $index_name, int $total_docs, string $term_where, array $term_params ): array {
+	private function score_documents( string $index_name, int $total_docs, array $token_groups, bool $allow_prefix ): array {
 		global $wpdb;
-
-		if ( '' === $term_where || empty( $term_params ) ) {
-			return array();
-		}
 
 		$terms_table    = $wpdb->prefix . 'wss_index_terms';
 		$postings_table = $wpdb->prefix . 'wss_index_postings';
 
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
-		$sql = $wpdb->prepare(
-			"SELECT p.doc_id,
-				SUM( p.tf * LOG( ( %d + 1 ) / ( term_doc_count.cnt + 1 ) ) ) AS score
-			FROM {$postings_table} p
-			INNER JOIN {$terms_table} t ON t.id = p.term_id
-			INNER JOIN (
-				SELECT term_id, COUNT( DISTINCT doc_id ) AS cnt
-				FROM {$postings_table}
-				WHERE index_name = %s
-				GROUP BY term_id
-			) AS term_doc_count ON term_doc_count.term_id = p.term_id
-			WHERE p.index_name = %s AND ( {$term_where} )
-			GROUP BY p.doc_id
-			ORDER BY score DESC",
-			array_merge( array( $total_docs, $index_name, $index_name ), $term_params )
-		);
+		$conditions = array();
+		$params     = array();
+		foreach ( $token_groups as $group ) {
+			foreach ( $group as $token ) {
+				$conditions[] = 'term = %s';
+				$params[]     = $token;
+				if ( $allow_prefix && mb_strlen( $token ) >= 3 ) {
+					$conditions[] = 'term LIKE %s';
+					$params[]     = $wpdb->esc_like( $token ) . '%';
+				}
+			}
+		}
+		if ( empty( $conditions ) ) {
+			return array();
+		}
 
-		$result = $wpdb->get_results( $sql );
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+		$terms = $wpdb->get_results(
+			$wpdb->prepare( "SELECT id, term FROM {$terms_table} WHERE " . implode( ' OR ', $conditions ) . ' LIMIT 3000', $params )
+		);
+		if ( empty( $terms ) ) {
+			return array();
+		}
+
+		// Which groups each term matches, and how strongly (exact 1.0, prefix 0.6).
+		$term_match = array();
+		foreach ( $terms as $row ) {
+			$term = (string) $row->term;
+			foreach ( $token_groups as $gi => $group ) {
+				foreach ( $group as $token ) {
+					$token = (string) $token;
+					if ( $term === $token ) {
+						$weight = 1.0;
+					} elseif ( $allow_prefix && 0 === strpos( $term, $token ) ) {
+						$weight = 0.6;
+					} else {
+						continue;
+					}
+					if ( $weight > ( $term_match[ (int) $row->id ][ $gi ] ?? 0 ) ) {
+						$term_match[ (int) $row->id ][ $gi ] = $weight;
+					}
+				}
+			}
+		}
+
+		$term_ids     = array_keys( $term_match );
+		$placeholders = implode( ',', array_fill( 0, count( $term_ids ), '%d' ) );
+
+		// Document frequency of the matching terms only.
+		$df_rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT term_id, COUNT(*) AS cnt FROM {$postings_table} WHERE index_name = %s AND term_id IN ({$placeholders}) GROUP BY term_id",
+				array_merge( array( $index_name ), $term_ids )
+			)
+		);
+		$idf = array();
+		foreach ( (array) $df_rows as $row ) {
+			$idf[ (int) $row->term_id ] = log( ( $total_docs + 1 ) / ( (int) $row->cnt + 1 ) ) + 0.1;
+		}
+
+		$postings = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT doc_id, term_id, tf FROM {$postings_table} WHERE index_name = %s AND term_id IN ({$placeholders})",
+				array_merge( array( $index_name ), $term_ids )
+			)
+		);
 		// phpcs:enable
 
-		return is_array( $result ) ? $result : array();
+		$scores   = array();
+		$coverage = array();
+		foreach ( (array) $postings as $row ) {
+			$tid = (int) $row->term_id;
+			$did = (int) $row->doc_id;
+			foreach ( $term_match[ $tid ] as $gi => $weight ) {
+				if ( $weight <= 0 ) {
+					continue;
+				}
+				$value = (float) $row->tf * ( $idf[ $tid ] ?? 0.1 ) * $weight;
+				// Per word keep the best-matching term, so many prefix variants
+				// of one word don't outweigh an exact match.
+				if ( $value > ( $coverage[ $did ][ $gi ] ?? 0 ) ) {
+					$coverage[ $did ][ $gi ] = $value;
+				}
+			}
+		}
+
+		foreach ( $coverage as $did => $groups ) {
+			// Matched words dominate; TF-IDF orders documents within that.
+			$scores[ $did ] = count( $groups ) * 1000 + array_sum( $groups );
+		}
+
+		arsort( $scores );
+
+		$result = array();
+		foreach ( $scores as $did => $score ) {
+			$result[] = (object) array(
+				'doc_id' => $did,
+				'score'  => $score,
+			);
+		}
+
+		return $result;
 	}
 
 	/**
