@@ -655,6 +655,87 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 	}
 
 	/**
+	 * Check that a key is safe to publish in the browser: it must only allow
+	 * searching (and must not be the admin/master key) on this index.
+	 *
+	 * @param string $key        Candidate public key.
+	 * @param string $index_name Index the frontend searches.
+	 * @return array { status: ok|invalid|unverified, message: string }
+	 */
+	public function check_public_key( string $key, string $index_name ): array {
+		if ( '' === $key ) {
+			return array( 'status' => 'ok', 'message' => '' );
+		}
+		if ( hash_equals( (string) $this->api_key, $key ) ) {
+			return array(
+				'status'  => 'invalid',
+				'message' => __( 'The Search API Key cannot be the same as the Admin API Key: it is published in the page source. Use the "Default Search API Key".', 'woo-smart-search' ),
+			);
+		}
+
+		$response = $this->request( 'GET', '/keys/' . rawurlencode( $key ) );
+		if ( is_wp_error( $response ) ) {
+			return array( 'status' => 'unverified', 'message' => '' );
+		}
+
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		if ( 404 === $code ) {
+			return array(
+				'status'  => 'invalid',
+				'message' => __( 'The Search API Key does not exist on this Meilisearch server.', 'woo-smart-search' ),
+			);
+		}
+		if ( 200 !== $code ) {
+			// The admin key may lack keys.get permission: can't verify.
+			return array( 'status' => 'unverified', 'message' => '' );
+		}
+
+		$info    = json_decode( wp_remote_retrieve_body( $response ), true );
+		$actions = isset( $info['actions'] ) ? (array) $info['actions'] : array();
+		$indexes = isset( $info['indexes'] ) ? (array) $info['indexes'] : array();
+
+		$extra = array_diff( $actions, array( 'search', 'chatCompletions' ) );
+		if ( empty( $actions ) || ! empty( $extra ) ) {
+			return array(
+				'status'  => 'invalid',
+				'message' => sprintf(
+					/* translators: %s: list of extra permissions */
+					__( 'The Search API Key has permissions beyond search (%s) and would be visible to every visitor. Use a key that only allows "search".', 'woo-smart-search' ),
+					implode( ', ', $extra ? $extra : array( '—' ) )
+				),
+			);
+		}
+
+		$covers_index = false;
+		foreach ( $indexes as $pattern ) {
+			$pattern = (string) $pattern;
+			if ( '*' === $pattern || $pattern === $index_name || ( '*' === substr( $pattern, -1 ) && 0 === strpos( $index_name, substr( $pattern, 0, -1 ) ) ) ) {
+				$covers_index = true;
+				break;
+			}
+		}
+		if ( ! $covers_index ) {
+			return array(
+				'status'  => 'invalid',
+				'message' => sprintf(
+					/* translators: %s: index name */
+					__( 'The Search API Key cannot search the index "%s".', 'woo-smart-search' ),
+					$index_name
+				),
+			);
+		}
+
+		if ( ! empty( $info['expiresAt'] ) && strtotime( $info['expiresAt'] ) < time() ) {
+			return array(
+				'status'  => 'invalid',
+				'message' => __( 'The Search API Key has expired.', 'woo-smart-search' ),
+			);
+		}
+
+		return array( 'status' => 'ok', 'message' => '' );
+	}
+
+	/**
 	 * Make an HTTP request to Meilisearch.
 	 *
 	 * @param string     $method HTTP method.

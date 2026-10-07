@@ -4,21 +4,20 @@
     <div class="wss-section">
       <div class="wss-section-header">
         <div>
-          <h3>Typo Tolerance</h3>
+          <h3>{{ t('Typo Tolerance') }}</h3>
           <p>
-            Find products even when the shopper mistypes a letter — e.g.
-            "pantlon" or "pantilon" still match "pantalón".
+            {{ t('Find products even when the shopper mistypes a letter — e.g. "pantlon" or "pantilon" still match "pantalón".') }}
           </p>
         </div>
       </div>
       <div class="wss-section-body">
         <div class="wss-form-row">
           <div class="wss-form-label">
-            Enable fuzzy matching
-            <span class="wss-hint">Local engine only — Meilisearch is typo-tolerant by default</span>
+            {{ t('Enable fuzzy matching') }}
+            <span class="wss-hint">{{ t('Local engine only — Meilisearch is typo-tolerant by default') }}</span>
           </div>
           <div class="wss-form-control">
-            <el-switch v-model="fuzzyOn" active-text="On" inactive-text="Off" />
+            <el-switch v-model="fuzzyOn" :active-text="t('On')" :inactive-text="t('Off')" />
           </div>
         </div>
         <div class="wss-form-row">
@@ -27,7 +26,7 @@
               type="info"
               :closable="false"
               show-icon
-              title="Only runs on searches that would otherwise return nothing, so correctly spelled searches are not slowed down. Tolerance scales with word length: 1 typo for 5–8 letters, 2 for 9+."
+              :title="t('Only runs on searches that would otherwise return nothing, so correctly spelled searches are not slowed down. Tolerance scales with word length: 1 typo for 5–8 letters, 2 for 9+.')"
             />
           </div>
         </div>
@@ -38,33 +37,31 @@
     <div class="wss-section">
       <div class="wss-section-header">
         <div>
-          <h3>Synonyms</h3>
+          <h3>{{ t('Synonyms') }}</h3>
           <p>
-            Make a word also match other terms. Searching the word on the left
-            returns products containing any of the terms on the right
-            (comma-separated).
+            {{ t('Make a word also match other terms. Searching the word on the left returns products containing any of the terms on the right (comma-separated).') }}
           </p>
         </div>
         <el-button @click="addRow" size="small">
-          <el-icon><Plus /></el-icon>&nbsp;Add synonym
+          <el-icon><Plus /></el-icon>&nbsp;{{ t('Add synonym') }}
         </el-button>
       </div>
       <div class="wss-section-body">
         <div v-if="rows.length === 0" class="wss-empty">
-          No synonyms yet. Click “Add synonym” to create one — for example:
+          {{ t('No synonyms yet. Click “Add synonym” to create one — for example:') }}
           <strong>pantalón</strong> → <em>jean, pantalones</em>.
         </div>
 
         <div v-for="(row, i) in rows" :key="i" class="wss-syn-row">
           <el-input
             v-model="row.word"
-            placeholder="Word (e.g. pantalón)"
+            :placeholder="t('Word (e.g. pantalón)')"
             class="wss-syn-word"
           />
           <el-icon class="wss-syn-arrow"><Right /></el-icon>
           <el-input
             v-model="row.terms"
-            placeholder="Equivalent terms, comma-separated (e.g. jean, pantalones)"
+            :placeholder="t('Equivalent terms, comma-separated (e.g. jean, pantalones)')"
             class="wss-syn-terms"
           />
           <el-button
@@ -84,10 +81,9 @@
     <div class="wss-section">
       <div class="wss-section-header">
         <div>
-          <h3>Stop Words</h3>
+          <h3>{{ t('Stop Words') }}</h3>
           <p>
-            Common words to ignore when indexing and searching (comma-separated).
-            Leave empty to keep every word searchable.
+            {{ t('Common words to ignore when indexing and searching (comma-separated). Leave empty to keep every word searchable.') }}
           </p>
         </div>
       </div>
@@ -98,7 +94,7 @@
               v-model="settings.stop_words"
               type="textarea"
               :rows="2"
-              placeholder="e.g. the, and, of, for"
+              :placeholder="t('e.g. the, and, of, for')"
             />
           </div>
         </div>
@@ -107,7 +103,7 @@
 
     <!-- Save -->
     <el-button type="primary" :loading="saving" @click="handleSave" size="large">
-      Save Settings
+      {{ t('Save Settings') }}
     </el-button>
   </div>
 </template>

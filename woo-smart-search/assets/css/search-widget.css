@@ -861,6 +861,39 @@
 	display: block;
 }
 
+/* Expanded layout, empty input: only the popular searches are shown. */
+.wss-results-dropdown.wss-popular-only .wss-expanded-main,
+.wss-results-dropdown.wss-popular-only .wss-results-footer,
+.wss-results-dropdown.wss-popular-only .wss-sidebar-categories,
+.wss-results-dropdown.wss-popular-only .wss-suggestions {
+	display: none !important;
+}
+
+.wss-results-dropdown.wss-popular-only .wss-expanded-columns {
+	min-height: 0;
+}
+
+.wss-results-dropdown.wss-popular-only .wss-expanded-sidebar {
+	flex: 1 1 auto;
+	max-width: none;
+	border-right: 0;
+}
+
+.wss-results-dropdown.wss-popular-only .wss-popular-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.wss-results-dropdown.wss-popular-only .wss-popular-item {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 12px;
+	border: 1px solid var(--wss-border-color);
+	border-radius: 999px;
+}
+
 .wss-popular-searches:last-child,
 .wss-sidebar-categories:last-child,
 .wss-sidebar-pages:last-child,

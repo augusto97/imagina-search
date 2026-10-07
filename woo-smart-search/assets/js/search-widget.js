@@ -373,8 +373,11 @@
 			// Focus - only re-show dropdown if there are already results from a previous search.
 			input.addEventListener('focus', function () {
 				if (input.value.trim().length >= (config.minQueryLength || 2) &&
-					(productsContainer.children.length > 0 || (emptyContainer && emptyContainer.classList.contains('wss-visible')))) {
+					productsContainer && (productsContainer.children.length > 0 || (emptyContainer && emptyContainer.classList.contains('wss-visible')))) {
 					showDropdown();
+				} else if (isExpanded && !input.value.trim()) {
+					// Empty expanded search: offer popular searches.
+					loadPopularSearches();
 				}
 			});
 		}
@@ -396,6 +399,9 @@
 
 		function renderPopularSearches(searches) {
 			if (!popularList || !searches.length) { hideState(popularContainer); return; }
+			// Only while the box is still empty (the shopper may have typed
+			// before the request returned).
+			if (input.value.trim()) return;
 			var heading = popularContainer.querySelector('.wss-sidebar-heading');
 			if (heading) heading.textContent = config.i18n.popularSearches || 'POPULAR';
 			popularList.innerHTML = '';
@@ -414,6 +420,10 @@
 				popularList.appendChild(li);
 			});
 			showState(popularContainer);
+			if (dropdown) {
+				dropdown.classList.add('wss-popular-only');
+				showDropdown();
+			}
 		}
 
 		function renderSidebarCategories(facets) {
@@ -778,6 +788,7 @@
 				renderSidebarCategories(facets);
 				renderSuggestions(query);
 				hideState(popularContainer);
+				if (dropdown) dropdown.classList.remove('wss-popular-only');
 				if (mainHeading) {
 				if (config.isEcommerce) {
 					mainHeading.textContent = config.i18n.products || 'PRODUCTS';

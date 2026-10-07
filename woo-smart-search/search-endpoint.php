@@ -91,12 +91,14 @@ if ( ! $wss_is_active || ! is_array( $wss_settings_arr ) || 'local' !== ( $wss_s
 	exit;
 }
 
-// Rate limiting: fixed 60-second window per IP. (The window start is kept,
+// Rate limiting: fixed 60-second window per IP (IPv6: per /64). (The window start is kept,
 // not refreshed on every request — refreshing made it a sliding window that
 // blocked anyone typing continuously.) A matching _transient_timeout_ row lets
 // WordPress' expired-transient cleanup delete the counters.
-$wss_client_ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? preg_replace( '/[^0-9a-fA-F.:\/]/', '', $_SERVER['REMOTE_ADDR'] ) : '127.0.0.1'; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
-$wss_rate_key   = 'wss_rl_' . md5( $wss_client_ip );
+// Real visitor IP behind Cloudflare / load balancers (see WSS_Client_IP).
+require_once dirname( __FILE__ ) . '/includes/class-wss-client-ip.php';
+$wss_client_ip  = WSS_Client_IP::get();
+$wss_rate_key   = 'wss_rl_' . md5( WSS_Client_IP::rate_key( $wss_client_ip ) );
 $wss_rate_limit = 120; // Shared IPs (mobile carrier NAT, offices) need headroom.
 $wss_now        = time();
 $wss_rate_row   = $wpdb->get_var( $wpdb->prepare(

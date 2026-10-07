@@ -158,6 +158,32 @@ class WSS_Admin_Ajax {
 			}
 		}
 
+		// The public search key is printed in every page: make sure it can only
+		// search. (A pasted admin/master key would let any visitor modify or
+		// delete the index.)
+		$search_key_warning = '';
+		if ( isset( $_POST['search_api_key'] ) && ! empty( $settings['search_api_key'] ) && 'meilisearch' === ( $settings['search_engine'] ?? 'meilisearch' ) && ! empty( $settings['api_key'] ) ) {
+			$checker = WSS_Meilisearch::create(
+				array(
+					'host'     => $settings['host'] ?? 'localhost',
+					'port'     => $settings['port'] ?? '',
+					'protocol' => $settings['protocol'] ?? 'http',
+					'api_key'  => WSS_Meilisearch::decrypt_key( $settings['api_key'] ),
+				)
+			);
+			if ( $checker ) {
+				$check = $checker->check_public_key( (string) $settings['search_api_key'], (string) ( $settings['index_name'] ?? 'woo_products' ) );
+				if ( 'invalid' === $check['status'] ) {
+					wp_send_json_error( array( 'message' => $check['message'] ) );
+					return;
+				}
+				$settings['search_key_status'] = $check['status'];
+				if ( 'unverified' === $check['status'] ) {
+					$search_key_warning = __( 'Could not verify that the Search API Key is search-only — make sure it is not an admin key.', 'woo-smart-search' );
+				}
+			}
+		}
+
 		// Integer fields.
 		$int_fields = array( 'batch_size', 'max_autocomplete_results', 'results_per_page', 'cache_ttl', 'rate_limit', 'results_page_id', 'reindex_interval' );
 		foreach ( $int_fields as $field ) {
@@ -383,6 +409,9 @@ class WSS_Admin_Ajax {
 		wss_log( __( 'Settings updated', 'woo-smart-search' ), 'info' );
 
 		$message = __( 'Settings saved successfully.', 'woo-smart-search' );
+		if ( $search_key_warning ) {
+			$message .= ' ' . $search_key_warning;
+		}
 		if ( $content_source_changed ) {
 			$message .= ' ' . __( 'Content source changed — index has been cleared. Please run a Full Sync from the Indexing tab.', 'woo-smart-search' );
 		}

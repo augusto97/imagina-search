@@ -3,7 +3,7 @@
  * Plugin Name:       Woo Smart Search
  * Plugin URI:        https://example.com/woo-smart-search
  * Description:       Ultra-fast search powered by Meilisearch for WooCommerce products, blog posts, pages, and custom post types.
- * Version:           6.35.0
+ * Version:           6.36.0
  * Author:            Imagina
  * Author URI:        https://example.com
  * License:           GPL-2.0+
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Plugin constants.
-define( 'WSS_VERSION', '6.35.0' );
+define( 'WSS_VERSION', '6.36.0' );
 define( 'WSS_PLUGIN_FILE', __FILE__ );
 define( 'WSS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WSS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -116,6 +116,20 @@ register_deactivation_hook( __FILE__, 'wss_deactivate' );
  */
 function wss_init() {
 	// Load text domain.
+	// Every Spanish variant (es_PE, es_MX, es_CO…) uses the bundled es_ES
+	// translation unless a file for that exact locale exists.
+	add_filter(
+		'load_textdomain_mofile',
+		function ( $mofile, $domain ) {
+			if ( 'woo-smart-search' !== $domain || file_exists( $mofile ) || ! preg_match( '/-es_[A-Z]{2}(_[a-z]+)?\.mo$/', $mofile ) ) {
+				return $mofile;
+			}
+			$fallback = preg_replace( '/-es_[A-Z]{2}(_[a-z]+)?\.mo$/', '-es_ES.mo', $mofile );
+			return file_exists( $fallback ) ? $fallback : $mofile;
+		},
+		10,
+		2
+	);
 	load_plugin_textdomain( 'woo-smart-search', false, dirname( WSS_PLUGIN_BASENAME ) . '/languages' );
 
 	// Declare HPOS compatibility if WooCommerce is active.

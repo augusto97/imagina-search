@@ -1,5 +1,6 @@
 import { reactive, ref, watch } from 'vue';
 import { useApi } from './useApi';
+import { t } from '../i18n';
 
 /**
  * Global settings state shared across all tabs.
@@ -51,9 +52,9 @@ export function useSettings() {
     try {
       const payload = { _wss_tab: tab, ...settings, ...extra };
       const res = await post('wss_save_settings', payload);
-      if (!res.success) throw new Error(res.data?.message || 'Save failed');
+      if (!res.success) throw new Error(res.data?.message || t('Save failed'));
       dirty.value = false;
-      return res.data?.message || 'Settings saved.';
+      return res.data?.message || t('Settings saved.');
     } finally {
       saving.value = false;
     }

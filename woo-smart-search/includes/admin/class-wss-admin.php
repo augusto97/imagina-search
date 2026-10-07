@@ -197,6 +197,9 @@ class WSS_Admin {
 					'nonce'              => wp_create_nonce( 'wss_admin_nonce' ),
 					'version'            => WSS_VERSION,
 					'settings'           => $admin_settings,
+					// Vue admin strings translated through __() (see admin-app/src/i18n.js).
+					'i18n'               => $this->get_admin_app_strings(),
+					'locale'             => get_user_locale(),
 					'postTypes'          => $post_types_data,
 					'wpCustomFields'     => $wp_custom_fields,
 					'productCategories'  => $product_categories,
@@ -296,5 +299,29 @@ class WSS_Admin {
 			$active_tab = isset( $_GET['tab'] ) ? sanitize_text_field( wp_unslash( $_GET['tab'] ) ) : 'connection'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			include WSS_PLUGIN_DIR . 'includes/admin/views/settings-page.php';
 		}
+	}
+
+	/**
+	 * Translated strings for the Vue admin (English source => translation).
+	 * Only translations that differ are sent, to keep the payload small.
+	 *
+	 * @return array
+	 */
+	private function get_admin_app_strings(): array {
+		$file = WSS_PLUGIN_DIR . 'includes/admin/admin-app-strings.php';
+		if ( ! file_exists( $file ) ) {
+			return array();
+		}
+		$strings = include $file;
+		if ( ! is_array( $strings ) ) {
+			return array();
+		}
+		return array_filter(
+			$strings,
+			function ( $translated, $source ) {
+				return $translated !== $source;
+			},
+			ARRAY_FILTER_USE_BOTH
+		);
 	}
 }
