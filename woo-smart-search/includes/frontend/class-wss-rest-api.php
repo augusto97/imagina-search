@@ -512,7 +512,7 @@ class WSS_Rest_Api {
 	private function check_rate_limit(): bool {
 		$limit = (int) apply_filters( 'wss_rate_limit', wss_get_option( 'rate_limit', 30 ) );
 		$ip    = $this->get_client_ip();
-		$key   = 'wss_rate_' . md5( $ip );
+		$key   = 'wss_rate_' . md5( WSS_Client_IP::rate_key( $ip ) );
 
 		// Fixed 60 s window: the start time is kept (re-setting the transient
 		// TTL on each call made it a sliding window that never reset while
@@ -534,17 +534,13 @@ class WSS_Rest_Api {
 	/**
 	 * Get client IP address.
 	 *
-	 * Only uses REMOTE_ADDR to prevent IP spoofing via
-	 * X-Forwarded-For or X-Real-IP headers.
+	 * Forwarding headers are honoured only from trusted proxies (Cloudflare
+	 * edges, private networks, WSS_TRUSTED_PROXIES) — see WSS_Client_IP.
 	 *
 	 * @return string
 	 */
 	private function get_client_ip(): string {
-		$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
-		if ( filter_var( $ip, FILTER_VALIDATE_IP ) ) {
-			return $ip;
-		}
-		return '127.0.0.1';
+		return WSS_Client_IP::get();
 	}
 
 	/**

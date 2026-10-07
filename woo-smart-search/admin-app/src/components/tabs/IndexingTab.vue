@@ -4,15 +4,15 @@
     <div class="wss-stats-grid">
       <div class="wss-stat-card">
         <div class="stat-value">{{ stats.published ?? '—' }}</div>
-        <div class="stat-label">Published</div>
+        <div class="stat-label">{{ t('Published') }}</div>
       </div>
       <div class="wss-stat-card">
         <div class="stat-value">{{ stats.indexed ?? '—' }}</div>
-        <div class="stat-label">Indexed</div>
+        <div class="stat-label">{{ t('Indexed') }}</div>
       </div>
       <div class="wss-stat-card">
-        <div class="stat-value">{{ stats.lastSync || 'Never' }}</div>
-        <div class="stat-label">Last Sync</div>
+        <div class="stat-value">{{ stats.lastSync || t('Never') }}</div>
+        <div class="stat-label">{{ t('Last Sync') }}</div>
       </div>
     </div>
 
@@ -20,17 +20,17 @@
     <div class="wss-section">
       <div class="wss-section-header">
         <div>
-          <h3>Sync Actions</h3>
-          <p>Re-index your content or clear the search index.</p>
+          <h3>{{ t('Sync Actions') }}</h3>
+          <p>{{ t('Re-index your content or clear the search index.') }}</p>
         </div>
       </div>
       <div class="wss-section-body">
         <div style="display: flex; gap: 12px; margin-bottom: 16px">
           <el-button type="primary" :loading="syncing" @click="startSync">
-            <el-icon><Refresh /></el-icon>&nbsp;Full Sync
+            <el-icon><Refresh /></el-icon>&nbsp;{{ t('Full Sync') }}
           </el-button>
           <el-button type="danger" plain @click="clearIndex">
-            <el-icon><Delete /></el-icon>&nbsp;Clear Index
+            <el-icon><Delete /></el-icon>&nbsp;{{ t('Clear Index') }}
           </el-button>
         </div>
 
@@ -46,43 +46,40 @@
     <div class="wss-section">
       <div class="wss-section-header">
         <div>
-          <h3>Indexing Settings</h3>
+          <h3>{{ t('Indexing Settings') }}</h3>
         </div>
       </div>
       <div class="wss-section-body">
         <div class="wss-form-row">
-          <div class="wss-form-label">Batch Size</div>
+          <div class="wss-form-label">{{ t('Batch Size') }}</div>
           <div class="wss-form-control">
             <el-input-number v-model="settings.batch_size" :min="10" :max="500" :step="10" />
           </div>
         </div>
         <div class="wss-form-row">
           <div class="wss-form-label">
-            Auto Re-index Interval
-            <span class="wss-hint">How often to rescan all content. Use shorter intervals if products are updated via external API or direct DB.</span>
+            {{ t('Auto Re-index Interval') }}
+            <span class="wss-hint">{{ t('How often to rescan all content. Use shorter intervals if products are updated via external API or direct DB.') }}</span>
           </div>
           <div class="wss-form-control">
             <el-select v-model="settings.reindex_interval" style="width:280px">
-              <el-option :value="0" label="Disabled" />
-              <el-option :value="5" label="Every 5 minutes" />
-              <el-option :value="15" label="Every 15 minutes" />
-              <el-option :value="30" label="Every 30 minutes" />
-              <el-option :value="60" label="Every 1 hour" />
-              <el-option :value="120" label="Every 2 hours" />
-              <el-option :value="360" label="Every 6 hours (default)" />
-              <el-option :value="720" label="Every 12 hours" />
-              <el-option :value="1440" label="Every 24 hours" />
+              <el-option :value="0" :label="t('Disabled')" />
+              <el-option :value="5" :label="t('Every 5 minutes')" />
+              <el-option :value="15" :label="t('Every 15 minutes')" />
+              <el-option :value="30" :label="t('Every 30 minutes')" />
+              <el-option :value="60" :label="t('Every 1 hour')" />
+              <el-option :value="120" :label="t('Every 2 hours')" />
+              <el-option :value="360" :label="t('Every 6 hours (default)')" />
+              <el-option :value="720" :label="t('Every 12 hours')" />
+              <el-option :value="1440" :label="t('Every 24 hours')" />
             </el-select>
           </div>
         </div>
         <div class="wss-form-row">
           <div class="wss-form-label">
-            Index Out of Stock
+            {{ t('Index Out of Stock') }}
             <span class="wss-hint">
-              On: out-of-stock products stay in the index (control their
-              visibility with “Show Out of Stock” on the Results Page tab).
-              Off: they are removed from the index and re-added automatically
-              when restocked — keeps the index smaller on large catalogs.
+              {{ t('On: out-of-stock products stay in the index (control their visibility with “Show Out of Stock” on the Results Page tab). Off: they are removed from the index and re-added automatically when restocked — keeps the index smaller on large catalogs.') }}
             </span>
           </div>
           <div class="wss-form-control">
@@ -91,11 +88,9 @@
         </div>
         <div class="wss-form-row">
           <div class="wss-form-label">
-            Index Hidden Products
+            {{ t('Index Hidden Products') }}
             <span class="wss-hint">
-              Include products whose WooCommerce catalog visibility is
-              “Hidden”. Off by default; when off, hidden products are removed
-              from the index.
+              {{ t('Include products whose WooCommerce catalog visibility is “Hidden”. Off by default; when off, hidden products are removed from the index.') }}
             </span>
           </div>
           <div class="wss-form-control">
@@ -104,15 +99,15 @@
         </div>
         <div v-if="productCategories.length" class="wss-form-row">
           <div class="wss-form-label">
-            Exclude Product Categories
-            <span class="wss-hint">Products in these categories will not be indexed</span>
+            {{ t('Exclude Product Categories') }}
+            <span class="wss-hint">{{ t('Products in these categories will not be indexed') }}</span>
           </div>
           <div class="wss-form-control">
             <el-select
               v-model="settings.exclude_categories"
               multiple
               filterable
-              placeholder="Select categories..."
+              :placeholder="t('Select categories...')"
               style="width: 100%; max-width: 400px"
             >
               <el-option
@@ -126,15 +121,15 @@
         </div>
         <div v-if="productMetaKeys.length" class="wss-form-row">
           <div class="wss-form-label">
-            Product Custom Fields
-            <span class="wss-hint">Product meta / ACF fields to include</span>
+            {{ t('Product Custom Fields') }}
+            <span class="wss-hint">{{ t('Product meta / ACF fields to include') }}</span>
           </div>
           <div class="wss-form-control">
             <el-select
               v-model="settings.custom_fields"
               multiple
               filterable
-              placeholder="Select fields..."
+              :placeholder="t('Select fields...')"
               style="width: 100%; max-width: 400px"
             >
               <el-option v-for="k in productMetaKeys" :key="k" :value="k" :label="k" />
@@ -145,15 +140,15 @@
         <!-- Dynamic taxonomy exclusions -->
         <div v-for="(tax, slug) in wpTaxonomies" :key="slug" class="wss-form-row">
           <div class="wss-form-label">
-            Exclude {{ tax.label }}
-            <span class="wss-hint">Content with these will not be indexed</span>
+            {{ t('Exclude %s', tax.label) }}
+            <span class="wss-hint">{{ t('Content with these will not be indexed') }}</span>
           </div>
           <div class="wss-form-control">
             <el-select
               v-model="excludeTax[slug]"
               multiple
               filterable
-              :placeholder="`Select ${tax.label}...`"
+              :placeholder="t('Select %s...', tax.label)"
               style="width: 100%; max-width: 400px"
             >
               <el-option
@@ -169,7 +164,7 @@
     </div>
 
     <el-button type="primary" :loading="saving" @click="handleSave" size="large">
-      Save Settings
+      {{ t('Save Settings') }}
     </el-button>
   </div>
 </template>
@@ -178,6 +173,7 @@
 import { ref, reactive, onMounted, onUnmounted } from 'vue';
 import { Refresh, Delete } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { t } from '@/i18n';
 import { useSettings } from '@/composables/useSettings';
 import { useApi } from '@/composables/useApi';
 
@@ -208,12 +204,12 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
 
 async function startSync() {
   try {
-    await ElMessageBox.confirm('This will re-index all content. Continue?', 'Full Sync', { type: 'warning' });
+    await ElMessageBox.confirm(t('This will re-index all content. Continue?'), t('Full Sync'), { type: 'warning' });
   } catch { return; }
 
   syncing.value = true;
   progress.value = 0;
-  progressText.value = 'Starting...';
+  progressText.value = t('Starting...');
 
   try {
     await post('wss_full_sync');
@@ -255,16 +251,16 @@ async function pumpSync() {
 
     if (d.status === 'failed') {
       syncing.value = false;
-      progressText.value = 'Failed';
-      ElMessage.error('Sync failed — check the Logs tab for details.');
+      progressText.value = t('Failed');
+      ElMessage.error(t('Sync failed — check the Logs tab for details.'));
       return;
     }
 
     if (d.status !== 'running') {
       progress.value = 100;
-      progressText.value = 'Completed';
+      progressText.value = t('Completed');
       syncing.value = false;
-      ElMessage.success('Sync completed');
+      ElMessage.success(t('Sync completed'));
       if (d.last_sync_label) stats.lastSync = d.last_sync_label;
       try {
         const sr = await post('wss_get_index_stats');
@@ -281,7 +277,7 @@ async function pumpSync() {
     if (d.processed === last) {
       if (++stalls > 40) {
         syncing.value = false;
-        ElMessage.warning('Sync is not advancing — check the Logs tab.');
+        ElMessage.warning(t('Sync is not advancing — check the Logs tab.'));
         return;
       }
       await sleep(1500);
@@ -296,12 +292,12 @@ async function pumpSync() {
 
 async function clearIndex() {
   try {
-    await ElMessageBox.confirm('This will delete ALL indexed data. Are you sure?', 'Clear Index', { type: 'error' });
+    await ElMessageBox.confirm(t('This will delete ALL indexed data. Are you sure?'), t('Clear Index'), { type: 'error' });
   } catch { return; }
 
   try {
     await post('wss_clear_index');
-    ElMessage.success('Index cleared');
+    ElMessage.success(t('Index cleared'));
     stats.indexed = 0;
   } catch (e) {
     ElMessage.error(e.message);

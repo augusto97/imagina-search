@@ -1,274 +1,2744 @@
-# Copyright (C) 2024 Imagina
+# Copyright (C) 2026 Imagina
 # This file is distributed under the GPL-2.0+.
 msgid ""
 msgstr ""
-"Project-Id-Version: Woo Smart Search 1.0.0\n"
+"Project-Id-Version: Woo Smart Search\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-01-01 00:00+0000\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: \n"
-"Language-Team: \n"
-"Language: \n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-10-07T15:03:36+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: woo-smart-search\n"
 
+#. Plugin Name of the plugin
 #: woo-smart-search.php
-msgid "Woo Smart Search requires WooCommerce to be installed and active."
-msgstr ""
-
-#: includes/class-wss-loader.php
-msgid "Health check failed: %s"
-msgstr ""
-
-#: includes/class-wss-loader.php
-msgid "Settings"
-msgstr ""
-
-#: includes/admin/class-wss-admin.php
-msgid "Smart Search"
-msgstr ""
-
-#: includes/admin/class-wss-admin.php
-msgid "Testing connection..."
-msgstr ""
-
-#: includes/admin/class-wss-admin.php
-msgid "Connection successful!"
-msgstr ""
-
-#: includes/admin/class-wss-admin.php
-msgid "Connection failed:"
-msgstr ""
-
-#: includes/admin/class-wss-admin.php
-msgid "Synchronization started."
-msgstr ""
-
-#: includes/admin/class-wss-admin.php
-msgid "Synchronization completed!"
-msgstr ""
-
-#: includes/admin/class-wss-admin.php
-msgid "Synchronization failed:"
-msgstr ""
-
-#: includes/admin/class-wss-admin.php
-msgid "This will re-index all products. Continue?"
-msgstr ""
-
-#: includes/admin/class-wss-admin.php
-msgid "This will delete ALL indexed data. Are you sure?"
-msgstr ""
-
-#: includes/admin/class-wss-admin.php
-msgid "Delete all logs?"
-msgstr ""
-
-#: includes/admin/class-wss-admin.php
-msgid "Saving..."
-msgstr ""
-
-#: includes/admin/class-wss-admin.php
-msgid "Settings saved."
-msgstr ""
-
-#: includes/admin/class-wss-admin.php
-msgid "An error occurred."
-msgstr ""
-
-#: includes/admin/views/settings-page.php
+#: includes/admin/views/settings-page.php:53
+#: includes/class-wss-loader.php:362
+#: includes/frontend/class-wss-shortcode.php:190
 msgid "Woo Smart Search"
 msgstr ""
 
-#: includes/admin/views/settings-page.php
-msgid "Connection"
+#. Plugin URI of the plugin
+#: woo-smart-search.php
+msgid "https://example.com/woo-smart-search"
 msgstr ""
 
-#: includes/admin/views/settings-page.php
-msgid "Indexing"
+#. Description of the plugin
+#: woo-smart-search.php
+msgid "Ultra-fast search powered by Meilisearch for WooCommerce products, blog posts, pages, and custom post types."
 msgstr ""
 
-#: includes/admin/views/settings-page.php
-msgid "Search"
+#. Author of the plugin
+#: woo-smart-search.php
+msgid "Imagina"
 msgstr ""
 
-#: includes/admin/views/settings-page.php
-msgid "Appearance"
+#. Author URI of the plugin
+#: woo-smart-search.php
+msgid "https://example.com"
 msgstr ""
 
-#: includes/admin/views/settings-page.php
-msgid "Logs"
+#: includes/admin/admin-app-strings.php:14
+#: includes/admin/views/tab-search.php:32
+msgid "— Select a page —"
 msgstr ""
 
-#: includes/admin/views/tab-connection.php
-msgid "Search Engine"
+#: includes/admin/admin-app-strings.php:15
+msgid "/* Your custom CSS */"
 msgstr ""
 
-#: includes/admin/views/tab-connection.php
-msgid "Host"
+#: includes/admin/admin-app-strings.php:16
+#: includes/admin/views/tab-translations.php:176
+#: includes/frontend/class-wss-frontend.php:616
+#, php-format
+msgid "%d products"
 msgstr ""
 
-#: includes/admin/views/tab-connection.php
-msgid "Server hostname or IP address (without protocol)."
+#: includes/admin/admin-app-strings.php:17
+#: includes/admin/views/tab-translations.php:169
+#: includes/frontend/class-wss-frontend.php:615
+#, php-format
+msgid "%d results"
 msgstr ""
 
-#: includes/admin/views/tab-connection.php
-msgid "Port"
+#: includes/admin/admin-app-strings.php:18
+#, php-format
+msgid "%s docs"
 msgstr ""
 
-#: includes/admin/views/tab-connection.php
-msgid "Protocol"
+#: includes/admin/admin-app-strings.php:19
+msgid "•••••••• (saved — leave empty to keep it)"
 msgstr ""
 
-#: includes/admin/views/tab-connection.php
-msgid "API Key (Master)"
+#: includes/admin/admin-app-strings.php:20
+msgid "1:1 — Square"
 msgstr ""
 
-#: includes/admin/views/tab-connection.php
-msgid "Master API key for admin operations. Leave empty to keep current."
+#: includes/admin/admin-app-strings.php:21
+msgid "16:9 — Wide"
 msgstr ""
 
-#: includes/admin/views/tab-connection.php
-msgid "Search API Key"
+#: includes/admin/admin-app-strings.php:22
+msgid "3:4 — Portrait"
 msgstr ""
 
-#: includes/admin/views/tab-connection.php
-msgid "Read-only key (optional, not exposed to frontend)."
+#: includes/admin/admin-app-strings.php:23
+msgid "4:3 — Landscape"
 msgstr ""
 
-#: includes/admin/views/tab-connection.php
-msgid "Index Name"
+#: includes/admin/admin-app-strings.php:24
+msgid "Add synonym"
 msgstr ""
 
-#: includes/admin/views/tab-connection.php
-msgid "Test Connection"
+#: includes/admin/admin-app-strings.php:25
+#: includes/admin/views/tab-translations.php:225
+#: includes/frontend/class-wss-frontend.php:596
+msgid "Add to Cart"
 msgstr ""
 
-#: includes/admin/views/tab-connection.php
-msgid "Save Settings"
+#: includes/admin/admin-app-strings.php:26
+msgid "Add to Cart Button"
 msgstr ""
 
-#: includes/admin/views/sync-status.php
-msgid "Synchronization"
+#: includes/admin/admin-app-strings.php:27
+msgid "Add to Cart button corners"
 msgstr ""
 
-#: includes/admin/views/sync-status.php
-msgid "WooCommerce Products"
+#: includes/admin/admin-app-strings.php:28
+#: includes/admin/views/tab-connection.php:78
+msgid "Admin API Key"
 msgstr ""
 
-#: includes/admin/views/sync-status.php
-msgid "Indexed Documents"
+#: includes/admin/admin-app-strings.php:29
+msgid "AliExpress — Multi-column, orders count"
 msgstr ""
 
-#: includes/admin/views/sync-status.php
-msgid "Last Sync"
+#: includes/admin/admin-app-strings.php:30
+msgid "All are optional — defaults come from these settings."
 msgstr ""
 
-#: includes/admin/views/sync-status.php
-msgid "Never"
+#: includes/admin/admin-app-strings.php:31
+#: includes/admin/views/log-viewer.php:15
+msgid "All types"
 msgstr ""
 
-#: includes/admin/views/sync-status.php
-msgid "Full Sync"
+#: includes/admin/admin-app-strings.php:32
+msgid "Amazon — Ratings, Add to Cart"
 msgstr ""
 
-#: includes/admin/views/sync-status.php
-msgid "Clear Index"
+#: includes/admin/admin-app-strings.php:33
+msgid "Amazon — Text suggestions"
 msgstr ""
 
-#: includes/admin/views/sync-status.php
-msgid "Indexing Settings"
+#: includes/admin/admin-app-strings.php:34
+#: includes/admin/views/settings-page.php:20
+#: includes/class-wss-loader.php:444
+msgid "Analytics"
 msgstr ""
 
-#: includes/admin/views/sync-status.php
+#: includes/admin/admin-app-strings.php:35
+msgid "Attributes (Color, Size...)"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:36
+#: includes/admin/views/tab-appearance.php:156
+#: includes/admin/views/tab-search.php:133
+#: includes/admin/views/tab-translations.php:147
+#: includes/frontend/class-wss-frontend.php:609
+msgid "Author"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:37
+msgid "Auto — Original"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:38
+msgid "Auto Re-index Interval"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:39
+#: includes/admin/views/tab-content-sources.php:55
+msgid "Auto-detect"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:40
+#: includes/admin/views/tab-appearance.php:64
+msgid "Autocomplete Results"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:41
+#: includes/admin/views/tab-appearance.php:93
+msgid "Background Color"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:42
+#: includes/admin/views/sync-status.php:156
 msgid "Batch Size"
 msgstr ""
 
-#: includes/admin/views/sync-status.php
-msgid "Products per batch during full sync. Default: 100."
+#: includes/admin/admin-app-strings.php:43
+#: includes/frontend/class-wss-frontend.php:593
+msgid "Best Rated"
 msgstr ""
 
-#: includes/admin/views/sync-status.php
-msgid "Index Out of Stock"
+#: includes/admin/admin-app-strings.php:44
+#: includes/admin/views/tab-appearance.php:109
+msgid "Border Color"
 msgstr ""
 
-#: includes/admin/views/sync-status.php
-msgid "Include out-of-stock products in the index"
+#: includes/admin/admin-app-strings.php:45
+#: includes/admin/views/tab-appearance.php:125
+msgid "Border Radius (px)"
 msgstr ""
 
-#: includes/admin/views/sync-status.php
-msgid "Index Hidden Products"
+#: includes/admin/admin-app-strings.php:46
+#: includes/admin/views/tab-translations.php:123
+#: includes/frontend/class-wss-frontend.php:605
+msgid "Brand"
 msgstr ""
 
-#: includes/admin/views/sync-status.php
-msgid "Include products hidden from catalog"
+#: includes/admin/admin-app-strings.php:47
+#: includes/admin/views/tab-search.php:126
+#: includes/admin/views/tab-translations.php:250
+#: includes/frontend/class-wss-frontend.php:581
+msgid "Brands"
 msgstr ""
 
-#: includes/admin/views/sync-status.php
-msgid "Exclude Categories"
+#: includes/admin/admin-app-strings.php:48
+msgid "Button BG"
 msgstr ""
 
-#: includes/admin/views/sync-status.php
-msgid "Products in these categories will not be indexed."
+#: includes/admin/admin-app-strings.php:49
+msgid "Button BG (Hover)"
 msgstr ""
 
-#: includes/admin/views/sync-status.php
-msgid "Custom Fields"
+#: includes/admin/admin-app-strings.php:50
+msgid "Button Radius (px)"
 msgstr ""
 
-#: includes/admin/views/sync-status.php
-msgid "Custom meta fields / ACF fields to include in the index."
+#: includes/admin/admin-app-strings.php:51
+msgid "Button Text"
 msgstr ""
 
-#: includes/frontend/class-wss-frontend.php
-msgid "Search products..."
+#: includes/admin/admin-app-strings.php:52
+msgid "Button Text (Hover)"
 msgstr ""
 
-#: includes/frontend/class-wss-frontend.php
-msgid "No results found for"
+#: includes/admin/admin-app-strings.php:53
+msgid "Cache"
 msgstr ""
 
-#: includes/frontend/class-wss-frontend.php
-msgid "View all %d results"
+#: includes/admin/admin-app-strings.php:54
+msgid "Cache purged"
 msgstr ""
 
-#: includes/frontend/class-wss-frontend.php
+#: includes/admin/admin-app-strings.php:55
+#: includes/admin/views/tab-search.php:198
+msgid "Cache TTL (seconds)"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:56
+#: includes/admin/views/tab-connection.php:237
+msgid "cached queries"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:57
+msgid "cached query"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:58
+#: includes/admin/views/tab-search.php:240
+msgid "Card Background"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:59
+msgid "Card Border"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:60
+msgid "Card Radius (px)"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:61
+msgid "Card Shadow"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:62
+#: includes/admin/views/tab-search.php:386
+msgid "Card Spacing (px)"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:63
+#: includes/admin/views/tab-appearance.php:141
+#: includes/admin/views/tab-search.php:117
+#: includes/admin/views/tab-translations.php:81
+#: includes/frontend/class-wss-frontend.php:576
+msgid "Categories"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:64
+msgid "Category"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:65
+msgid "Checking..."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:66
+msgid "Choose between Meilisearch (cloud/self-hosted) or the built-in local engine."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:67
+msgid "Choose what content to index and make searchable."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:68
+#: includes/frontend/class-wss-frontend.php:613
+msgid "Clear all"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:69
+msgid "Clear All"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:70
+#: includes/admin/views/sync-status.php:137
+msgid "Clear Index"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:71
+#: includes/admin/views/log-viewer.php:28
+msgid "Clear Logs"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:72
+#: includes/admin/views/tab-analytics.php:47
+msgid "Click-Through Rate"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:73
+#: includes/admin/views/tab-translations.php:246
+#: includes/frontend/class-wss-frontend.php:580
+msgid "Collections"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:74
+msgid "Colors and styles for the search results page."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:75
+msgid "Common words to ignore when indexing and searching (comma-separated). Leave empty to keep every word searchable."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:76
+msgid "Compact — No images"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:77
+msgid "Completed"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:78
+#: includes/admin/class-wss-admin.php:238
+#: includes/admin/views/settings-page.php:49
+#: includes/admin/views/settings-page.php:131
+#: includes/admin/views/tab-connection.php:185
+#: includes/admin/views/tab-connection.php:189
+#: includes/class-wss-loader.php:386
+msgid "Connected"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:79
+#, php-format
+msgid "Connected — Meilisearch v%s"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:80
+#, php-format
+msgid "Connected (%s)"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:81
+#: includes/admin/views/settings-page.php:14
+msgid "Connection"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:82
+#: includes/admin/views/tab-translations.php:56
+msgid "Connection error"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:83
+#: includes/frontend/class-wss-frontend.php:565
 msgid "Connection error, please try again"
 msgstr ""
 
-#: includes/frontend/class-wss-frontend.php
+#: includes/admin/admin-app-strings.php:84
+msgid "Connection failed"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:85
+msgid "Consider adding synonyms or content for these queries."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:86
+msgid "Contain"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:87
+#: includes/admin/views/tab-translations.php:77
+#: includes/frontend/class-wss-frontend.php:575
+msgid "Content"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:88
+#: includes/admin/views/tab-content-sources.php:43
+msgid "Content Source"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:89
+#: includes/admin/views/settings-page.php:15
+msgid "Content Sources"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:90
+#: includes/admin/views/tab-translations.php:143
+#: includes/frontend/class-wss-frontend.php:608
+msgid "Content Type"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:91
+msgid "Content with these will not be indexed"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:92
+#: includes/admin/views/tab-analytics.php:64
+#: includes/admin/views/tab-analytics.php:89
+msgid "Count"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:93
+msgid "Cover"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:94
+#: includes/admin/views/tab-appearance.php:79
+msgid "Custom"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:95
+#: includes/admin/views/tab-appearance.php:184
+msgid "Custom CSS"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:96
+msgid "Custom Fields"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:97
+#: includes/admin/views/tab-appearance.php:78
+msgid "Dark"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:98
+#: includes/admin/views/log-viewer.php:37
+#: includes/admin/views/tab-appearance.php:157
+msgid "Date"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:99
+msgid "Default — Clean grid"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:100
+msgid "Default — Clean grid with sidebar"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:101
+msgid "Delete all log entries?"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:102
+msgid "Desktop layout"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:103
+msgid "Desktop layout."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:104
+msgid "Disabled"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:105
+msgid "e.g. the, and, of, for"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:106
+msgid "Enable Analytics"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:107
+msgid "Enable fuzzy matching"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:108
+msgid "Engine"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:109
+msgid "Enter your Meilisearch server details."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:110
+msgid "Equivalent terms, comma-separated (e.g. jean, pantalones)"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:111
+#: includes/admin/views/log-viewer.php:18
+#: includes/admin/views/tab-connection.php:207
+msgid "Error"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:112
+#: includes/admin/views/tab-translations.php:185
+msgid "Error loading"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:113
+#: includes/frontend/class-wss-frontend.php:617
+msgid "Error loading results. Please try again."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:114
+msgid "Every 1 hour"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:115
+msgid "Every 12 hours"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:116
+msgid "Every 15 minutes"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:117
+msgid "Every 2 hours"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:118
+msgid "Every 24 hours"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:119
+msgid "Every 30 minutes"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:120
+msgid "Every 5 minutes"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:121
+msgid "Every 6 hours (default)"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:122
+msgid "Example:"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:123
+#: includes/admin/views/tab-appearance.php:155
+msgid "Excerpt / Description"
+msgstr ""
+
+#. translators: %s: taxonomy name
+#: includes/admin/admin-app-strings.php:124
+#: includes/admin/views/sync-status.php:232
+#, php-format
+msgid "Exclude %s"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:125
+#: includes/admin/views/sync-status.php:184
+msgid "Exclude Product Categories"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:126
+msgid "Expanded — Two columns"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:127
+#: includes/admin/views/log-viewer.php:25
+msgid "Export CSV"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:128
+msgid "Export failed"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:129
+#: includes/admin/views/tab-search.php:100
+msgid "Faceted Filters"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:130
+msgid "Facets & Filters"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:131
+msgid "Failed"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:132
+msgid "Failed to purge cache"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:133
+msgid "Featured Image"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:134
+#: includes/frontend/class-wss-frontend.php:585
+msgid "Filters"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:135
+#: includes/admin/views/tab-translations.php:189
+msgid "Filters button"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:136
+msgid "Find products even when the shopper mistypes a letter — e.g. \"pantlon\" or \"pantilon\" still match \"pantalón\"."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:137
+#: includes/admin/views/tab-appearance.php:117
+msgid "Font Size (px)"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:138
+#: includes/admin/views/tab-translations.php:229
+#: includes/frontend/class-wss-frontend.php:597
+msgid "Free shipping"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:139
+msgid "Free Shipping Badge"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:140
+msgid "Frequent queries are cached for near-instant responses"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:141
+#: includes/admin/views/sync-status.php:134
+msgid "Full Sync"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:142
+msgid "Fullscreen — Overlay"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:143
+#: includes/admin/views/tab-translations.php:239
+msgid "Fullscreen Layout"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:144
+#: includes/admin/views/tab-search.php:79
+msgid "Grid Columns"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:145
+#: includes/admin/views/tab-connection.php:48
+msgid "Host"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:146
+msgid "How often to rescan all content. Use shorter intervals if products are updated via external API or direct DB."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:147
+#: includes/admin/views/tab-search.php:375
+msgid "Image Fit"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:148
+msgid "Image Ratio"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:149
+#: includes/admin/views/tab-translations.php:98
+#: includes/frontend/class-wss-frontend.php:566
 msgid "In stock"
 msgstr ""
 
-#: includes/frontend/class-wss-frontend.php
-msgid "Out of stock"
+#: includes/admin/admin-app-strings.php:150
+msgid "Include products whose WooCommerce catalog visibility is “Hidden”. Off by default; when off, hidden products are removed from the index."
 msgstr ""
 
-#: includes/frontend/class-wss-frontend.php
+#: includes/admin/admin-app-strings.php:151
+#: includes/admin/class-wss-admin-ajax.php:819
+msgid "Index cleared"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:152
+#: includes/admin/views/sync-status.php:174
+msgid "Index Hidden Products"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:153
+#: includes/admin/views/tab-connection.php:108
+#: includes/admin/views/tab-connection.php:122
+msgid "Index Name"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:154
+#: includes/admin/views/sync-status.php:165
+msgid "Index Out of Stock"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:155
+msgid "Indexed"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:156
+#: includes/admin/views/settings-page.php:16
+msgid "Indexing"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:157
+#: includes/admin/views/sync-status.php:152
+msgid "Indexing Settings"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:158
+#: includes/admin/views/log-viewer.php:16
+msgid "Info"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:159
+msgid "Integration & Layout"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:160
+#: includes/admin/views/tab-appearance.php:21
+msgid "Integration Mode"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:161
+msgid "Just select any page — the search results will render automatically. No shortcode needed. (Advanced: you can still use"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:162
+#: includes/admin/views/tab-analytics.php:65
+#: includes/admin/views/tab-analytics.php:90
+msgid "Last Searched"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:163
+#: includes/admin/views/sync-status.php:119
+msgid "Last Sync"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:164
+msgid "Layout used on phones (≤767px). Choose “Same as desktop” to follow the layout above, or pick a different one just for mobile."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:165
+msgid "Layout used on phones (≤768px)"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:166
+msgid "Leave empty for default"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:167
+#: includes/admin/views/tab-appearance.php:77
+msgid "Light"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:168
+msgid "Loading cache stats…"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:169
+msgid "Local Engine"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:170
+msgid "Local engine only — Meilisearch is typo-tolerant by default"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:171
+#: includes/admin/views/settings-page.php:21
+msgid "Logs"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:172
+msgid "Logs cleared"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:173
+msgid "Make a word also match other terms. Searching the word on the left returns products containing any of the terms on the right (comma-separated)."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:174
+msgid "Master or Admin API key"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:175
+msgid "Master toggle — turn the entire sidebar on/off."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:176
+#: includes/frontend/class-wss-frontend.php:612
+msgid "Max"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:177
+#: includes/admin/views/tab-search.php:271
+msgid "Medium"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:178
+msgid "Meilisearch Connection"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:179
+msgid "MercadoLibre — List view, shipping badges"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:180
+#: includes/admin/views/log-viewer.php:36
+msgid "Message"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:181
+msgid "Meta fields to include in the index"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:182
+#: includes/frontend/class-wss-frontend.php:611
+msgid "Min"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:183
+msgid "Mixed (Both)"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:184
+msgid "Mobile Layout"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:185
+msgid "Mobile Widget Layout"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:186
+#: includes/frontend/class-wss-frontend.php:592
+msgid "Most Popular"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:187
+msgid "Multi-column — Columns layout"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:188
+msgid "MySQL-based search engine — no external dependencies."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:189
+msgid "Name A-Z"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:190
+msgid "Name Lines"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:191
+msgid "Name Z-A"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:192
+#: includes/frontend/class-wss-frontend.php:594
+msgid "Name: A–Z"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:193
+#: includes/frontend/class-wss-frontend.php:595
+msgid "Name: Z–A"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:194
+#: includes/admin/views/sync-status.php:125
+msgid "Never"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:195
+#: includes/frontend/class-wss-frontend.php:591
+msgid "Newest"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:196
+msgid "No data yet"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:197
+msgid "No log entries"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:198
+#: includes/admin/views/tab-translations.php:41
+msgid "No results"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:199
+#: includes/frontend/class-wss-frontend.php:562
+msgid "No results found for"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:200
+#: includes/frontend/class-wss-frontend.php:587
+msgid "No results found matching your search."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:201
+msgid "No synonyms yet. Click “Add synonym” to create one — for example:"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:202
+#: includes/admin/views/tab-search.php:269
+msgid "None"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:203
+#: includes/admin/views/settings-page.php:136
+#: includes/admin/views/tab-connection.php:202
+#: includes/class-wss-loader.php:382
+msgid "Not Configured"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:204
+msgid "Off"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:205
+msgid "On"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:206
+#: includes/admin/views/tab-translations.php:106
+#: includes/frontend/class-wss-frontend.php:568
 msgid "On backorder"
 msgstr ""
 
-#: includes/frontend/class-wss-frontend.php
+#: includes/admin/admin-app-strings.php:207
+msgid "On: out-of-stock products stay in the index (control their visibility with “Show Out of Stock” on the Results Page tab). Off: they are removed from the index and re-added automatically when restocked — keeps the index smaller on large catalogs."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:208
+msgid "Only runs on searches that would otherwise return nothing, so correctly spelled searches are not slowed down. Tolerance scales with word length: 1 typo for 5–8 letters, 2 for 9+."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:209
+msgid "Optional Attributes"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:210
+#: includes/admin/views/tab-translations.php:102
+#: includes/frontend/class-wss-frontend.php:567
+msgid "Out of stock"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:211
+msgid "Page & Layout"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:212
+msgid "Page BG"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:213
+msgid "Pages"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:214
+msgid "Place the search widget in any page, post, or widget area. Also available as a Gutenberg block:"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:215
+#: includes/admin/views/tab-translations.php:37
+msgid "Placeholder"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:216
+#: includes/admin/views/tab-appearance.php:176
+msgid "Placeholder Text"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:217
+#: includes/frontend/class-wss-frontend.php:571
+msgid "Popular"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:218
+msgid "Popular Searches"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:219
+#: includes/admin/views/tab-connection.php:57
+msgid "Port"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:220
+msgid "Post Type Badge"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:221
+msgid "Post Types"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:222
+msgid "Posts"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:223
+#: includes/admin/views/tab-appearance.php:146
+#: includes/admin/views/tab-search.php:123
+#: includes/admin/views/tab-translations.php:131
+#: includes/frontend/class-wss-frontend.php:607
+msgid "Price"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:224
+#: includes/admin/views/tab-search.php:278
+msgid "Price Color"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:225
+msgid "Price high"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:226
+msgid "Price low"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:227
+msgid "Price max"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:228
+msgid "Price min"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:229
+#: includes/frontend/class-wss-frontend.php:590
+msgid "Price: High to Low"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:230
+#: includes/frontend/class-wss-frontend.php:589
+msgid "Price: Low to High"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:231
+#: includes/admin/views/tab-appearance.php:85
+msgid "Primary Color"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:232
+#: includes/admin/views/sync-status.php:202
+msgid "Product Custom Fields"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:233
+#: includes/admin/views/tab-translations.php:95
+msgid "Product Details"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:234
+msgid "Product Image"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:235
+msgid "Product meta / ACF fields to include"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:236
+#: includes/admin/views/sync-status.php:34
+#: includes/admin/views/tab-translations.php:69
+#: includes/frontend/class-wss-frontend.php:573
+msgid "Products"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:237
+#: includes/admin/views/tab-translations.php:174
+msgid "Products count"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:238
+msgid "Products in these categories will not be indexed"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:239
+#: includes/admin/views/tab-connection.php:66
+msgid "Protocol"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:240
+msgid "Public key for frontend direct search (optional)"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:241
+msgid "Published"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:242
+#: includes/admin/views/tab-connection.php:145
+msgid "Purge Cache"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:243
+#: includes/admin/views/tab-analytics.php:63
+#: includes/admin/views/tab-analytics.php:88
+msgid "Query"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:244
+msgid "Rate Limit (req/min)"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:245
+#: includes/admin/views/tab-appearance.php:149
+#: includes/admin/views/tab-search.php:127
+#: includes/admin/views/tab-translations.php:127
+#: includes/frontend/class-wss-frontend.php:606
+msgid "Rating"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:246
+msgid "Rating Stars"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:247
+msgid "Re-index your content or clear the search index."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:248
+#: includes/admin/views/log-viewer.php:22
+msgid "Refresh"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:249
+#: includes/admin/views/tab-translations.php:254
+#: includes/frontend/class-wss-frontend.php:582
+msgid "Related Brands"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:250
+#: includes/admin/views/tab-translations.php:258
+#: includes/frontend/class-wss-frontend.php:583
+msgid "Related Categories"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:251
+#: includes/frontend/class-wss-frontend.php:588
+msgid "Relevance"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:252
+#: includes/admin/views/tab-appearance.php:25
+msgid "Replace native search"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:253
+#: includes/admin/views/tab-translations.php:73
+#: includes/frontend/class-wss-frontend.php:573
+#: includes/frontend/class-wss-frontend.php:574
+msgid "Results"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:254
+#: includes/admin/views/tab-translations.php:167
+msgid "Results count"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:255
+msgid "Results for"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:256
+#: includes/frontend/class-wss-frontend.php:586
+#, php-format
+msgid "Results for \"%s\""
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:257
+msgid "Results Layout"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:258
+#: includes/admin/views/settings-page.php:18
+#: includes/admin/views/tab-translations.php:157
+msgid "Results Page"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:259
+#: includes/admin/views/tab-search.php:234
+msgid "Results Page Appearance"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:260
+#: includes/admin/views/tab-search.php:424
+msgid "Results Page Custom CSS"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:261
+#: includes/admin/views/tab-search.php:93
+msgid "Results Per Page"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:262
+msgid "Sale Badge"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:263
+msgid "Sale Badge / Discount"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:264
+msgid "Sale Badge BG"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:265
+#: includes/admin/views/tab-search.php:303
+msgid "Sale Badge Text"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:266
+#: includes/admin/views/tab-search.php:286
+msgid "Sale Price Color"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:267
+msgid "Same as desktop"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:268
+msgid "Save failed"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:269
+#: includes/admin/views/sync-status.php:265
+#: includes/admin/views/tab-appearance.php:194
+#: includes/admin/views/tab-connection.php:158
+#: includes/admin/views/tab-content-sources.php:138
+#: includes/admin/views/tab-search.php:434
+msgid "Save Settings"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:270
+#: includes/admin/views/tab-translations.php:265
+msgid "Save Translations"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:271
+#: includes/admin/views/tab-connection.php:93
+msgid "Search API Key"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:272
+msgid "Search Bar"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:273
+msgid "Search Behavior"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:274
+#: includes/admin/views/tab-search.php:178
+msgid "Search by SKU"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:275
+#: includes/admin/views/tab-connection.php:24
+msgid "Search Engine"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:276
+#: includes/frontend/class-wss-frontend.php:579
+msgid "Search our store"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:277
+#: includes/admin/views/tab-appearance.php:179
+#: includes/admin/views/tab-appearance.php:205
+#: includes/frontend/class-wss-frontend.php:435
+#: includes/frontend/class-wss-frontend.php:561
+msgid "Search products..."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:278
+#: includes/admin/views/tab-translations.php:242
+msgid "Search title"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:279
+#: includes/admin/views/tab-translations.php:34
+msgid "Search Widget"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:280
+msgid "Search-only API key"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:281
+#: includes/admin/views/tab-analytics.php:80
+msgid "Searches with No Results"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:282
+#: includes/admin/views/tab-translations.php:66
+msgid "Section Headers"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:283
+#, php-format
+msgid "Select %s..."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:284
+msgid "Select a page..."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:285
+msgid "Select categories..."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:286
+msgid "Select custom fields..."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:287
+msgid "Select fields..."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:288
+msgid "Select which post types and custom fields to index."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:289
+#: includes/admin/class-wss-admin.php:236
+msgid "Settings saved."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:290
+msgid "Shopify — Minimal, elegant"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:291
+msgid "Short Description"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:292
+#: includes/admin/views/tab-appearance.php:26
+msgid "Shortcode only"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:293
+msgid "Shortcodes & Blocks"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:294
+msgid "Show or hide elements on each product/post card in results."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:295
+msgid "Show Out of Stock"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:296
+msgid "Sidebar BG"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:297
+#: includes/admin/views/tab-appearance.php:147
+msgid "SKU"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:298
+#: includes/admin/class-wss-admin.php:36
+#: includes/admin/class-wss-admin.php:37
+#: includes/admin/class-wss-admin.php:44
+#: includes/admin/class-wss-admin.php:45
+msgid "Smart Search"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:299
+#: includes/frontend/class-wss-frontend.php:598
+msgid "sold"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:300
+#: includes/admin/views/tab-translations.php:233
+msgid "Sold"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:301
+msgid "Sold Count"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:302
+msgid "Sort Options"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:303
+msgid "Source"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:304
+msgid "Standard — Vertical list"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:305
+msgid "Start typing"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:306
+#: includes/frontend/class-wss-frontend.php:578
+msgid "Start typing to search..."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:307
+msgid "Starting..."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:308
+#: includes/admin/views/tab-search.php:124
+#: includes/admin/views/tab-translations.php:119
+#: includes/frontend/class-wss-frontend.php:604
+msgid "Stock"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:309
+msgid "Stock Status"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:310
+#: includes/admin/views/tab-search.php:225
+msgid "Stop Words"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:311
+#: includes/admin/views/tab-search.php:272
+msgid "Strong"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:312
+#: includes/admin/views/tab-search.php:270
+msgid "Subtle"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:313
+#: includes/admin/views/tab-translations.php:89
+#: includes/frontend/class-wss-frontend.php:572
+msgid "Suggestions"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:314
+msgid "Sync Actions"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:315
+msgid "Sync completed"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:316
+msgid "Sync failed — check the Logs tab for details."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:317
+msgid "Sync is not advancing — check the Logs tab."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:318
+#: includes/admin/views/tab-search.php:216
+msgid "Synonyms"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:319
+msgid "Synonyms & Typos"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:320
+msgid "Synonyms and stop words are managed in the “Synonyms & Typos” tab."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:321
+#: includes/admin/views/tab-search.php:118
+#: includes/admin/views/tab-translations.php:115
+#: includes/frontend/class-wss-frontend.php:603
+msgid "Tags"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:322
+msgid "Temu — Vibrant discounts, dense grid"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:323
+#: includes/admin/views/tab-connection.php:155
+msgid "Test Connection"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:324
+msgid "Testing..."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:325
+#: includes/admin/views/tab-appearance.php:101
+msgid "Text Color"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:326
+#: includes/admin/views/tab-appearance.php:73
+msgid "Theme"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:327
+msgid "Theme & Colors"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:328
+#: includes/admin/views/tab-analytics.php:39
+msgid "This Month"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:329
+#: includes/admin/views/tab-analytics.php:31
+msgid "This Week"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:330
+#: includes/admin/class-wss-admin.php:233
+msgid "This will delete ALL indexed data. Are you sure?"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:331
+#: includes/admin/class-wss-admin.php:232
+msgid "This will re-index all content. Continue?"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:332
+msgid "to control exact placement.)"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:333
+#: includes/admin/views/tab-analytics.php:23
+msgid "Today"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:334
+msgid "Toolbar BG"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:335
+msgid "Top Search Queries"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:336
+#: includes/admin/views/settings-page.php:19
+msgid "Translations"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:337
+#: includes/admin/views/log-viewer.php:35
+msgid "Type"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:338
+msgid "Typo Tolerance"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:339
+msgid "Unsaved changes"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:340
+msgid "Use these to place the search bar anywhere on your site."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:341
+msgid "View all"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:342
+msgid "View all (count)"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:343
+#: includes/frontend/class-wss-frontend.php:563
+#, php-format
+msgid "View all %d results"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:344
+#: includes/frontend/class-wss-frontend.php:564
+msgid "View all results"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:345
+#: includes/admin/views/tab-appearance.php:132
+msgid "Visible Elements"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:346
+#: includes/admin/views/tab-search.php:109
+msgid "Visible Facets"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:347
+#: includes/admin/views/log-viewer.php:17
+msgid "Warning"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:348
+msgid "Whether out-of-stock products appear in search results. This is a search-time filter and works even while the products stay indexed (see “Index Out of Stock” on the Indexing tab). Turn off to hide them from shoppers without removing them from the index."
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:349
+msgid "Which filters appear in the sidebar"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:350
+#: includes/admin/views/settings-page.php:17
+msgid "Widget"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:351
+#: includes/admin/views/tab-appearance.php:48
+msgid "Widget Layout"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:352
+#: includes/admin/views/sync-status.php:38
+#: includes/admin/views/tab-content-sources.php:67
+msgid "WooCommerce Products"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:353
+msgid "Word (e.g. pantalón)"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:354
+#: includes/admin/views/tab-content-sources.php:77
+msgid "WordPress Content"
+msgstr ""
+
+#: includes/admin/admin-app-strings.php:355
+#: includes/admin/views/tab-content-sources.php:98
+msgid "WordPress Content Settings"
+msgstr ""
+
+#: includes/admin/class-wss-admin-ajax.php:44
+msgid "Invalid security token."
+msgstr ""
+
+#: includes/admin/class-wss-admin-ajax.php:50
+msgid "Insufficient permissions."
+msgstr ""
+
+#: includes/admin/class-wss-admin-ajax.php:153
+msgid "The API key looks invalid: it must be 8–512 characters with no spaces. Check that you copied it completely."
+msgstr ""
+
+#: includes/admin/class-wss-admin-ajax.php:182
+msgid "Could not verify that the Search API Key is search-only — make sure it is not an admin key."
+msgstr ""
+
+#: includes/admin/class-wss-admin-ajax.php:405
+msgid "Index cleared automatically due to content source change. Please run a Full Sync."
+msgstr ""
+
+#: includes/admin/class-wss-admin-ajax.php:409
+msgid "Settings updated"
+msgstr ""
+
+#: includes/admin/class-wss-admin-ajax.php:411
+msgid "Settings saved successfully."
+msgstr ""
+
+#: includes/admin/class-wss-admin-ajax.php:416
+msgid "Content source changed — index has been cleared. Please run a Full Sync from the Indexing tab."
+msgstr ""
+
+#: includes/admin/class-wss-admin-ajax.php:450
+msgid "Could not create Meilisearch instance."
+msgstr ""
+
+#. translators: %s: Meilisearch version
+#: includes/admin/class-wss-admin-ajax.php:461
+#, php-format
+msgid "Connection test successful: Meilisearch v%s"
+msgstr ""
+
+#: includes/admin/class-wss-admin-ajax.php:810
+#: includes/admin/class-wss-admin-ajax.php:918
+msgid "Search engine is not configured."
+msgstr ""
+
+#: includes/admin/class-wss-admin-ajax.php:820
+msgid "Index cleared successfully."
+msgstr ""
+
+#: includes/admin/class-wss-admin-ajax.php:822
+msgid "Failed to clear index."
+msgstr ""
+
+#: includes/admin/class-wss-admin-ajax.php:875
+msgid "Logs cleared."
+msgstr ""
+
+#: includes/admin/class-wss-admin-ajax.php:1047
+#: includes/class-wss-loader.php:242
+msgid "Meilisearch is not configured."
+msgstr ""
+
+#: includes/admin/class-wss-admin-ajax.php:1085
+msgid "Search cache purged manually."
+msgstr ""
+
+#: includes/admin/class-wss-admin-ajax.php:1087
+msgid "Search cache purged."
+msgstr ""
+
+#: includes/admin/class-wss-admin.php:226
+msgid "Testing connection..."
+msgstr ""
+
+#: includes/admin/class-wss-admin.php:227
+msgid "Connection successful!"
+msgstr ""
+
+#: includes/admin/class-wss-admin.php:228
+msgid "Connection failed:"
+msgstr ""
+
+#: includes/admin/class-wss-admin.php:229
+msgid "Synchronization started."
+msgstr ""
+
+#: includes/admin/class-wss-admin.php:230
+msgid "Synchronization completed!"
+msgstr ""
+
+#: includes/admin/class-wss-admin.php:231
+msgid "Synchronization failed:"
+msgstr ""
+
+#: includes/admin/class-wss-admin.php:234
+msgid "Delete all logs?"
+msgstr ""
+
+#: includes/admin/class-wss-admin.php:235
+msgid "Saving..."
+msgstr ""
+
+#: includes/admin/class-wss-admin.php:237
+msgid "An error occurred."
+msgstr ""
+
+#: includes/admin/class-wss-admin.php:239
+msgid "Disconnected"
+msgstr ""
+
+#: includes/admin/class-wss-admin.php:240
+msgid "Loading analytics..."
+msgstr ""
+
+#: includes/admin/class-wss-admin.php:268
+msgid "Woo Smart Search:"
+msgstr ""
+
+#: includes/admin/views/log-viewer.php:42
+#: includes/admin/views/tab-analytics.php:71
+#: includes/admin/views/tab-analytics.php:96
+msgid "Loading..."
+msgstr ""
+
+#. translators: %s: error message
+#: includes/admin/views/settings-page.php:37
+#, php-format
+msgid "Error: %s - fallback active"
+msgstr ""
+
+#: includes/admin/views/settings-page.php:44
+msgid "Syncing..."
+msgstr ""
+
+#: includes/admin/views/settings-page.php:141
+msgid "Error - fallback active"
+msgstr ""
+
+#: includes/admin/views/sync-status.php:107
+msgid "Synchronization"
+msgstr ""
+
+#: includes/admin/views/sync-status.php:115
+msgid "Indexed Documents"
+msgstr ""
+
+#: includes/admin/views/sync-status.php:160
+msgid "Items per batch during full sync. Default: 100."
+msgstr ""
+
+#: includes/admin/views/sync-status.php:169
+msgid "Include out-of-stock products in the index"
+msgstr ""
+
+#: includes/admin/views/sync-status.php:178
+msgid "Include products hidden from catalog"
+msgstr ""
+
+#: includes/admin/views/sync-status.php:197
+msgid "Products in these categories will not be indexed."
+msgstr ""
+
+#: includes/admin/views/sync-status.php:215
+msgid "Product meta fields / ACF fields to include in the index."
+msgstr ""
+
+#. translators: %s: taxonomy name
+#: includes/admin/views/sync-status.php:250
+#, php-format
+msgid "Content with these %s will not be indexed."
+msgstr ""
+
+#: includes/admin/views/tab-analytics.php:19
+msgid "Search Volume"
+msgstr ""
+
+#: includes/admin/views/tab-analytics.php:58
+msgid "Top 20 Search Queries"
+msgstr ""
+
+#: includes/admin/views/tab-analytics.php:82
+msgid "These queries returned zero results. Consider adding synonyms or new products to improve search coverage."
+msgstr ""
+
+#: includes/admin/views/tab-analytics.php:141
+msgid "No search data yet."
+msgstr ""
+
+#: includes/admin/views/tab-analytics.php:163
+msgid "No zero-result queries found."
+msgstr ""
+
+#: includes/admin/views/tab-appearance.php:29
+msgid "Available shortcodes:"
+msgstr ""
+
+#: includes/admin/views/tab-appearance.php:30
+msgid "Displays the search bar widget. Use in any page, post, or widget area."
+msgstr ""
+
+#: includes/admin/views/tab-appearance.php:31
+msgid "Displays the full search results page with facets and filters."
+msgstr ""
+
+#: includes/admin/views/tab-appearance.php:34
+msgid "Search bar attributes (optional):"
+msgstr ""
+
+#. translators: %s: shortcode example
+#: includes/admin/views/tab-appearance.php:39
+#, php-format
+msgid "Example: %s"
+msgstr ""
+
+#: includes/admin/views/tab-appearance.php:52
+msgid "Standard — Vertical list with images"
+msgstr ""
+
+#: includes/admin/views/tab-appearance.php:53
+msgid "Expanded — Two columns with product grid"
+msgstr ""
+
+#: includes/admin/views/tab-appearance.php:54
+msgid "Compact — Minimal list, no images"
+msgstr ""
+
+#: includes/admin/views/tab-appearance.php:55
+msgid "Amazon — Text-only suggestion list"
+msgstr ""
+
+#: includes/admin/views/tab-appearance.php:56
+msgid "Multi-column — Suggestions, brands & categories in columns"
+msgstr ""
+
+#: includes/admin/views/tab-appearance.php:57
+msgid "Fullscreen — Overlay with products, collections & brands"
+msgstr ""
+
+#: includes/admin/views/tab-appearance.php:59
+msgid "Choose the dropdown autocomplete layout style."
+msgstr ""
+
+#: includes/admin/views/tab-appearance.php:68
+msgid "Maximum results shown in the autocomplete dropdown."
+msgstr ""
+
+#: includes/admin/views/tab-appearance.php:140
+msgid "Featured image"
+msgstr ""
+
+#: includes/admin/views/tab-appearance.php:148
+msgid "Stock status"
+msgstr ""
+
+#: includes/admin/views/tab-appearance.php:150
+msgid "Sale badge"
+msgstr ""
+
+#: includes/admin/views/tab-appearance.php:158
+msgid "Post type badge"
+msgstr ""
+
+#: includes/admin/views/tab-appearance.php:162
+msgid "Enable search analytics"
+msgstr ""
+
+#: includes/admin/views/tab-appearance.php:201
+msgid "Preview"
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:15
+msgid "Checking connection..."
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:29
+msgid "Cloud / Self-hosted"
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:32
+msgid "Local (MySQL)"
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:36
+msgid "Fastest option. Requires an external Meilisearch server (cloud or self-hosted). Best typo tolerance and relevance."
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:37
+msgid "Local:"
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:37
+msgid "Zero cost, zero dependencies. Uses an inverted index in your MySQL database. Works on any hosting. Great for stores with up to ~50,000 products."
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:52
+msgid "Meilisearch server hostname or IP address (without protocol)."
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:61
+msgid "Local: 7700. Meilisearch Cloud: leave empty (uses HTTPS/443)."
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:73
+msgid "Use HTTPS if your Meilisearch server has SSL enabled."
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:83
+msgid "Required for indexing, configuration, and statistics. Leave empty to keep current key."
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:86
+#: includes/admin/views/tab-connection.php:101
+msgid "Which key to use:"
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:87
+msgid "Use your Master Key or the \"Default Admin API Key\" from Meilisearch Cloud. Do NOT use the \"Default Search API Key\" here — it only has search permissions and cannot index or configure."
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:98
+msgid "Optional. Enables ultra-fast direct search from the browser (bypasses WordPress). Leave empty to use WordPress proxy mode."
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:102
+msgid "Use the \"Default Search API Key\" from Meilisearch Cloud. This is a read-only key safe to expose in the browser."
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:112
+msgid "The Meilisearch index to store product data in."
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:125
+msgid "Identifier for the local search index."
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:129
+msgid "Status"
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:132
+msgid "The local engine stores an inverted index in your MySQL database. No external server is needed."
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:133
+msgid "After saving, go to the Sync tab and run a full synchronization to build the local index."
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:138
+msgid "Search Cache"
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:141
+msgid "Frequent search queries are cached for up to 5 minutes to provide near-instant responses. Cache is automatically cleared when products are updated."
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:185
+msgid "(restricted key — use the Master Key for full functionality)"
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:196
+msgid "documents"
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:253
+msgid "Purging..."
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:261
+msgid "Cache purged!"
+msgstr ""
+
+#: includes/admin/views/tab-connection.php:264
+msgid "Error purging cache."
+msgstr ""
+
+#: includes/admin/views/tab-content-sources.php:45
+msgid "Choose what type of content to index and search. You can index WooCommerce products, WordPress posts/pages, or any custom post type."
+msgstr ""
+
+#: includes/admin/views/tab-content-sources.php:50
+msgid "Mode"
+msgstr ""
+
+#: includes/admin/views/tab-content-sources.php:57
+msgid "Uses WooCommerce if active, otherwise WordPress content."
+msgstr ""
+
+#: includes/admin/views/tab-content-sources.php:59
+msgid "WooCommerce detected"
+msgstr ""
+
+#: includes/admin/views/tab-content-sources.php:61
+msgid "WooCommerce not detected"
+msgstr ""
+
+#: includes/admin/views/tab-content-sources.php:69
+msgid "Index products with prices, stock, SKU, attributes, and categories."
+msgstr ""
+
+#: includes/admin/views/tab-content-sources.php:72
+#: includes/admin/views/tab-content-sources.php:89
+msgid "Requires WooCommerce"
+msgstr ""
+
+#: includes/admin/views/tab-content-sources.php:79
+msgid "Index posts, pages, and/or custom post types."
+msgstr ""
+
+#: includes/admin/views/tab-content-sources.php:84
+msgid "Mixed — Products + Content"
+msgstr ""
+
+#: includes/admin/views/tab-content-sources.php:86
+msgid "Index WooCommerce products AND posts/pages in the same search, displayed in separate sections (like Searchanise)."
+msgstr ""
+
+#: includes/admin/views/tab-content-sources.php:101
+msgid "Post Types to Index"
+msgstr ""
+
+#: includes/admin/views/tab-content-sources.php:115
+msgid "Select which post types to include in the search index."
+msgstr ""
+
+#: includes/admin/views/tab-content-sources.php:120
+msgid "Post Custom Fields"
+msgstr ""
+
+#: includes/admin/views/tab-content-sources.php:130
+msgid "Custom meta fields / ACF fields to include in the index for WordPress content."
+msgstr ""
+
+#: includes/admin/views/tab-search.php:21
+msgid "Search Results Page"
+msgstr ""
+
+#. translators: %s: shortcode
+#: includes/admin/views/tab-search.php:44
+#, php-format
+msgid "Select the page that contains the %s shortcode. This page will display the faceted search results."
+msgstr ""
+
+#: includes/admin/views/tab-search.php:52
+msgid "Edit Page"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:55
+msgid "View Page"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:63
+msgid "Results Page Layout"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:67
+msgid "Default — Clean grid with sidebar filters"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:68
+msgid "Amazon — Prominent ratings, compact cards, Add to Cart buttons"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:69
+msgid "Temu — Vibrant discount badges, large images, dense grid"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:70
+msgid "MercadoLibre — List-first view, spacious cards, shipping badges"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:71
+msgid "AliExpress — Dense multi-column grid, orders count, big discounts"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:72
+msgid "Shopify — Minimal, elegant, wide spacing, large images"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:74
+msgid "Choose the visual style for the search results page. Each layout is inspired by major e-commerce platforms."
+msgstr ""
+
+#: includes/admin/views/tab-search.php:88
+msgid "Number of columns in grid view on desktop."
+msgstr ""
+
+#: includes/admin/views/tab-search.php:104
+msgid "Enable faceted filters in search results"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:125
+msgid "Attributes"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:132
+msgid "Post Type"
+msgstr ""
+
+#. translators: %s: custom field key
+#: includes/admin/views/tab-search.php:159
+#, php-format
+msgid "Field: %s"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:173
+msgid "Select which filter facets to show in the results page sidebar."
+msgstr ""
+
+#: includes/admin/views/tab-search.php:182
+msgid "Include SKU in searchable fields"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:187
+msgid "Out of Stock Results"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:191
+msgid "Show out-of-stock products in search results"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:202
+msgid "How long to cache search results. 0 to disable."
+msgstr ""
+
+#: includes/admin/views/tab-search.php:207
+msgid "Rate Limit"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:211
+msgid "Max requests per minute per IP."
+msgstr ""
+
+#: includes/admin/views/tab-search.php:220
+msgid "JSON format: {\"hoodie\": [\"sweatshirt\", \"pullover\"], \"phone\": [\"mobile\", \"cell\"]}"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:229
+msgid "Comma-separated list of words to ignore in searches."
+msgstr ""
+
+#: includes/admin/views/tab-search.php:235
+msgid "Customize colors and styles for the search results page. These settings are independent from the search widget."
+msgstr ""
+
+#: includes/admin/views/tab-search.php:244
+msgid "Background color for product/post cards."
+msgstr ""
+
+#: includes/admin/views/tab-search.php:249
+msgid "Card Border Color"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:257
+msgid "Card Border Radius (px)"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:265
+msgid "Card Hover Shadow"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:290
+msgid "Color for discounted prices."
+msgstr ""
+
+#: includes/admin/views/tab-search.php:295
+msgid "Sale Badge Background"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:311
+msgid "Rating Stars Color"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:319
+msgid "Button Background"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:323
+msgid "Background for Add to Cart and action buttons (layouts that include them)."
+msgstr ""
+
+#: includes/admin/views/tab-search.php:328
+msgid "Button Text Color"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:336
+msgid "Sidebar Background"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:344
+msgid "Toolbar Background"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:352
+msgid "Page Background"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:356
+msgid "Background color for the entire results page area."
+msgstr ""
+
+#: includes/admin/views/tab-search.php:361
+msgid "Image Aspect Ratio"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:365
+msgid "Square"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:366
+msgid "Landscape"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:367
+msgid "Portrait"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:368
+msgid "Wide"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:369
+msgid "Auto — Original ratio"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:379
+msgid "Cover — Fill area, crop edges"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:380
+msgid "Contain — Fit entire image, may show background"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:390
+msgid "Gap between product cards in the grid."
+msgstr ""
+
+#: includes/admin/views/tab-search.php:395
+msgid "Product Name Size (px)"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:403
+msgid "Price Size (px)"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:411
+msgid "Product Name Lines"
+msgstr ""
+
+#: includes/admin/views/tab-search.php:419
+msgid "Max lines to show for product names before truncating."
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:30
+msgid "Customize all frontend text. Leave a field empty to use the default value shown as placeholder."
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:45
+msgid "View all (with count)"
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:48
+#, php-format
+msgid "Use %d for the result count."
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:52
+msgid "View all (no count)"
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:60
+msgid "Start typing hint"
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:85
+msgid "Popular searches"
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:112
+msgid "Facets &amp; Filters"
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:135
+msgid "Price min placeholder"
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:139
+msgid "Price max placeholder"
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:151
+msgid "Clear all filters"
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:160
+msgid "Results for heading"
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:163
+#, php-format
+msgid "Use %s for the search query."
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:170
+#, php-format
+msgid "Use %d for the number. Example: %d resultados"
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:177
+#, php-format
+msgid "Use %d for the number. Example: %d productos"
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:181
+msgid "No results message"
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:193
+msgid "Sort: Relevance"
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:197
+msgid "Sort: Price low to high"
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:201
+msgid "Sort: Price high to low"
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:205
+msgid "Sort: Newest"
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:209
+msgid "Sort: Most popular"
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:213
+msgid "Sort: Best rated"
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:217
+msgid "Sort: Name A-Z"
+msgstr ""
+
+#: includes/admin/views/tab-translations.php:221
+msgid "Sort: Name Z-A"
+msgstr ""
+
+#: includes/class-wss-activator.php:257
+msgid "Search Results"
+msgstr ""
+
+#: includes/class-wss-loader.php:120
+msgid "Every 5 minutes (Woo Smart Search)"
+msgstr ""
+
+#: includes/class-wss-loader.php:127
+msgid "Woo Smart Search re-index interval"
+msgstr ""
+
+#: includes/class-wss-loader.php:256
+msgid "Meilisearch connection restored."
+msgstr ""
+
+#: includes/class-wss-loader.php:265
+msgid "Meilisearch Connection Restored"
+msgstr ""
+
+#: includes/class-wss-loader.php:266
+msgid "The Meilisearch connection has been restored. Native WooCommerce search fallback has been deactivated."
+msgstr ""
+
+#. translators: %s: error message
+#: includes/class-wss-loader.php:281
+#, php-format
+msgid "Health check failed: %s"
+msgstr ""
+
+#: includes/class-wss-loader.php:295
+msgid "Meilisearch Connection Down"
+msgstr ""
+
+#. translators: 1: site name 2: error message
+#: includes/class-wss-loader.php:298
+#, php-format
+msgid ""
+"Meilisearch is unreachable on %1$s.\n"
+"\n"
+"Error: %2$s\n"
+"\n"
+"The plugin has automatically fallen back to native WooCommerce search until the connection is restored."
+msgstr ""
+
+#: includes/class-wss-loader.php:378
+msgid "Down"
+msgstr ""
+
+#: includes/class-wss-loader.php:379
+msgid "Meilisearch is unreachable."
+msgstr ""
+
+#: includes/class-wss-loader.php:383
+msgid "Please configure your Meilisearch connection."
+msgstr ""
+
+#: includes/class-wss-loader.php:400
+msgid "ago"
+msgstr ""
+
+#: includes/class-wss-loader.php:424
+msgid "Indexed products"
+msgstr ""
+
+#: includes/class-wss-loader.php:429
+msgid "Last sync"
+msgstr ""
+
+#: includes/class-wss-loader.php:434
+msgid "Searches today"
+msgstr ""
+
+#: includes/class-wss-loader.php:441
+#: includes/class-wss-loader.php:503
+msgid "Settings"
+msgstr ""
+
+#: includes/class-wss-local-engine.php:172
+msgid "Could not create local search index tables. Check database permissions."
+msgstr ""
+
+#: includes/class-wss-local-engine.php:180
+msgid "Local search engine is ready."
+msgstr ""
+
+#. translators: %d: HTTP status code
+#: includes/class-wss-meilisearch.php:155
+#, php-format
+msgid "Meilisearch returned HTTP %d"
+msgstr ""
+
+#: includes/class-wss-meilisearch.php:189
+msgid "Connected successfully to Meilisearch"
+msgstr ""
+
+#: includes/class-wss-meilisearch.php:521
+msgid "OpenSSL extension is required for secure API key storage. Install php-openssl."
+msgstr ""
+
+#: includes/class-wss-meilisearch.php:532
+msgid "Failed to encrypt API key."
+msgstr ""
+
+#: includes/class-wss-meilisearch.php:583
+#: includes/class-wss-meilisearch.php:617
+msgid "Cannot decrypt API key: OpenSSL extension is not available."
+msgstr ""
+
+#: includes/class-wss-meilisearch.php:672
+msgid "The Search API Key cannot be the same as the Admin API Key: it is published in the page source. Use the \"Default Search API Key\"."
+msgstr ""
+
+#: includes/class-wss-meilisearch.php:685
+msgid "The Search API Key does not exist on this Meilisearch server."
+msgstr ""
+
+#. translators: %s: list of extra permissions
+#: includes/class-wss-meilisearch.php:703
+#, php-format
+msgid "The Search API Key has permissions beyond search (%s) and would be visible to every visitor. Use a key that only allows \"search\"."
+msgstr ""
+
+#. translators: %s: index name
+#: includes/class-wss-meilisearch.php:722
+#, php-format
+msgid "The Search API Key cannot search the index \"%s\"."
+msgstr ""
+
+#: includes/class-wss-meilisearch.php:731
+msgid "The Search API Key has expired."
+msgstr ""
+
+#. translators: %d: number of deleted rows
+#: includes/class-wss-search-analytics.php:373
+#, php-format
+msgid "Cleaned up %d old search log entries."
+msgstr ""
+
+#: includes/content-sources/class-wss-post-sync.php:254
+#: includes/sync/class-wss-product-sync.php:542
+msgid "Search engine not configured."
+msgstr ""
+
+#: includes/content-sources/class-wss-post-sync.php:266
+#: includes/sync/class-wss-product-sync.php:554
+msgid "Failed to create Meilisearch index. Check connection settings."
+msgstr ""
+
+#: includes/content-sources/class-wss-post-sync.php:287
+msgid "No content to sync."
+msgstr ""
+
+#. translators: %d: total number of posts
+#: includes/content-sources/class-wss-post-sync.php:314
+#, php-format
+msgid "Starting full content sync of %d items"
+msgstr ""
+
+#. translators: 1: total items 2: number of batches
+#: includes/content-sources/class-wss-post-sync.php:337
+#, php-format
+msgid "Sync started: %1$d items in %2$d batches"
+msgstr ""
+
+#: includes/content-sources/class-wss-post-sync.php:401
+#: includes/sync/class-wss-product-sync.php:719
+msgid "Search engine not available during batch processing."
+msgstr ""
+
+#. translators: 1: page number 2: error message
+#: includes/content-sources/class-wss-post-sync.php:456
+#, php-format
+msgid "Content batch page %1$d failed: %2$s"
+msgstr ""
+
+#. translators: 1: processed count 2: error count
+#: includes/content-sources/class-wss-post-sync.php:676
+#, php-format
+msgid "Full content sync completed: %1$d items processed, %2$d errors"
+msgstr ""
+
+#. translators: %d: number of posts queued
+#: includes/content-sources/class-wss-post-sync.php:742
+#, php-format
+msgid "Periodic re-index (WP): queued %d posts for sync."
+msgstr ""
+
+#: includes/frontend/class-wss-frontend.php:561
+msgid "Search..."
+msgstr ""
+
+#: includes/frontend/class-wss-frontend.php:569
+#: templates/search-widget.php:86
 msgid "Clear search"
 msgstr ""
 
-#: templates/search-widget.php
-msgid "Product search"
+#: includes/frontend/class-wss-frontend.php:570
+#: templates/results-page.php:53
+#: templates/search-widget.php:90
+#: templates/search-widget.php:124
+msgid "Close"
 msgstr ""
 
-#: includes/frontend/class-wss-shortcode.php
-msgid "Woo Smart Search"
+#: includes/frontend/class-wss-frontend.php:578
+msgid "Start typing to search products..."
 msgstr ""
 
-#: includes/frontend/class-wss-shortcode.php
+#: includes/frontend/class-wss-frontend.php:584
+msgid "Related Tags"
+msgstr ""
+
+#: includes/frontend/class-wss-frontend.php:599
+msgid "articles"
+msgstr ""
+
+#: includes/frontend/class-wss-frontend.php:600
+msgid "OFF"
+msgstr ""
+
+#: includes/frontend/class-wss-frontend.php:601
+msgid "Remove filter"
+msgstr ""
+
+#: includes/frontend/class-wss-frontend.php:610
+msgid "On Sale"
+msgstr ""
+
+#: includes/frontend/class-wss-rest-api.php:163
+msgid "Rate limit exceeded. Please try again later."
+msgstr ""
+
+#: includes/frontend/class-wss-shortcode.php:192
 msgid "Smart product search bar with instant results."
 msgstr ""
 
-#: includes/frontend/class-wss-shortcode.php
+#: includes/frontend/class-wss-shortcode.php:228
 msgid "Search Products"
 msgstr ""
 
-#: includes/frontend/class-wss-rest-api.php
-msgid "Rate limit exceeded. Please try again later."
+#: includes/frontend/class-wss-shortcode.php:233
+msgid "Title:"
+msgstr ""
+
+#: includes/frontend/class-wss-shortcode.php:241
+msgid "Placeholder:"
+msgstr ""
+
+#. translators: %d: number of products queued
+#: includes/sync/class-wss-product-sync.php:500
+#, php-format
+msgid "Periodic re-index: queued %d products for sync."
+msgstr ""
+
+#. translators: %d: number of orphans removed
+#: includes/sync/class-wss-product-sync.php:519
+#, php-format
+msgid "Periodic prune: removed %d orphaned index entries."
+msgstr ""
+
+#: includes/sync/class-wss-product-sync.php:591
+msgid "No products to sync."
+msgstr ""
+
+#. translators: %d: total number of products
+#: includes/sync/class-wss-product-sync.php:619
+#, php-format
+msgid "Starting full sync of %d products"
+msgstr ""
+
+#. translators: 1: total products 2: number of batches
+#: includes/sync/class-wss-product-sync.php:646
+#, php-format
+msgid "Sync started: %1$d products in %2$d batches"
+msgstr ""
+
+#. translators: 1: page number 2: error message
+#: includes/sync/class-wss-product-sync.php:785
+#, php-format
+msgid "Batch page %1$d failed: %2$s"
+msgstr ""
+
+#: includes/sync/class-wss-product-sync.php:818
+msgid "Bulk sync aborted: 3 consecutive batch failures (engine unavailable?)."
+msgstr ""
+
+#. translators: 1: processed count 2: error count 3: pruned count
+#: includes/sync/class-wss-product-sync.php:863
+#, php-format
+msgid "Full sync completed: %1$d products processed, %2$d errors, %3$d orphans removed"
+msgstr ""
+
+#. translators: %s: engine type
+#: includes/sync/class-wss-sync-queue.php:215
+#, php-format
+msgid "Sync queue: search engine (%s) not available. Will retry on next scheduled run."
+msgstr ""
+
+#. translators: 1: post ID 2: action 3: retry count
+#: includes/sync/class-wss-sync-queue.php:355
+#, php-format
+msgid "Sync failed after %3$d retries: post %1$d (%2$s)"
+msgstr ""
+
+#. translators: 1: processed count 2: failed count
+#: includes/sync/class-wss-sync-queue.php:370
+#, php-format
+msgid "Sync queue batch: %1$d processed, %2$d failed."
+msgstr ""
+
+#. translators: %d: number of pending items
+#: includes/sync/class-wss-sync-queue.php:440
+#, php-format
+msgid "Sync queue: waking up to process %d pending items after engine recovery."
+msgstr ""
+
+#: templates/results-page.php:74
+msgid "Sort by"
+msgstr ""
+
+#: templates/results-page.php:96
+msgid "Grid view"
+msgstr ""
+
+#: templates/results-page.php:97
+msgid "List view"
+msgstr ""
+
+#: templates/search-widget.php:66
+msgid "Product search"
+msgstr ""
+
+#: templates/search-widget.php:121
+msgid "Search"
+msgstr ""
+
+#: templates/search-widget.php:133
+msgid "Clear"
+msgstr ""
+
+#: templates/search-widget.php:159
+msgid "Search results"
+msgstr ""
+
+#: templates/search-widget.php:182
+#: templates/search-widget.php:214
+msgid "Category suggestions"
 msgstr ""

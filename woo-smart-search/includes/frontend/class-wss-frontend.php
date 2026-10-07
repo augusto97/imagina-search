@@ -164,9 +164,16 @@ class WSS_Frontend {
 			// Local engine: use the SHORTINIT search endpoint.
 			$local_endpoint_url = plugins_url( 'search-endpoint.php', WSS_PLUGIN_FILE );
 		} elseif ( ! empty( $search_api_key ) ) {
-			$engine = wss_get_engine();
-			if ( $engine ) {
-				$meili_url = $engine->get_base_url();
+			// Never publish the admin key, even if it was pasted as the
+			// "search" key before 6.36 validated it: fall back to the REST proxy.
+			$admin_key = ! empty( $settings['api_key'] ) ? WSS_Meilisearch::decrypt_key( $settings['api_key'] ) : '';
+			if ( '' !== $admin_key && hash_equals( $admin_key, (string) $search_api_key ) ) {
+				$search_api_key = '';
+			} else {
+				$engine = wss_get_engine();
+				if ( $engine ) {
+					$meili_url = $engine->get_base_url();
+				}
 			}
 		}
 

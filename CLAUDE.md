@@ -30,6 +30,17 @@ cd admin-app && npm run build   # salida a assets/admin-app/
 ```
 Los cambios de solo PHP/JS de frontend no requieren build.
 
+## Traducciones (i18n)
+- Admin Vue: todo texto visible va en `t('Texto en inglés')` (`admin-app/src/i18n.js`; global en templates, `import { t } from '@/i18n'` en scripts). Solo literales como primer argumento; partes dinámicas con `%s`. `npm run build` ejecuta `scripts/extract-i18n.mjs`, que genera `includes/admin/admin-app-strings.php` (cada texto pasa por `__()`).
+- Tras añadir/cambiar textos (PHP o Vue), regenerar y traducir:
+  ```
+  wp i18n make-pot woo-smart-search woo-smart-search/languages/woo-smart-search.pot --domain=woo-smart-search --exclude=admin-app,assets/admin-app,tests,node_modules --skip-js
+  wp i18n update-po woo-smart-search/languages/woo-smart-search.pot woo-smart-search/languages/
+  # traducir los msgstr vacíos de woo-smart-search-es_ES.po (español neutro, mayúscula solo inicial)
+  wp i18n make-mo woo-smart-search/languages && wp i18n make-php woo-smart-search/languages
+  ```
+- Solo existe `es_ES`; cualquier `es_XX` lo usa por el filtro `load_textdomain_mofile` en `woo-smart-search.php`.
+
 ## Arquitectura (dónde está cada cosa)
 - **Motores de búsqueda**
   - Meilisearch: `includes/class-wss-meilisearch.php` (HTTP REST).
@@ -45,7 +56,7 @@ Los cambios de solo PHP/JS de frontend no requieren build.
 - Página de resultados: layout de móvil separado (`results_layout_mobile`) por swap de clase CSS.
 
 ## Notas de estado
-- Versión actual: **6.35.0** (auditoría completa).
+- Versión actual: **6.36.0**.
 - Tras la 6.35.0, con motor local hace falta **un Full Sync una vez**: los términos numéricos (fragmentos de SKU "551", "0065") y los pesos por campo solo se aplican al reindexar.
 - Tablas: se crean/actualizan solas al cambiar `WSS_VERSION` (`WSS_Activator::maybe_upgrade()`); usar `CREATE TABLE` sin `IF NOT EXISTS` con dbDelta, una sentencia por llamada.
 - Locks entre procesos: `wss_acquire_lock()` / `wss_release_lock()` (INSERT IGNORE en options). Último sync: `wss_touch_last_sync()` / `wss_get_last_sync()` (opción propia, no dentro de `wss_settings`).

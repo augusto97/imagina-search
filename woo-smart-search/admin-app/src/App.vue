@@ -3,7 +3,7 @@
     <!-- Sidebar -->
     <aside class="wss-sidebar">
       <div class="wss-sidebar-brand">
-        <h2>Smart Search</h2>
+        <h2>{{ t('Smart Search') }}</h2>
         <div class="wss-version">v{{ version }}</div>
       </div>
       <nav class="wss-sidebar-nav">
@@ -30,7 +30,7 @@
         <div class="wss-header-actions">
           <span v-if="dirty" class="wss-unsaved-badge">
             <el-icon><Warning /></el-icon>
-            Unsaved changes
+            {{ t('Unsaved changes') }}
           </span>
           <span>
             <span class="wss-status-dot" :class="connectionStatus" />
@@ -61,6 +61,7 @@ import {
   Link, DataBoard, Refresh, Setting, Brush,
   Document, EditPen, DataAnalysis, Tickets, Warning, MagicStick,
 } from '@element-plus/icons-vue';
+import { t } from '@/i18n';
 import { useApi } from '@/composables/useApi';
 import { useSettings } from '@/composables/useSettings';
 
@@ -90,20 +91,20 @@ function onBeforeUnload(e) {
 const version = window.wssAdmin?.version || '5.2.0';
 
 const tabs = [
-  { id: 'connection',      label: 'Connection',      icon: Link },
-  { id: 'content_sources', label: 'Content Sources',  icon: DataBoard },
-  { id: 'indexing',        label: 'Indexing',         icon: Refresh },
-  { id: 'appearance',      label: 'Widget',           icon: Brush },
-  { id: 'search',          label: 'Results Page',     icon: Document },
-  { id: 'synonyms',        label: 'Synonyms & Typos', icon: MagicStick },
-  { id: 'translations',    label: 'Translations',     icon: EditPen },
-  { id: 'analytics',       label: 'Analytics',        icon: DataAnalysis },
-  { id: 'logs',            label: 'Logs',             icon: Tickets },
+  { id: 'connection',      label: t('Connection'),      icon: Link },
+  { id: 'content_sources', label: t('Content Sources'),  icon: DataBoard },
+  { id: 'indexing',        label: t('Indexing'),         icon: Refresh },
+  { id: 'appearance',      label: t('Widget'),           icon: Brush },
+  { id: 'search',          label: t('Results Page'),     icon: Document },
+  { id: 'synonyms',        label: t('Synonyms & Typos'), icon: MagicStick },
+  { id: 'translations',    label: t('Translations'),     icon: EditPen },
+  { id: 'analytics',       label: t('Analytics'),        icon: DataAnalysis },
+  { id: 'logs',            label: t('Logs'),             icon: Tickets },
 ];
 
 const activeTab = ref('connection');
 const connectionStatus = ref('idle');
-const connectionLabel = ref('Checking...');
+const connectionLabel = ref(t('Checking...'));
 
 const currentTab = computed(() => tabs.find((t) => t.id === activeTab.value) || tabs[0]);
 
@@ -121,19 +122,19 @@ onMounted(async () => {
       if (d.status === 'connected') {
         connectionStatus.value = 'connected';
         let info = d.version ? `v${d.version}` : '';
-        if (d.documents !== undefined) info += (info ? ', ' : '') + `${d.documents} docs`;
-        connectionLabel.value = `Connected${info ? ` (${info})` : ''}`;
+        if (d.documents !== undefined) info += (info ? ', ' : '') + t('%s docs', d.documents);
+        connectionLabel.value = info ? t('Connected (%s)', info) : t('Connected');
       } else if (d.status === 'not_configured') {
         connectionStatus.value = 'idle';
-        connectionLabel.value = 'Not Configured';
+        connectionLabel.value = t('Not Configured');
       } else {
         connectionStatus.value = 'error';
-        connectionLabel.value = d.message || 'Error';
+        connectionLabel.value = d.message || t('Error');
       }
     }
   } catch {
     connectionStatus.value = 'error';
-    connectionLabel.value = 'Connection error';
+    connectionLabel.value = t('Connection error');
   }
 });
 </script>

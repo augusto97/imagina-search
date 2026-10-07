@@ -62,6 +62,14 @@ Basic support is included. Full multi-language indexing depends on your setup.
 
 == Changelog ==
 
+= 6.36.0 =
+* Spanish translation: the bundled translation was never loaded (the .po file had no compiled .mo). It is now complete (602 strings: frontend, admin and emails), compiled (.mo + .l10n.php) and used for every Spanish locale (es_ES, es_PE, es_MX, es_CO, es_AR, es_CL…).
+* Admin panel is now translatable: every text of the Vue admin goes through WordPress' __() (works with the bundled translation and with Loco Translate / .po files). Element Plus texts (tables, pagination) follow the admin language.
+* Meilisearch: the public Search API Key is validated on save. The Admin/Master key, keys with any permission beyond "search", unknown, expired or wrong-index keys are rejected (they would be visible to every visitor). A previously saved admin key is never printed in the page (falls back to the WordPress proxy).
+* Rate limiting and analytics now use the real visitor IP behind Cloudflare (CF-Connecting-IP, only from Cloudflare's IP ranges) and reverse proxies / load balancers (X-Forwarded-For from private networks or the IPs in the WSS_TRUSTED_PROXIES constant). Headers sent by visitors directly are ignored, so the IP cannot be spoofed. IPv6 visitors are grouped by /64.
+* Expanded widget layout: the "Popular searches" block now shows when the empty search box is focused (it was never loaded); clicking one runs the search.
+* Verified on PHP 7.4 (full site, Full Sync of 20,000 products, local search) as well as PHP 8.4.
+
 = 6.35.0 =
 Full audit release (tested on a live WordPress + WooCommerce + Storefront install, local engine and Meilisearch, up to 20,000 products).
 

@@ -15,13 +15,14 @@
       </div>
     </div>
 
-    <el-button type="primary" :loading="saving" @click="handleSave" size="large">Save Translations</el-button>
+    <el-button type="primary" :loading="saving" @click="handleSave" size="large">{{ t('Save Translations') }}</el-button>
   </div>
 </template>
 
 <script setup>
 import { reactive } from 'vue';
 import { ElMessage } from 'element-plus';
+import { t } from '@/i18n';
 import { useSettings } from '@/composables/useSettings';
 
 const { settings, saving, save } = useSettings();
@@ -30,85 +31,85 @@ const translations = reactive(settings.translations || {});
 
 const groups = [
   {
-    title: 'Search Widget',
+    title: t('Search Widget'),
     fields: [
-      { key: 'placeholder', label: 'Placeholder', placeholder: 'Search products...' },
-      { key: 'noResults', label: 'No results', placeholder: 'No results found for' },
-      { key: 'viewAll', label: 'View all (count)', placeholder: 'View all %d results' },
-      { key: 'viewAllResults', label: 'View all', placeholder: 'View all results' },
-      { key: 'error', label: 'Error', placeholder: 'Connection error, please try again' },
-      { key: 'startTyping', label: 'Start typing', placeholder: 'Start typing to search...' },
+      { key: 'placeholder', label: t('Placeholder'), placeholder: t('Search products...') },
+      { key: 'noResults', label: t('No results'), placeholder: t('No results found for') },
+      { key: 'viewAll', label: t('View all (count)'), placeholder: t('View all %d results') },
+      { key: 'viewAllResults', label: t('View all'), placeholder: t('View all results') },
+      { key: 'error', label: t('Error'), placeholder: t('Connection error, please try again') },
+      { key: 'startTyping', label: t('Start typing'), placeholder: t('Start typing to search...') },
     ],
   },
   {
-    title: 'Section Headers',
+    title: t('Section Headers'),
     fields: [
-      { key: 'products', label: 'Products', placeholder: 'Products' },
-      { key: 'results', label: 'Results', placeholder: 'Results' },
-      { key: 'content', label: 'Content', placeholder: 'Content' },
-      { key: 'categories', label: 'Categories', placeholder: 'Categories' },
-      { key: 'popularSearches', label: 'Popular Searches', placeholder: 'Popular' },
-      { key: 'suggestions', label: 'Suggestions', placeholder: 'Suggestions' },
+      { key: 'products', label: t('Products'), placeholder: t('Products') },
+      { key: 'results', label: t('Results'), placeholder: t('Results') },
+      { key: 'content', label: t('Content'), placeholder: t('Content') },
+      { key: 'categories', label: t('Categories'), placeholder: t('Categories') },
+      { key: 'popularSearches', label: t('Popular Searches'), placeholder: t('Popular') },
+      { key: 'suggestions', label: t('Suggestions'), placeholder: t('Suggestions') },
     ],
   },
   {
-    title: 'Product Details',
+    title: t('Product Details'),
     fields: [
-      { key: 'inStock', label: 'In stock', placeholder: 'In stock' },
-      { key: 'outOfStock', label: 'Out of stock', placeholder: 'Out of stock' },
-      { key: 'onBackorder', label: 'On backorder', placeholder: 'On backorder' },
-      { key: 'addToCart', label: 'Add to Cart', placeholder: 'Add to Cart' },
-      { key: 'freeShipping', label: 'Free shipping', placeholder: 'Free shipping' },
-      { key: 'sold', label: 'Sold', placeholder: 'sold' },
+      { key: 'inStock', label: t('In stock'), placeholder: t('In stock') },
+      { key: 'outOfStock', label: t('Out of stock'), placeholder: t('Out of stock') },
+      { key: 'onBackorder', label: t('On backorder'), placeholder: t('On backorder') },
+      { key: 'addToCart', label: t('Add to Cart'), placeholder: t('Add to Cart') },
+      { key: 'freeShipping', label: t('Free shipping'), placeholder: t('Free shipping') },
+      { key: 'sold', label: t('Sold'), placeholder: t('sold') },
     ],
   },
   {
-    title: 'Facets & Filters',
+    title: t('Facets & Filters'),
     fields: [
-      { key: 'tags', label: 'Tags', placeholder: 'Tags' },
-      { key: 'stock', label: 'Stock', placeholder: 'Stock' },
-      { key: 'brand', label: 'Brand', placeholder: 'Brand' },
-      { key: 'rating', label: 'Rating', placeholder: 'Rating' },
-      { key: 'price', label: 'Price', placeholder: 'Price' },
-      { key: 'priceMin', label: 'Price min', placeholder: 'Min' },
-      { key: 'priceMax', label: 'Price max', placeholder: 'Max' },
-      { key: 'contentType', label: 'Content Type', placeholder: 'Content Type' },
-      { key: 'author', label: 'Author', placeholder: 'Author' },
-      { key: 'clearAll', label: 'Clear all', placeholder: 'Clear all' },
+      { key: 'tags', label: t('Tags'), placeholder: t('Tags') },
+      { key: 'stock', label: t('Stock'), placeholder: t('Stock') },
+      { key: 'brand', label: t('Brand'), placeholder: t('Brand') },
+      { key: 'rating', label: t('Rating'), placeholder: t('Rating') },
+      { key: 'price', label: t('Price'), placeholder: t('Price') },
+      { key: 'priceMin', label: t('Price min'), placeholder: t('Min') },
+      { key: 'priceMax', label: t('Price max'), placeholder: t('Max') },
+      { key: 'contentType', label: t('Content Type'), placeholder: t('Content Type') },
+      { key: 'author', label: t('Author'), placeholder: t('Author') },
+      { key: 'clearAll', label: t('Clear all'), placeholder: t('Clear all') },
     ],
   },
   {
-    title: 'Results Page',
+    title: t('Results Page'),
     fields: [
-      { key: 'resultsFor', label: 'Results for', placeholder: 'Results for "%s"' },
-      { key: 'xResults', label: 'Results count', placeholder: '%d results' },
-      { key: 'xProducts', label: 'Products count', placeholder: '%d products' },
-      { key: 'noResultsPage', label: 'No results', placeholder: 'No results found matching your search.' },
-      { key: 'errorLoading', label: 'Error loading', placeholder: 'Error loading results. Please try again.' },
-      { key: 'filters', label: 'Filters button', placeholder: 'Filters' },
+      { key: 'resultsFor', label: t('Results for'), placeholder: t('Results for "%s"') },
+      { key: 'xResults', label: t('Results count'), placeholder: t('%d results') },
+      { key: 'xProducts', label: t('Products count'), placeholder: t('%d products') },
+      { key: 'noResultsPage', label: t('No results'), placeholder: t('No results found matching your search.') },
+      { key: 'errorLoading', label: t('Error loading'), placeholder: t('Error loading results. Please try again.') },
+      { key: 'filters', label: t('Filters button'), placeholder: t('Filters') },
     ],
   },
   {
-    title: 'Sort Options',
+    title: t('Sort Options'),
     fields: [
-      { key: 'sortRelevance', label: 'Relevance', placeholder: 'Relevance' },
-      { key: 'sortPriceLow', label: 'Price low', placeholder: 'Price: Low to High' },
-      { key: 'sortPriceHigh', label: 'Price high', placeholder: 'Price: High to Low' },
-      { key: 'sortNewest', label: 'Newest', placeholder: 'Newest' },
-      { key: 'sortPopular', label: 'Popular', placeholder: 'Most Popular' },
-      { key: 'sortRating', label: 'Rating', placeholder: 'Best Rated' },
-      { key: 'sortNameAZ', label: 'Name A-Z', placeholder: 'Name: A–Z' },
-      { key: 'sortNameZA', label: 'Name Z-A', placeholder: 'Name: Z–A' },
+      { key: 'sortRelevance', label: t('Relevance'), placeholder: t('Relevance') },
+      { key: 'sortPriceLow', label: t('Price low'), placeholder: t('Price: Low to High') },
+      { key: 'sortPriceHigh', label: t('Price high'), placeholder: t('Price: High to Low') },
+      { key: 'sortNewest', label: t('Newest'), placeholder: t('Newest') },
+      { key: 'sortPopular', label: t('Popular'), placeholder: t('Most Popular') },
+      { key: 'sortRating', label: t('Rating'), placeholder: t('Best Rated') },
+      { key: 'sortNameAZ', label: t('Name A-Z'), placeholder: t('Name: A–Z') },
+      { key: 'sortNameZA', label: t('Name Z-A'), placeholder: t('Name: Z–A') },
     ],
   },
   {
-    title: 'Fullscreen Layout',
+    title: t('Fullscreen Layout'),
     fields: [
-      { key: 'searchOurStore', label: 'Search title', placeholder: 'Search our store' },
-      { key: 'collections', label: 'Collections', placeholder: 'Collections' },
-      { key: 'brands', label: 'Brands', placeholder: 'Brands' },
-      { key: 'relatedBrands', label: 'Related Brands', placeholder: 'Related Brands' },
-      { key: 'relatedCategories', label: 'Related Categories', placeholder: 'Related Categories' },
+      { key: 'searchOurStore', label: t('Search title'), placeholder: t('Search our store') },
+      { key: 'collections', label: t('Collections'), placeholder: t('Collections') },
+      { key: 'brands', label: t('Brands'), placeholder: t('Brands') },
+      { key: 'relatedBrands', label: t('Related Brands'), placeholder: t('Related Brands') },
+      { key: 'relatedCategories', label: t('Related Categories'), placeholder: t('Related Categories') },
     ],
   },
 ];

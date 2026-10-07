@@ -3,29 +3,29 @@
     <!-- Toolbar -->
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap">
       <el-select v-model="logType" style="width:150px" @change="loadLogs(1)">
-        <el-option value="" label="All types" />
-        <el-option value="info" label="Info" />
-        <el-option value="warning" label="Warning" />
-        <el-option value="error" label="Error" />
+        <el-option value="" :label="t('All types')" />
+        <el-option value="info" :label="t('Info')" />
+        <el-option value="warning" :label="t('Warning')" />
+        <el-option value="error" :label="t('Error')" />
       </el-select>
       <el-button @click="loadLogs(currentPage)">
-        <el-icon><Refresh /></el-icon>&nbsp;Refresh
+        <el-icon><Refresh /></el-icon>&nbsp;{{ t('Refresh') }}
       </el-button>
-      <el-button @click="exportLogs">Export CSV</el-button>
-      <el-button type="danger" plain @click="clearLogs">Clear All</el-button>
+      <el-button @click="exportLogs">{{ t('Export CSV') }}</el-button>
+      <el-button type="danger" plain @click="clearLogs">{{ t('Clear All') }}</el-button>
     </div>
 
     <!-- Table -->
     <div class="wss-section">
       <div class="wss-section-body" style="padding:0">
-        <el-table :data="logs" stripe v-loading="loading" style="width:100%" empty-text="No log entries">
-          <el-table-column label="Type" width="90">
+        <el-table :data="logs" stripe v-loading="loading" style="width:100%" :empty-text="t('No log entries')">
+          <el-table-column :label="t('Type')" width="90">
             <template #default="{ row }">
               <span class="wss-log-badge" :class="row.type">{{ row.type }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="message" label="Message" />
-          <el-table-column prop="created_at" label="Date" width="170" />
+          <el-table-column prop="message" :label="t('Message')" />
+          <el-table-column prop="created_at" :label="t('Date')" width="170" />
         </el-table>
       </div>
     </div>
@@ -47,6 +47,7 @@
 import { ref, onMounted } from 'vue';
 import { Refresh } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { t } from '@/i18n';
 import { useApi } from '@/composables/useApi';
 
 const { post } = useApi();
@@ -74,9 +75,9 @@ async function loadLogs(page) {
 
 async function clearLogs() {
   try {
-    await ElMessageBox.confirm('Delete all log entries?', 'Clear Logs', { type: 'warning' });
+    await ElMessageBox.confirm(t('Delete all log entries?'), t('Clear Logs'), { type: 'warning' });
     await post('wss_clear_logs');
-    ElMessage.success('Logs cleared');
+    ElMessage.success(t('Logs cleared'));
     loadLogs(1);
   } catch { /* cancelled */ }
 }
@@ -94,7 +95,7 @@ async function exportLogs() {
       URL.revokeObjectURL(url);
     }
   } catch {
-    ElMessage.error('Export failed');
+    ElMessage.error(t('Export failed'));
   }
 }
 </script>
