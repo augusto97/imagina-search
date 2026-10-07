@@ -98,8 +98,11 @@ class WSS_Frontend {
 			return $content;
 		}
 
-		// If the shortcode is already in the content, let it handle rendering.
-		if ( has_shortcode( $content, 'woo_smart_search_results' ) ) {
+		// If the shortcode is in the content, let it handle rendering. This filter
+		// runs after do_shortcode (priority 11), so the shortcode is usually
+		// already expanded here: also detect its rendered markup, or the whole
+		// results layout was printed twice.
+		if ( has_shortcode( $content, 'woo_smart_search_results' ) || false !== strpos( $content, 'wss-results-page' ) ) {
 			return $content;
 		}
 
@@ -240,7 +243,7 @@ class WSS_Frontend {
 				'apiUrl'         => esc_url_raw( rest_url( 'wss/v1/search' ) ),
 				'popularUrl'     => esc_url_raw( rest_url( 'wss/v1/popular' ) ),
 				'trackClickUrl'  => esc_url_raw( rest_url( 'wss/v1/track-click' ) ),
-				'nonce'          => wp_create_nonce( 'wp_rest' ),
+				'nonce'          => is_user_logged_in() ? wp_create_nonce( 'wp_rest' ) : '',
 				'maxResults'     => (int) ( $settings['max_autocomplete_results'] ?? 8 ),
 				'debounceTime'   => (int) apply_filters( 'wss_debounce_time', 150 ),
 				'minQueryLength' => 2,

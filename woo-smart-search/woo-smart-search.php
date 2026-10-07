@@ -242,6 +242,26 @@ function wss_get_sync_progress() {
 }
 
 /**
+ * Record that a sync just happened.
+ *
+ * Stored in its own option: re-saving the whole wss_settings array from a
+ * background sync could overwrite settings an admin saved in parallel.
+ */
+function wss_touch_last_sync() {
+	update_option( 'wss_last_sync', time(), false );
+}
+
+/**
+ * Timestamp of the last sync (0 = never).
+ *
+ * @return int
+ */
+function wss_get_last_sync() {
+	$ts = (int) get_option( 'wss_last_sync', 0 );
+	return $ts ? $ts : (int) wss_get_option( 'last_sync', 0 ); // Pre-6.35 location.
+}
+
+/**
  * Log a message to the plugin's activity log.
  *
  * @param string $message Log message.

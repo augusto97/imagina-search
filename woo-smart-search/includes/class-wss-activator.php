@@ -58,7 +58,7 @@ class WSS_Activator {
 			id bigint(20) NOT NULL AUTO_INCREMENT,
 			product_id bigint(20) NOT NULL,
 			action varchar(20) NOT NULL DEFAULT 'update',
-			priority int(11) NOT NULL DEFAULT 10,
+			priority int(11) NOT NULL DEFAULT 0,
 			scheduled_at datetime NOT NULL,
 			processed_at datetime DEFAULT NULL,
 			status varchar(20) NOT NULL DEFAULT 'pending',
@@ -103,6 +103,13 @@ class WSS_Activator {
 		if ( class_exists( 'WSS_Local_Engine' ) ) {
 			WSS_Local_Engine::create_tables();
 		}
+
+		// Queue rows from older versions: `priority` (the retry counter)
+		// defaulted to 10, so the first failure exhausted all retries, and
+		// scheduled_at was stored in local time (the queue now uses UTC).
+		global $wpdb;
+		$table = $wpdb->prefix . 'wss_sync_queue';
+		$wpdb->query( $wpdb->prepare( "UPDATE {$table} SET priority = 0, scheduled_at = %s WHERE status = 'pending'", current_time( 'mysql', true ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
 	}
 
 	/**

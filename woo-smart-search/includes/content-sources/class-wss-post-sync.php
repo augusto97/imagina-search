@@ -77,8 +77,9 @@ class WSS_Post_Sync {
 	 */
 	private static function build_query_args( array $post_types ): array {
 		$args = array(
-			'post_type'   => $post_types,
-			'post_status' => 'publish',
+			'post_type'    => $post_types,
+			'post_status'  => 'publish',
+			'has_password' => false, // Protected content must not be searchable.
 		);
 
 		$exclude_taxonomies = wss_get_option( 'exclude_taxonomies', array() );
@@ -597,7 +598,7 @@ class WSS_Post_Sync {
 
 		$index_name = wss_get_option( 'index_name', 'woo_products' );
 
-		$should_index = 'publish' === get_post_status( $post_id );
+		$should_index = 'publish' === get_post_status( $post_id ) && '' === (string) get_post_field( 'post_password', $post_id );
 
 		// Check excluded taxonomies.
 		if ( $should_index ) {
@@ -678,7 +679,7 @@ class WSS_Post_Sync {
 			$progress['errors'] > 0 ? 'warning' : 'info'
 		);
 
-		wss_update_option( 'last_sync', time() );
+		wss_touch_last_sync();
 	}
 
 	/**

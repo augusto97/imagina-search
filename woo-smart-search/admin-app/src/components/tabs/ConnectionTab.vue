@@ -60,7 +60,7 @@
         <div class="wss-form-row">
           <div class="wss-form-label">Admin API Key</div>
           <div class="wss-form-control">
-            <el-input v-model="apiKey" type="password" show-password placeholder="Master or Admin API key" />
+            <el-input v-model="apiKey" type="password" show-password :placeholder="settings.has_api_key ? '•••••••• (saved — leave empty to keep it)' : 'Master or Admin API key'" />
           </div>
         </div>
         <div class="wss-form-row">
@@ -192,7 +192,10 @@ async function handleSave() {
     // settings store (it's encrypted server-side and never echoed back).
     const extra = apiKey.value ? { api_key: apiKey.value } : {};
     const msg = await save('connection', extra);
-    if (apiKey.value) apiKey.value = '';
+    if (apiKey.value) {
+      apiKey.value = '';
+      settings.has_api_key = true;
+    }
     ElMessage.success(msg);
   } catch (e) {
     ElMessage.error(e.message);

@@ -13,6 +13,11 @@
 	/* ---- Globals from wp_localize_script ---- */
 	var cfg = window.wssConfig || {};
 
+	// REST nonce only for logged-in users (a cached guest nonce expires → 403).
+	function restHeaders() {
+		return cfg.nonce ? { 'X-WP-Nonce': cfg.nonce } : {};
+	}
+
 	/* ---- Direct Meilisearch (ultra-fast mode) ---- */
 	var useDirect = !!( cfg.meiliUrl && cfg.meiliKey && cfg.meiliIndex );
 	var meiliSearchUrl = useDirect
@@ -161,26 +166,34 @@
 		var params = new URLSearchParams( window.location.search );
 
 		state.query    = ( params.get( 'q' ) || params.get( 's' ) || '' ).substring( 0, 100 );
-		state.page     = parseInt( params.get( 'paged' ) || '1', 10 );
-		state.sort     = params.get( 'sort' ) || '';
-		state.view     = params.get( 'view' ) || 'grid';
+		state.page     = Math.max( 1, parseInt( params.get( 'paged' ) || '1', 10 ) || 1 );
+		state.sort     = /^[A-Za-z_][\w.]*:(asc|desc)$/i.test( params.get( 'sort' ) || '' ) ? params.get( 'sort' ) : '';
+		state.view     = params.get( 'view' ) === 'list' ? 'list' : 'grid';
 
-		var priceMin = params.get( 'price_min' );
-		var priceMax = params.get( 'price_max' );
-		if ( priceMin ) state.priceMin = parseFloat( priceMin );
-		if ( priceMax ) state.priceMax = parseFloat( priceMax );
+		var priceMin = parseFloat( params.get( 'price_min' ) );
+		var priceMax = parseFloat( params.get( 'price_max' ) );
+		if ( ! isNaN( priceMin ) ) state.priceMin = priceMin;
+		if ( ! isNaN( priceMax ) ) state.priceMax = priceMax;
 
-		// Read filter params (filter_categories=A,B).
+		// Read filter params (filter_categories=A,B). Filter names are limited
+		// to safe identifiers: they end up in filter expressions and markup.
 		params.forEach( function ( value, key ) {
 			if ( key.indexOf( 'filter_' ) === 0 ) {
 				var filterName = key.replace( 'filter_', '' );
-				state.filters[ filterName ] = value.split( ',' );
+				if ( ! /^[A-Za-z0-9_.\- ]{1,64}$/.test( filterName ) ) return;
+				state.filters[ filterName ] = value.split( ',' ).slice( 0, 50 );
 			}
 		} );
 	}
 
 	function updateUrl() {
-		var params = new URLSearchParams();
+		// Keep unrelated params (page_id on plain permalinks, lang for
+		// WPML/Polylang, UTM tags); only the search state keys are rebuilt.
+		var params = new URLSearchParams( window.location.search );
+		[ 'q', 's', 'paged', 'sort', 'view', 'price_min', 'price_max' ].forEach( function ( k ) { params.delete( k ); } );
+		Array.from( params.keys() ).forEach( function ( k ) {
+			if ( k.indexOf( 'filter_' ) === 0 ) params.delete( k );
+		} );
 		params.set( 'q', state.query );
 
 		if ( state.page > 1 ) params.set( 'paged', state.page );
@@ -381,7 +394,7 @@
 
 			return fetch( cfg.apiUrl + '?' + params.toString(), {
 				signal: state.controller.signal,
-				headers: { 'X-WP-Nonce': cfg.nonce }
+				headers: restHeaders()
 			} )
 			.then( function ( res ) {
 				if ( ! res.ok ) throw new Error( 'HTTP ' + res.status );
@@ -461,6 +474,10 @@
 				var sourceValue = cfg.isEcommerce ? 'woocommerce' : 'wordpress';
 				var sourceFilter = 'content_source = "' + sourceValue + '"';
 				combinedFilter = combinedFilter ? combinedFilter + ' AND ' + sourceFilter : sourceFilter;
+			}
+			if ( cfg.hideOutOfStock ) {
+				var stockFilter = 'stock_status != "outofstock"';
+				combinedFilter = combinedFilter ? combinedFilter + ' AND ' + stockFilter : stockFilter;
 			}
 
 			if ( combinedFilter ) {
@@ -616,7 +633,7 @@
 		var imgSrc    = hit.image || cfg.placeholderImg || '';
 		var name      = hit.name_highlighted ? sanitizeHighlight( hit.name_highlighted ) : escapeHtml( decodeHtml( hit.name || '' ) );
 		var category  = ( cfg.rpShowCategory && hit.categories && hit.categories.length ) ? escapeHtml( decodeHtml( hit.categories[0] ) ) : '';
-		var permalink = hit.permalink || '#';
+		var permalink = safeUrl( hit.permalink );
 		var saleBadge = '';
 
 		// Price.
@@ -740,7 +757,7 @@
 		var imgSrc    = hit.image || cfg.placeholderImg || '';
 		var name      = hit.name_highlighted ? sanitizeHighlight( hit.name_highlighted ) : escapeHtml( decodeHtml( hit.name || '' ) );
 		var category  = ( cfg.rpShowCategory && hit.categories && hit.categories.length ) ? escapeHtml( decodeHtml( hit.categories[0] ) ) : '';
-		var permalink = hit.permalink || '#';
+		var permalink = safeUrl( hit.permalink );
 		var excerpt   = ( cfg.rpShowDescription && hit.description ) ? escapeHtml( hit.description ).substring( 0, 150 ) : '';
 		var author    = ( cfg.showAuthor && hit.author ) ? escapeHtml( hit.author ) : '';
 		var postType  = ( cfg.showPostType && hit.post_type ) ? escapeHtml( hit.post_type ) : '';
@@ -875,13 +892,24 @@
 		// Events handled by delegation (bindSidebarDelegation) — nothing to re-bind.
 	}
 
+	// Human labels for machine values (stock_status facets showed "instock").
+	function facetValueLabel( key, val ) {
+		if ( key === 'stock_status' ) {
+			var i = cfg.i18n || {};
+			if ( val === 'instock' ) return i.inStock || 'In stock';
+			if ( val === 'outofstock' ) return i.outOfStock || 'Out of stock';
+			if ( val === 'onbackorder' ) return i.onBackorder || 'On backorder';
+		}
+		return val;
+	}
+
 	function buildCheckboxFilter( key, label, values ) {
 		var entries = Object.entries( values ).sort( function ( a, b ) { return b[1] - a[1]; } );
 		if ( ! entries.length ) return '';
 
 		var selected = state.filters[ key ] || [];
 
-		var html = '<div class="wss-filter-group" data-filter="' + key + '">' +
+		var html = '<div class="wss-filter-group" data-filter="' + escapeHtml( key ) + '">' +
 			'<button class="wss-filter-group-header" type="button">' +
 			'<span>' + escapeHtml( label ) + '</span>' +
 			'<span class="wss-chevron">&#9660;</span>' +
@@ -895,7 +923,7 @@
 			var checked = ( selected.indexOf( val ) !== -1 || selected.indexOf( decoded ) !== -1 ) ? ' checked' : '';
 			html += '<label class="wss-filter-option">' +
 				'<input type="checkbox" value="' + escapeHtml( decoded ) + '"' + checked + ' />' +
-				'<span class="wss-filter-label">' + escapeHtml( decoded ) + '</span>' +
+				'<span class="wss-filter-label">' + escapeHtml( facetValueLabel( key, decoded ) ) + '</span>' +
 				'<span class="wss-filter-count">(' + count + ')</span>' +
 				'</label>';
 		} );
@@ -956,7 +984,7 @@
 			state.filters[ key ].forEach( function ( val ) {
 				hasFilters = true;
 				// For attribute/taxonomy/field filters, show label prefix.
-				var displayLabel = escapeHtml( val );
+				var displayLabel = escapeHtml( facetValueLabel( key, val ) );
 				var customLabels = cfg.customFacetLabels || {};
 				if ( key.indexOf( 'attributes.' ) === 0 ) {
 					displayLabel = escapeHtml( key.replace( 'attributes.', '' ) ) + ': ' + displayLabel;
@@ -965,8 +993,8 @@
 					displayLabel = escapeHtml( filterLabel ) + ': ' + displayLabel;
 				}
 				tags.push(
-					'<span class="wss-active-filter-tag" data-filter="' + escapeHtml( key ) + '" data-value="' + escapeHtml( val ) + '">' +
-					displayLabel + ' <span class="wss-remove">&times;</span></span>'
+					'<button type="button" class="wss-active-filter-tag" data-filter="' + escapeHtml( key ) + '" data-value="' + escapeHtml( val ) + '" aria-label="' + escapeHtml( ( ( cfg.i18n || {} ).removeFilter || 'Remove filter' ) + ': ' + facetValueLabel( key, val ) ) + '">' +
+					displayLabel + ' <span class="wss-remove" aria-hidden="true">&times;</span></button>'
 				);
 			} );
 		} );
@@ -976,8 +1004,8 @@
 			var priceLabel = ( state.priceMin !== null ? formatPrice( state.priceMin ) : '' ) +
 				' – ' + ( state.priceMax !== null ? formatPrice( state.priceMax ) : '' );
 			tags.push(
-				'<span class="wss-active-filter-tag" data-filter="price">' +
-				escapeHtml( priceLabel ) + ' <span class="wss-remove">&times;</span></span>'
+				'<button type="button" class="wss-active-filter-tag" data-filter="price">' +
+				escapeHtml( priceLabel ) + ' <span class="wss-remove" aria-hidden="true">&times;</span></button>'
 			);
 		}
 
@@ -1109,9 +1137,11 @@
 	}
 
 	function formatPrice( amount ) {
-		if ( typeof amount !== 'number' || isNaN( amount ) ) return '';
+		amount = parseFloat( amount );
+		if ( isNaN( amount ) ) return '';
 
-		var decimals    = cfg.decimals || 2;
+		// 0 is a valid setting (COP, CLP, JPY…): don't let it fall back to 2.
+		var decimals    = ( cfg.decimals !== undefined && cfg.decimals !== '' ) ? parseInt( cfg.decimals, 10 ) || 0 : 2;
 		var decSep      = cfg.decimalSep || '.';
 		var thousandSep = cfg.thousandSep || ',';
 		var symbol      = cfg.currencySymbol || '$';
@@ -1144,10 +1174,17 @@
 		return s;
 	}
 
+	// Attribute-safe escaping (the textContent/innerHTML trick leaves quotes
+	// unescaped, which let URL filter values break out of attributes).
+	var ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 	function escapeHtml( str ) {
-		var div       = document.createElement( 'div' );
-		div.textContent = str;
-		return div.innerHTML;
+		return String( str == null ? '' : str ).replace( /[&<>"']/g, function ( c ) { return ESC_MAP[ c ]; } );
+	}
+
+	// Only http(s)/relative links: never javascript: or data: from indexed data.
+	function safeUrl( url ) {
+		url = String( url || '' );
+		return /^(https?:)?\/\//i.test( url ) || url.charAt( 0 ) === '/' ? url : '#';
 	}
 
 	function decodeHtml( str ) {
@@ -1186,8 +1223,9 @@
 
 		fetch( cfg.trackClickUrl, {
 			method: 'POST',
-			headers: { 'X-WP-Nonce': cfg.nonce },
-			body: formData
+			headers: restHeaders(),
+			body: formData,
+			keepalive: true
 		} ).catch( function () {} );
 	}
 

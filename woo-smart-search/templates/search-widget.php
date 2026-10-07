@@ -48,6 +48,10 @@ if ( ! $show_icon ) {
 	$wrapper_classes .= ' wss-icon-hidden';
 }
 
+// Only a plain CSS length: esc_attr() lets ';' through (CSS injection via the shortcode).
+if ( ! preg_match( '/^\d{1,4}(\.\d+)?(px|%|em|rem|vw)$/', (string) $width ) ) {
+	$width = '100%';
+}
 $inline_styles = 'width:' . esc_attr( $width );
 if ( $input_height > 0 ) {
 	$inline_styles .= ';--wss-input-height:' . $input_height . 'px';

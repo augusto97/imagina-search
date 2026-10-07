@@ -321,6 +321,11 @@ class WSS_Search_Analytics {
 	public function cleanup_old_logs( $days = 90 ) {
 		global $wpdb;
 
+		// Daily housekeeping for the local engine's result cache as well.
+		if ( wss_is_local_engine() && class_exists( 'WSS_Local_Engine' ) ) {
+			WSS_Local_Engine::get_instance()->purge_expired_cache();
+		}
+
 		$table    = self::get_table_name();
 		$cutoff   = gmdate( 'Y-m-d 00:00:00', strtotime( '-' . absint( $days ) . ' days' ) );
 

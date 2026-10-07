@@ -65,8 +65,10 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 
 		$decrypted = self::decrypt_key( $api_key );
 
-		// Auto-migrate legacy encryption formats to v2 (random IV).
-		if ( strpos( $api_key, 'enc2_' ) !== 0 && ! empty( $decrypted ) && function_exists( 'openssl_encrypt' ) ) {
+		// Auto-migrate legacy encryption formats to v2 (random IV), and repair
+		// keys that were encrypted more than once.
+		$single_layer = 0 === strpos( $api_key, 'enc2_' ) && ! self::is_encrypted_value( self::decrypt_key_once( $api_key ) );
+		if ( ! $single_layer && ! empty( $decrypted ) && function_exists( 'openssl_encrypt' ) ) {
 			$settings['api_key'] = self::encrypt_key( $decrypted );
 			update_option( 'wss_settings', $settings );
 		}
@@ -531,6 +533,34 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 	 * @return string
 	 */
 	public static function decrypt_key( string $encrypted ): string {
+		// Saving settings from the Vue admin used to post the already-encrypted
+		// key back, which got encrypted again on every save. Peel off any
+		// nested layers so those installs keep working (real Meilisearch keys
+		// never start with these prefixes).
+		$key = self::decrypt_key_once( $encrypted );
+		for ( $i = 0; $i < 10 && self::is_encrypted_value( $key ); $i++ ) {
+			$key = self::decrypt_key_once( $key );
+		}
+		return $key;
+	}
+
+	/**
+	 * Whether a value looks like one produced by encrypt_key().
+	 *
+	 * @param string $value Value.
+	 * @return bool
+	 */
+	public static function is_encrypted_value( string $value ): bool {
+		return 0 === strpos( $value, 'enc2_' ) || 0 === strpos( $value, 'plain_' ) || 0 === strpos( $value, 'obf_' );
+	}
+
+	/**
+	 * Decrypt a single encryption layer.
+	 *
+	 * @param string $encrypted Encrypted value.
+	 * @return string
+	 */
+	private static function decrypt_key_once( string $encrypted ): string {
 		if ( empty( $encrypted ) ) {
 			return '';
 		}

@@ -381,7 +381,7 @@ class WSS_Loader {
 			$stats      = $engine->get_index_stats( $index_name );
 			$doc_count  = isset( $stats['numberOfDocuments'] ) ? (int) $stats['numberOfDocuments'] : 0;
 
-			$sync_ts = wss_get_option( 'last_sync', 0 );
+			$sync_ts = wss_get_last_sync();
 			if ( $sync_ts ) {
 				$last_sync = human_time_diff( $sync_ts ) . ' ' . __( 'ago', 'woo-smart-search' );
 			}

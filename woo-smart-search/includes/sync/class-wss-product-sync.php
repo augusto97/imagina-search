@@ -696,8 +696,6 @@ class WSS_Product_Sync {
 		$documents = array();
 		$errors    = 0;
 
-		$index_hidden = ( 'yes' === wss_get_option( 'index_hidden', 'no' ) );
-
 		foreach ( $product_ids as $product_id ) {
 			$product = wc_get_product( $product_id );
 
@@ -706,8 +704,9 @@ class WSS_Product_Sync {
 				continue;
 			}
 
-			// Skip hidden products unless "Index Hidden" is checked.
-			if ( ! $index_hidden && 'hidden' === $product->get_catalog_visibility() ) {
+			// Same rules as incremental sync (hidden / shop-only visibility,
+			// password-protected, excluded categories, stock).
+			if ( ! $this->should_index_product( $product ) ) {
 				continue;
 			}
 
@@ -819,7 +818,7 @@ class WSS_Product_Sync {
 			$progress['errors'] > 0 ? 'warning' : 'info'
 		);
 
-		wss_update_option( 'last_sync', time() );
+		wss_touch_last_sync();
 	}
 
 	/**
@@ -854,10 +853,7 @@ class WSS_Product_Sync {
 		$valid_ids = array();
 
 		if ( $is_ecommerce || $is_mixed ) {
-			$product_ids = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-				"SELECT ID FROM {$wpdb->posts} WHERE post_type = 'product' AND post_status = 'publish'" // phpcs:ignore WordPress.DB.PreparedSQL
-			);
-			$valid_ids = array_merge( $valid_ids, array_map( 'intval', $product_ids ) );
+			$valid_ids = array_merge( $valid_ids, self::get_indexable_product_ids() );
 		}
 
 		if ( ! $is_ecommerce || $is_mixed ) {
@@ -866,7 +862,7 @@ class WSS_Product_Sync {
 				$placeholders = implode( ',', array_fill( 0, count( $post_types ), '%s' ) );
 				$post_ids     = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 					$wpdb->prepare(
-						"SELECT ID FROM {$wpdb->posts} WHERE post_type IN ({$placeholders}) AND post_status = 'publish'", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						"SELECT ID FROM {$wpdb->posts} WHERE post_type IN ({$placeholders}) AND post_status = 'publish' AND post_password = ''", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 						...$post_types
 					)
 				);
@@ -894,6 +890,53 @@ class WSS_Product_Sync {
 		}
 
 		return count( $orphans );
+	}
+
+	/**
+	 * IDs of all products that pass the indexing rules (published, no
+	 * password, stock / visibility / excluded-category settings), computed in
+	 * SQL so pruning removes products that no longer qualify after a settings
+	 * change — not only deleted/unpublished ones.
+	 *
+	 * @return int[]
+	 */
+	private static function get_indexable_product_ids(): array {
+		global $wpdb;
+
+		$where = array( "p.post_type = 'product'", "p.post_status = 'publish'", "p.post_password = ''" );
+		$args  = array();
+
+		if ( 'yes' !== wss_get_option( 'index_out_of_stock', 'yes' ) ) {
+			$where[] = "EXISTS ( SELECT 1 FROM {$wpdb->postmeta} sm WHERE sm.post_id = p.ID AND sm.meta_key = '_stock_status' AND sm.meta_value = 'instock' )";
+		}
+
+		$excluded_tt = array();
+		if ( 'yes' !== wss_get_option( 'index_hidden', 'no' ) ) {
+			$term = get_term_by( 'slug', 'exclude-from-search', 'product_visibility' );
+			if ( $term ) {
+				$excluded_tt[] = (int) $term->term_taxonomy_id;
+			}
+		}
+		$exclude_cats = wss_get_option( 'exclude_categories', array() );
+		if ( ! empty( $exclude_cats ) && is_array( $exclude_cats ) ) {
+			foreach ( array_map( 'absint', $exclude_cats ) as $cat_id ) {
+				$term = get_term( $cat_id, 'product_cat' );
+				if ( $term && ! is_wp_error( $term ) ) {
+					$excluded_tt[] = (int) $term->term_taxonomy_id;
+				}
+			}
+		}
+		if ( ! empty( $excluded_tt ) ) {
+			$where[] = 'NOT EXISTS ( SELECT 1 FROM ' . $wpdb->term_relationships . ' tr WHERE tr.object_id = p.ID AND tr.term_taxonomy_id IN (' . implode( ',', array_fill( 0, count( $excluded_tt ), '%d' ) ) . ') )';
+			$args    = array_merge( $args, $excluded_tt );
+		}
+
+		$sql = "SELECT p.ID FROM {$wpdb->posts} p WHERE " . implode( ' AND ', $where );
+		if ( $args ) {
+			$sql = $wpdb->prepare( $sql, $args ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		}
+
+		return array_map( 'intval', (array) $wpdb->get_col( $sql ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
 	}
 
 	/**
@@ -1294,8 +1337,14 @@ class WSS_Product_Sync {
 			return false;
 		}
 
-		// Respect "index hidden".
-		if ( 'yes' !== wss_get_option( 'index_hidden', 'no' ) && 'hidden' === $product->get_catalog_visibility() ) {
+		// Password-protected products: their content must not be searchable.
+		if ( '' !== (string) get_post_field( 'post_password', $product->get_id() ) ) {
+			return false;
+		}
+
+		// Respect "index hidden". "Shop only" (catalog) products are also
+		// excluded from search by WooCommerce itself.
+		if ( 'yes' !== wss_get_option( 'index_hidden', 'no' ) && in_array( $product->get_catalog_visibility(), array( 'hidden', 'catalog' ), true ) ) {
 			return false;
 		}
 

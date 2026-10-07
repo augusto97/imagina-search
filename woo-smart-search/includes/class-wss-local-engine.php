@@ -61,9 +61,36 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	private $memory_cache = array();
 
 	/**
+	 * Search cache generation (see invalidate_cache()).
+	 *
+	 * @var int|null
+	 */
+	private $cache_gen = null;
+
+	/**
 	 * Default cache TTL in seconds (5 minutes).
 	 */
 	const CACHE_TTL = 300;
+
+	/**
+	 * Document fields stripped from search hits (used for matching/filtering
+	 * only, never rendered by the widget or the results page).
+	 */
+	const PRIVATE_FIELDS = array(
+		'search_codes',
+		'full_description',
+		'stock_quantity',
+		'custom_fields',
+		'attributes_text',
+		'variations_text',
+		'variation_skus',
+		'all_skus',
+		'visibility',
+		'menu_order',
+		'weight',
+		'dimensions',
+		'gallery',
+	);
 
 	/**
 	 * Get the singleton instance.
@@ -435,6 +462,71 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	}
 
 	/**
+	 * Sort document IDs by a document field ("price:asc", "name:desc", …).
+	 *
+	 * Relevance order is kept for ties (stable), and documents missing the
+	 * field go last.
+	 *
+	 * @param string $index_name Index name.
+	 * @param array  $ids        Document IDs in relevance order.
+	 * @param array  $sort       Sort rules; the first valid one is applied.
+	 * @return array
+	 */
+	private function sort_ids( string $index_name, array $ids, array $sort ): array {
+		global $wpdb;
+
+		$rule = (string) reset( $sort );
+		if ( ! preg_match( '/^([a-zA-Z_][a-zA-Z0-9_]*):(asc|desc)$/i', $rule, $m ) ) {
+			return $ids;
+		}
+		$field = $m[1];
+		$desc  = 'desc' === strtolower( $m[2] );
+
+		$values = array();
+		$table  = $wpdb->prefix . 'wss_index_documents';
+		foreach ( array_chunk( $ids, 500 ) as $chunk ) {
+			$placeholders = implode( ',', array_fill( 0, count( $chunk ), '%d' ) );
+			$rows         = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+				$wpdb->prepare(
+					"SELECT doc_id, doc_data FROM {$table} WHERE index_name = %s AND doc_id IN ({$placeholders})", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					array_merge( array( $index_name ), $chunk )
+				)
+			);
+			foreach ( (array) $rows as $row ) {
+				$doc = json_decode( $row->doc_data, true );
+				if ( is_array( $doc ) && isset( $doc[ $field ] ) && '' !== $doc[ $field ] && ! is_array( $doc[ $field ] ) ) {
+					$values[ (int) $row->doc_id ] = $doc[ $field ];
+				}
+			}
+		}
+
+		$rank = array_flip( array_values( $ids ) );
+		usort(
+			$ids,
+			function ( $a, $b ) use ( $values, $desc, $rank ) {
+				$has_a = isset( $values[ $a ] );
+				$has_b = isset( $values[ $b ] );
+				if ( $has_a !== $has_b ) {
+					return $has_a ? -1 : 1;
+				}
+				if ( $has_a ) {
+					$va  = $values[ $a ];
+					$vb  = $values[ $b ];
+					$cmp = ( is_numeric( $va ) && is_numeric( $vb ) )
+						? ( (float) $va <=> (float) $vb )
+						: strcmp( remove_accents( mb_strtolower( (string) $va ) ), remove_accents( mb_strtolower( (string) $vb ) ) );
+					if ( 0 !== $cmp ) {
+						return $desc ? -$cmp : $cmp;
+					}
+				}
+				return $rank[ $a ] <=> $rank[ $b ];
+			}
+		);
+
+		return $ids;
+	}
+
+	/**
 	 * Resolve term IDs for a list of terms, creating the missing ones.
 	 *
 	 * @param string[] $terms Folded terms.
@@ -680,6 +772,11 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 			$scored_ids = wp_list_pluck( $all_scored, 'doc_id' );
 		}
 
+		// Explicit sort (results page "Sort by"): relevance order is the default.
+		if ( ! empty( $options['sort'] ) && count( $scored_ids ) > 1 ) {
+			$scored_ids = $this->sort_ids( $index_name, $scored_ids, (array) $options['sort'] );
+		}
+
 		$total_hits = count( $scored_ids );
 
 		// Apply offset/limit.
@@ -710,8 +807,12 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 			if ( isset( $doc_map[ $did ] ) ) {
 				$hit = $doc_map[ $did ];
 
-				// Internal search-only field — never needs to reach the client.
-				unset( $hit['search_codes'] );
+				// Internal / indexing-only fields never reach the (public) client:
+				// stock quantities, custom field values and long texts were all
+				// exposed through the search endpoint.
+				foreach ( self::PRIVATE_FIELDS as $private_field ) {
+					unset( $hit[ $private_field ] );
+				}
 
 				// Add highlighting.
 				$hit['_formatted'] = array();
@@ -1327,6 +1428,8 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 			'filters' => $options['filters'] ?? '',
 			'sort'    => $options['sort'] ?? '',
 			'facets'  => $options['facets'] ?? array(),
+			// Bumped whenever documents change (cheap invalidation, no TRUNCATE).
+			'gen'     => $this->get_cache_generation(),
 		);
 		return md5( wp_json_encode( $key_parts ) );
 	}
@@ -1384,6 +1487,12 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 		$to_cache = $result;
 		unset( $to_cache['processingTimeMs'], $to_cache['_cacheHit'] );
 
+		// Keep the table bounded: purge expired rows now and then (this used
+		// to be never called, so the table grew with every unique keystroke).
+		if ( 1 === mt_rand( 1, 50 ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.rand_mt_rand -- wp_rand() is not loaded in SHORTINIT.
+			$this->purge_expired_cache();
+		}
+
 		// Use REPLACE to upsert (handles duplicate keys).
 		$wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare(
@@ -1401,17 +1510,38 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	 *
 	 * @param string $index_name Index name (unused, clears all for simplicity).
 	 */
-	public function invalidate_cache( string $index_name = '' ) {
+	public function invalidate_cache( string $index_name = '', bool $hard = false ) {
 		global $wpdb;
 
-		$table = $wpdb->prefix . 'wss_search_cache';
+		$this->memory_cache = array();
+
+		if ( ! $hard ) {
+			// Start a new cache generation: old entries are never read again
+			// and expire via purge_expired_cache(). (A TRUNCATE on every single
+			// product save made the cache useless on busy stores.)
+			$this->cache_gen = $this->get_cache_generation() + 1;
+			update_option( 'wss_cache_gen', $this->cache_gen, true );
+			return;
+		}
 
 		if ( ! $this->cache_table_exists() ) {
 			return;
 		}
 
+		$table = $wpdb->prefix . 'wss_search_cache';
 		$wpdb->query( "TRUNCATE TABLE {$table}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$this->memory_cache = array();
+	}
+
+	/**
+	 * Current cache generation (memoized per request).
+	 *
+	 * @return int
+	 */
+	private function get_cache_generation(): int {
+		if ( null === $this->cache_gen ) {
+			$this->cache_gen = (int) get_option( 'wss_cache_gen', 0 );
+		}
+		return $this->cache_gen;
 	}
 
 	/**

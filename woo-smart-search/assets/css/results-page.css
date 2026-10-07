@@ -624,10 +624,16 @@
 	align-items: center;
 	gap: 4px;
 	padding: 4px 10px;
+	margin: 0;
 	background: var(--wss-primary-color, #2563eb);
 	color: #fff;
+	font: inherit;
 	font-size: 0.8em;
+	line-height: 1.4;
+	border: 0;
 	border-radius: 20px;
+	box-shadow: none;
+	text-transform: none;
 	cursor: pointer;
 	transition: opacity 0.15s ease;
 }

@@ -62,6 +62,19 @@ class WSS_Admin_Ajax {
 
 		$settings = get_option( 'wss_settings', array() );
 
+		// Connection details (where the stored master key is sent) can only be
+		// changed by administrators, not shop managers.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			foreach ( array( 'host', 'port', 'protocol', 'api_key', 'search_api_key', 'search_engine' ) as $locked ) {
+				unset( $_POST[ $locked ] );
+			}
+		}
+
+		// Custom CSS is printed on every page: require unfiltered_html.
+		if ( ! current_user_can( 'unfiltered_html' ) ) {
+			unset( $_POST['custom_css'], $_POST['rp_custom_css'] );
+		}
+
 		// Connection tab fields.
 		$text_fields = array(
 			'host', 'port', 'protocol', 'index_name',
@@ -130,6 +143,10 @@ class WSS_Admin_Ajax {
 		// cryptic error on the next sync).
 		if ( isset( $_POST['api_key'] ) ) {
 			$raw_key = sanitize_text_field( wp_unslash( $_POST['api_key'] ) );
+			// Never re-encrypt an already-stored (encrypted) value echoed back.
+			if ( WSS_Meilisearch::is_encrypted_value( $raw_key ) ) {
+				$raw_key = '';
+			}
 			if ( ! empty( $raw_key ) ) {
 				if ( strlen( $raw_key ) < 8 || strlen( $raw_key ) > 512 || preg_match( '/\s/', $raw_key ) ) {
 					wp_send_json_error( array(
@@ -200,7 +217,7 @@ class WSS_Admin_Ajax {
 		// every save, so changes made in other tabs persist too. Absent
 		// fields only reset to 'no' for the submitted tab (legacy checkbox
 		// forms send nothing for unchecked boxes).
-		$all_bools = array_unique( array_merge( $appearance_bools, $search_bools, $indexing_bools ) );
+		$all_bools = array_unique( array_merge( $appearance_bools, $search_bools, $indexing_bools, $synonyms_bools ) );
 
 		foreach ( $all_bools as $field ) {
 			if ( isset( $_POST[ $field ] ) ) {
@@ -263,7 +280,13 @@ class WSS_Admin_Ajax {
 		}
 
 		if ( isset( $_POST['wp_post_types'] ) && is_array( $_POST['wp_post_types'] ) ) {
-			$settings['wp_post_types'] = array_map( 'sanitize_text_field', wp_unslash( $_POST['wp_post_types'] ) );
+			// Public post types only (never shop_coupon, revisions, etc.).
+			$public_types              = get_post_types( array( 'public' => true ) );
+			$submitted_types           = array_map( 'sanitize_key', wp_unslash( $_POST['wp_post_types'] ) );
+			$settings['wp_post_types'] = array_values( array_diff( array_intersect( $submitted_types, $public_types ), array( 'attachment' ) ) );
+			if ( empty( $settings['wp_post_types'] ) ) {
+				$settings['wp_post_types'] = array( 'post' );
+			}
 		} elseif ( 'content_sources' === $submitted_tab ) {
 			$settings['wp_post_types'] = array( 'post' );
 		}
@@ -306,6 +329,9 @@ class WSS_Admin_Ajax {
 		}
 
 		update_option( 'wss_settings', $settings );
+		// Refresh wss_get_option()'s static cache so the code below (synonym
+		// push, filterable attributes) sees the settings just saved.
+		wss_get_option( 'search_engine', '', true );
 
 		// Reschedule periodic reindex if interval changed.
 		if ( isset( $_POST['reindex_interval'] ) && function_exists( 'as_unschedule_all_actions' ) ) {
@@ -372,18 +398,23 @@ class WSS_Admin_Ajax {
 
 		// Use form values, but fall back to saved API key when field is empty
 		// (the password field is always rendered empty for security).
-		$api_key = isset( $_POST['api_key'] ) ? sanitize_text_field( wp_unslash( $_POST['api_key'] ) ) : '';
-		if ( empty( $api_key ) ) {
-			$saved_key = wss_get_option( 'api_key', '' );
-			$api_key   = ! empty( $saved_key ) ? WSS_Meilisearch::decrypt_key( $saved_key ) : '';
-		}
-
 		$config = array(
 			'host'     => isset( $_POST['host'] ) ? sanitize_text_field( wp_unslash( $_POST['host'] ) ) : '',
 			'port'     => isset( $_POST['port'] ) ? sanitize_text_field( wp_unslash( $_POST['port'] ) ) : '',
 			'protocol' => isset( $_POST['protocol'] ) ? sanitize_text_field( wp_unslash( $_POST['protocol'] ) ) : 'http',
-			'api_key'  => $api_key,
 		);
+
+		$api_key = isset( $_POST['api_key'] ) ? sanitize_text_field( wp_unslash( $_POST['api_key'] ) ) : '';
+		if ( empty( $api_key ) || WSS_Meilisearch::is_encrypted_value( $api_key ) ) {
+			// The saved key is only sent to the saved server: testing another
+			// host requires typing the key, so it can't be exfiltrated.
+			$same_server = $config['host'] === (string) wss_get_option( 'host', '' )
+				&& (string) $config['port'] === (string) wss_get_option( 'port', '' )
+				&& $config['protocol'] === (string) wss_get_option( 'protocol', 'http' );
+			$saved_key   = wss_get_option( 'api_key', '' );
+			$api_key     = ( $same_server && ! empty( $saved_key ) ) ? WSS_Meilisearch::decrypt_key( $saved_key ) : '';
+		}
+		$config['api_key'] = $api_key;
 
 		$engine = WSS_Meilisearch::create( $config );
 		if ( ! $engine ) {
@@ -689,7 +720,7 @@ class WSS_Admin_Ajax {
 
 		if ( empty( $progress ) || 'running' !== ( $progress['status'] ?? '' ) ) {
 			if ( ! empty( $progress ) ) {
-				$ts                          = (int) wss_get_option( 'last_sync', 0, true );
+				$ts                          = (int) wss_get_last_sync();
 				$progress['last_sync_label'] = $ts ? date_i18n( 'Y-m-d H:i', $ts ) : '';
 			}
 			wp_send_json_success( ! empty( $progress ) ? $progress : array( 'status' => 'idle' ) );
@@ -718,7 +749,7 @@ class WSS_Admin_Ajax {
 
 		$updated = wss_get_sync_progress();
 		if ( ! empty( $updated ) && 'completed' === ( $updated['status'] ?? '' ) ) {
-			$ts                         = (int) wss_get_option( 'last_sync', 0, true );
+			$ts                         = (int) wss_get_last_sync();
 			$updated['last_sync_label'] = $ts ? date_i18n( 'Y-m-d H:i', $ts ) : '';
 		}
 		wp_send_json_success( ! empty( $updated ) ? $updated : array( 'status' => 'idle' ) );
@@ -855,7 +886,7 @@ class WSS_Admin_Ajax {
 		$index_name = wss_get_option( 'index_name', 'woo_products' );
 		$stats      = $engine->get_index_stats( $index_name );
 
-		$stats['last_sync'] = wss_get_option( 'last_sync', 0 );
+		$stats['last_sync'] = wss_get_last_sync();
 
 		wp_send_json_success( $stats );
 	}
@@ -1013,7 +1044,7 @@ class WSS_Admin_Ajax {
 		$this->verify_request();
 
 		$engine = WSS_Local_Engine::get_instance();
-		$engine->invalidate_cache();
+		$engine->invalidate_cache( '', true );
 
 		wss_log( __( 'Search cache purged manually.', 'woo-smart-search' ), 'info' );
 
