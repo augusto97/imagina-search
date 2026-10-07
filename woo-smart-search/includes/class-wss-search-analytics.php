@@ -28,11 +28,18 @@ class WSS_Search_Analytics {
 	 * Initialize hooks.
 	 */
 	public function init() {
-		// Schedule daily cleanup of old logs.
+		// Scheduling happens from WSS_Loader::maybe_schedule_jobs() on `init`:
+		// Action Scheduler's data store isn't ready on plugins_loaded.
+		add_action( 'wss_cleanup_search_logs', array( $this, 'cleanup_old_logs' ) );
+	}
+
+	/**
+	 * Schedule the daily log cleanup.
+	 */
+	public static function schedule_cleanup() {
 		if ( function_exists( 'as_has_scheduled_action' ) && ! as_has_scheduled_action( 'wss_cleanup_search_logs' ) ) {
 			as_schedule_recurring_action( time() + DAY_IN_SECONDS, DAY_IN_SECONDS, 'wss_cleanup_search_logs', array(), 'woo-smart-search' );
 		}
-		add_action( 'wss_cleanup_search_logs', array( $this, 'cleanup_old_logs' ) );
 	}
 
 	/**
@@ -211,6 +218,36 @@ class WSS_Search_Analytics {
 	}
 
 	/**
+	 * Popular searches shown publicly (expanded widget layout).
+	 *
+	 * Unlike the admin report: last 30 days only, only queries that found
+	 * something, ranked by distinct visitors (so one visitor — or a script —
+	 * repeating a query can't push arbitrary text into the public list).
+	 *
+	 * @param int $limit Max items.
+	 * @return array Objects with query and count.
+	 */
+	public function get_public_popular( $limit = 8 ) {
+		global $wpdb;
+
+		$table = self::get_table_name();
+
+		return $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT query, COUNT(DISTINCT ip_address) AS count
+				FROM {$table}
+				WHERE query != '' AND results_count > 0 AND CHAR_LENGTH(query) <= 50 AND created_at >= %s
+				GROUP BY query
+				HAVING count >= 2
+				ORDER BY count DESC
+				LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				gmdate( 'Y-m-d H:i:s', time() - 30 * DAY_IN_SECONDS ),
+				absint( $limit )
+			)
+		);
+	}
+
+	/**
 	 * Get search queries that returned zero results.
 	 *
 	 * @param int $limit Maximum number of results to return.
@@ -313,6 +350,11 @@ class WSS_Search_Analytics {
 	 */
 	public function cleanup_old_logs( $days = 90 ) {
 		global $wpdb;
+
+		// Daily housekeeping for the local engine's result cache as well.
+		if ( wss_is_local_engine() && class_exists( 'WSS_Local_Engine' ) ) {
+			WSS_Local_Engine::get_instance()->purge_expired_cache();
+		}
 
 		$table    = self::get_table_name();
 		$cutoff   = gmdate( 'Y-m-d 00:00:00', strtotime( '-' . absint( $days ) . ' days' ) );

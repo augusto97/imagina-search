@@ -3,7 +3,7 @@
  * Plugin Name:       Woo Smart Search
  * Plugin URI:        https://example.com/woo-smart-search
  * Description:       Ultra-fast search powered by Meilisearch for WooCommerce products, blog posts, pages, and custom post types.
- * Version:           6.34.0
+ * Version:           6.35.0
  * Author:            Imagina
  * Author URI:        https://example.com
  * License:           GPL-2.0+
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Plugin constants.
-define( 'WSS_VERSION', '6.34.0' );
+define( 'WSS_VERSION', '6.35.0' );
 define( 'WSS_PLUGIN_FILE', __FILE__ );
 define( 'WSS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WSS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -187,6 +187,80 @@ function wss_update_option( $key, $value ) {
 	$options         = get_option( 'wss_settings', array() );
 	$options[ $key ] = $value;
 	update_option( 'wss_settings', $options );
+}
+
+/**
+ * Acquire a cross-process lock (atomic INSERT IGNORE on the options table).
+ *
+ * Transients are not atomic (get + set), so two workers — the browser-driven
+ * Full Sync and Action Scheduler — could both "win" and process the same batch.
+ *
+ * @param string $name Lock name.
+ * @param int    $ttl  Seconds after which a lock is considered stale.
+ * @return bool True when the lock was acquired.
+ */
+function wss_acquire_lock( $name, $ttl = 120 ) {
+	global $wpdb;
+
+	$key = 'wss_lock_' . $name;
+	$now = time();
+
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	$inserted = $wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, 'no')", $key, $now ) );
+	if ( $inserted ) {
+		return true;
+	}
+
+	// Lock exists: take it over only if stale (crashed worker), atomically.
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	$taken = $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value < %d", $now, $key, $now - $ttl ) );
+
+	return (bool) $taken;
+}
+
+/**
+ * Release a lock acquired with wss_acquire_lock().
+ *
+ * @param string $name Lock name.
+ */
+function wss_release_lock( $name ) {
+	global $wpdb;
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	$wpdb->delete( $wpdb->options, array( 'option_name' => 'wss_lock_' . $name ), array( '%s' ) );
+}
+
+/**
+ * Read the full-sync progress straight from the DB (another process may have
+ * just updated it, so the request-level option cache can be stale).
+ *
+ * @return array
+ */
+function wss_get_sync_progress() {
+	wp_cache_delete( 'wss_sync_progress', 'options' );
+	$progress = get_option( 'wss_sync_progress', array() );
+	return is_array( $progress ) ? $progress : array();
+}
+
+/**
+ * Record that a sync just happened.
+ *
+ * Stored in its own option: re-saving the whole wss_settings array from a
+ * background sync could overwrite settings an admin saved in parallel.
+ */
+function wss_touch_last_sync() {
+	update_option( 'wss_last_sync', time(), false );
+	// Indexed content changed: start a new search-cache generation.
+	update_option( 'wss_cache_gen', (int) get_option( 'wss_cache_gen', 0 ) + 1, true );
+}
+
+/**
+ * Timestamp of the last sync (0 = never).
+ *
+ * @return int
+ */
+function wss_get_last_sync() {
+	$ts = (int) get_option( 'wss_last_sync', 0 );
+	return $ts ? $ts : (int) wss_get_option( 'last_sync', 0 ); // Pre-6.35 location.
 }
 
 /**

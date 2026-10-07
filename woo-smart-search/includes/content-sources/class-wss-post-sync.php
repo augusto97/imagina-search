@@ -44,6 +44,7 @@ class WSS_Post_Sync {
 
 		// Periodic re-indexation for WordPress content.
 		add_action( 'wss_periodic_reindex', array( $this, 'run_periodic_reindex' ) );
+		add_action( 'wss_cron_periodic_reindex', array( $this, 'run_periodic_reindex' ) ); // WP-Cron fallback.
 	}
 
 	/**
@@ -77,8 +78,9 @@ class WSS_Post_Sync {
 	 */
 	private static function build_query_args( array $post_types ): array {
 		$args = array(
-			'post_type'   => $post_types,
-			'post_status' => 'publish',
+			'post_type'    => $post_types,
+			'post_status'  => 'publish',
+			'has_password' => false, // Protected content must not be searchable.
 		);
 
 		$exclude_taxonomies = wss_get_option( 'exclude_taxonomies', array() );
@@ -347,14 +349,59 @@ class WSS_Post_Sync {
 	 * @param array $batch_args Batch arguments containing 'page'.
 	 */
 	public function process_bulk_sync_batch( $batch_args, $schedule_next = true ) {
+		$page = isset( $batch_args['page'] ) ? (int) $batch_args['page'] : 1;
+
+		// One batch at a time across processes (browser pump + Action Scheduler).
+		if ( ! wss_acquire_lock( 'sync_batch' ) ) {
+			if ( $schedule_next && function_exists( 'as_schedule_single_action' ) ) {
+				as_schedule_single_action( time() + 15, 'wss_bulk_post_sync_batch', array( array( 'page' => $page ) ), 'woo-smart-search' );
+			}
+			return;
+		}
+
+		$result = $this->run_bulk_sync_batch( $page );
+
+		wss_release_lock( 'sync_batch' );
+
+		// Schedule next batch (skipped when the caller drives batches itself).
+		if ( 'processed' === $result && $schedule_next ) {
+			$next_args = array( 'page' => $page + 1 );
+
+			if ( function_exists( 'as_schedule_single_action' ) ) {
+				as_schedule_single_action( time() + 5, 'wss_bulk_post_sync_batch', array( $next_args ), 'woo-smart-search' );
+			} else {
+				$this->process_bulk_sync_batch( $next_args );
+			}
+		}
+	}
+
+	/**
+	 * Process one page of the full content sync. Caller must hold the lock.
+	 *
+	 * @param int $page Page number (1-based).
+	 * @return string 'processed', 'done', 'skipped' or 'failed'.
+	 */
+	private function run_bulk_sync_batch( $page ) {
+		$progress = wss_get_sync_progress();
+
+		// Skip stale/duplicate jobs (see WSS_Product_Sync::run_bulk_sync_batch).
+		if ( empty( $progress ) || 'running' !== ( $progress['status'] ?? '' ) ) {
+			return 'skipped';
+		}
+		if ( ! empty( $progress['mixed'] ) && 'posts' !== ( $progress['phase'] ?? '' ) ) {
+			return 'skipped';
+		}
+		if ( $page <= (int) ( $progress['current'] ?? 0 ) ) {
+			return 'skipped';
+		}
+
 		$engine = wss_get_engine();
 
 		if ( ! $engine ) {
 			$this->mark_sync_failed( __( 'Search engine not available during batch processing.', 'woo-smart-search' ) );
-			return;
+			return 'failed';
 		}
 
-		$page       = isset( $batch_args['page'] ) ? (int) $batch_args['page'] : 1;
 		$batch_size = (int) wss_get_option( 'batch_size', 100 );
 		$index_name = wss_get_option( 'index_name', 'woo_products' );
 		$post_types = self::get_configured_post_types();
@@ -372,7 +419,7 @@ class WSS_Post_Sync {
 
 		if ( empty( $post_ids ) ) {
 			$this->complete_sync();
-			return;
+			return 'done';
 		}
 
 		$documents = array();
@@ -417,7 +464,7 @@ class WSS_Post_Sync {
 		}
 
 		// Update progress.
-		$progress = get_option( 'wss_sync_progress', array() );
+		$progress = wss_get_sync_progress();
 
 		if ( ! empty( $progress ) ) {
 			$progress['processed'] += count( $post_ids );
@@ -427,22 +474,7 @@ class WSS_Post_Sync {
 			update_option( 'wss_sync_progress', $progress, false );
 		}
 
-		// Schedule next batch (skipped when the caller drives batches itself).
-		if ( $schedule_next ) {
-			$next_page = $page + 1;
-			$next_args = array( 'page' => $next_page );
-
-			if ( function_exists( 'as_schedule_single_action' ) ) {
-				as_schedule_single_action(
-					time() + 5,
-					'wss_bulk_post_sync_batch',
-					array( $next_args ),
-					'woo-smart-search'
-				);
-			} else {
-				$this->process_bulk_sync_batch( $next_args );
-			}
-		}
+		return 'processed';
 	}
 
 	/**
@@ -567,7 +599,7 @@ class WSS_Post_Sync {
 
 		$index_name = wss_get_option( 'index_name', 'woo_products' );
 
-		$should_index = 'publish' === get_post_status( $post_id );
+		$should_index = 'publish' === get_post_status( $post_id ) && '' === (string) get_post_field( 'post_password', $post_id );
 
 		// Check excluded taxonomies.
 		if ( $should_index ) {
@@ -620,10 +652,15 @@ class WSS_Post_Sync {
 	 * Mark sync as completed.
 	 */
 	private function complete_sync() {
-		$progress = get_option( 'wss_sync_progress', array() );
+		$progress = wss_get_sync_progress();
 
 		if ( empty( $progress ) ) {
 			return;
+		}
+
+		// Mixed mode: the products phase skipped pruning, do it once at the end.
+		if ( ! empty( $progress['mixed'] ) && class_exists( 'WSS_Product_Sync' ) ) {
+			$progress['pruned'] = WSS_Product_Sync::prune_orphans();
 		}
 
 		$progress['status']   = 'completed';
@@ -643,7 +680,7 @@ class WSS_Post_Sync {
 			$progress['errors'] > 0 ? 'warning' : 'info'
 		);
 
-		wss_update_option( 'last_sync', time() );
+		wss_touch_last_sync();
 	}
 
 	/**

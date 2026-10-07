@@ -80,9 +80,16 @@
 	outline: none;
 }
 
-.wss-filter-group-header:focus,
-.wss-filter-group-header:focus-visible {
+.wss-filter-group-header:focus {
 	outline: none;
+	background: transparent;
+	box-shadow: none;
+}
+
+/* Keyboard users need to see where focus is. */
+.wss-filter-group-header:focus-visible {
+	outline: 2px solid var(--wss-primary-color, #2563eb);
+	outline-offset: -2px;
 	background: transparent;
 	box-shadow: none;
 }
@@ -409,8 +416,9 @@
 
 .wss-product-card-price {
 	display: flex;
+	flex-wrap: wrap; /* sale + regular price never get clipped on narrow cards */
 	align-items: center;
-	gap: 6px;
+	gap: 2px 6px;
 	font-weight: 700;
 	font-size: var(--wss-rp-price-size, inherit);
 	color: var(--wss-rp-price-color, var(--wss-text-color, #1f2937));
@@ -525,6 +533,7 @@
 
 .wss-pagination {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	justify-content: center;
 	gap: 4px;
@@ -624,10 +633,16 @@
 	align-items: center;
 	gap: 4px;
 	padding: 4px 10px;
+	margin: 0;
 	background: var(--wss-primary-color, #2563eb);
 	color: #fff;
+	font: inherit;
 	font-size: 0.8em;
+	line-height: 1.4;
+	border: 0;
 	border-radius: 20px;
+	box-shadow: none;
+	text-transform: none;
 	cursor: pointer;
 	transition: opacity 0.15s ease;
 }
@@ -755,9 +770,32 @@
 		height: 120px;
 	}
 
-	.wss-results-toolbar {
-		flex-direction: column;
-		align-items: stretch;
+	/* One compact row: sort select fills the space, view toggle on the right
+	   (stacking them centered wasted a lot of vertical space on phones). */
+	.wss-results-page .wss-results-toolbar {
+		flex-direction: row !important;
+		flex-wrap: nowrap !important;
+		align-items: center !important;
+		justify-content: space-between !important;
+		text-align: left;
+		gap: 10px;
+		padding: 8px 10px;
+	}
+
+	.wss-results-page .wss-results-toolbar > div:first-child {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+
+	.wss-results-page .wss-results-toolbar .wss-sort-select {
+		width: 100% !important;
+		max-width: 100%;
+		margin: 0 !important;
+	}
+
+	.wss-results-page .wss-results-toolbar .wss-view-toggle {
+		flex: 0 0 auto;
+		margin: 0 !important;
 	}
 }
 
@@ -1842,6 +1880,23 @@
 
 .wss-layout-mercadolibre .wss-sale-badge { background: var(--wss-rp-badge-bg, #00a650); color: var(--wss-rp-badge-text, #fff); border-radius: 3px; font-size: 0.8em; }
 
+/* MercadoLibre shows the discount as green text next to the price (see
+   .wss-price-off); the badge inside the image duplicated it. */
+.wss-layout-mercadolibre .wss-product-card-image .wss-discount-badge {
+	display: none !important;
+}
+
+.wss-price-off {
+	display: none;
+}
+
+.wss-layout-mercadolibre .wss-price-off {
+	display: inline;
+	color: #00a650;
+	font-size: 0.85em;
+	font-weight: 500;
+}
+
 .wss-layout-mercadolibre .wss-discount-badge {
 	display: block;
 	position: static;
@@ -2634,3 +2689,71 @@
 	--wss-rp-hover-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
+
+/* ============================================
+   Accessibility & mobile ergonomics (6.35.0)
+   ============================================ */
+
+.wss-results-page button:focus-visible,
+.wss-results-page a:focus-visible,
+.wss-results-page select:focus-visible,
+.wss-results-page input:focus-visible {
+	outline: 2px solid var(--wss-primary-color, #2563eb);
+	outline-offset: 2px;
+}
+
+.wss-filter-option:has(input:focus-visible) {
+	outline: 2px solid var(--wss-primary-color, #2563eb);
+	outline-offset: 2px;
+	border-radius: 4px;
+}
+
+@media (max-width: 767px) {
+	/* iOS Safari zooms the page when focusing a field under 16px. */
+	.wss-results-page input[type="number"],
+	.wss-results-page input[type="text"],
+	.wss-results-page input[type="search"],
+	.wss-results-page select {
+		font-size: 16px !important;
+	}
+
+	/* Comfortable tap targets (~44px). */
+	.wss-filter-option {
+		padding-top: 8px;
+		padding-bottom: 8px;
+	}
+	.wss-pagination button,
+	.wss-pagination a,
+	.wss-view-toggle button,
+	.wss-filter-close {
+		min-width: 40px;
+		min-height: 40px;
+	}
+	.wss-active-filter-tag,
+	.wss-clear-all-filters {
+		min-height: 32px;
+		padding-left: 12px;
+		padding-right: 12px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.wss-results-page *,
+	.wss-results-page *::before,
+	.wss-results-page *::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+}
+
+/* Theme isolation: many themes underline ".entry-content a" / ".hentry a". */
+.wss-results-page a {
+	text-decoration: none;
+}
+.wss-results-page .wss-product-card a,
+.wss-results-page .wss-pagination a,
+.wss-results-page .wss-filter-option a {
+	text-decoration: none !important;
+	box-shadow: none;
+}

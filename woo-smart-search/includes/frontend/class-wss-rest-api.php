@@ -179,15 +179,17 @@ class WSS_Rest_Api {
 			) );
 		}
 
-		$limit   = min( $request->get_param( 'limit' ), 50 );
-		$page    = $request->get_param( 'page' );
+		$limit   = max( 1, min( (int) $request->get_param( 'limit' ), 50 ) );
+		$page    = max( 1, min( (int) $request->get_param( 'page' ), 100 ) );
 		$filters = $request->get_param( 'filters' );
 		$sort    = $request->get_param( 'sort' );
 		$facets  = $request->get_param( 'facets' );
 
 		// Check cache.
 		$cache_ttl = (int) wss_get_option( 'cache_ttl', 300 );
-		$cache_key = 'wss_search_' . md5( $query . $limit . $page . $filters . $sort . $facets );
+		// The generation changes whenever indexed content changes, so cached
+		// responses never show stale prices/stock or deleted products.
+		$cache_key = 'wss_search_' . md5( $query . '|' . $limit . '|' . $page . '|' . $filters . '|' . $sort . '|' . $facets . '|' . (int) get_option( 'wss_cache_gen', 0 ) );
 
 		if ( $cache_ttl > 0 ) {
 			$cached = get_transient( $cache_key );
@@ -313,16 +315,16 @@ class WSS_Rest_Api {
 	 * @return WP_REST_Response
 	 */
 	public function handle_popular( $request ) {
-		$limit = min( $request->get_param( 'limit' ), 20 );
+		$limit = max( 1, min( (int) $request->get_param( 'limit' ), 20 ) );
 
-		$cache_key = 'wss_popular_' . $limit;
+		$cache_key = 'wss_popular_v2_' . $limit;
 		$cached    = get_transient( $cache_key );
 		if ( false !== $cached ) {
 			return rest_ensure_response( $cached );
 		}
 
 		$analytics = new WSS_Search_Analytics();
-		$top       = $analytics->get_top_queries( $limit );
+		$top       = $analytics->get_public_popular( $limit );
 
 		$items = array();
 		foreach ( $top as $row ) {
@@ -349,7 +351,12 @@ class WSS_Rest_Api {
 			return rest_ensure_response( array( 'tracked' => false ) );
 		}
 
-		$query      = $request->get_param( 'query' );
+		// Public endpoint: throttle so the analytics table can't be flooded.
+		if ( ! $this->check_rate_limit() ) {
+			return rest_ensure_response( array( 'tracked' => false ) );
+		}
+
+		$query      = substr( (string) $request->get_param( 'query' ), 0, 100 );
 		$product_id = $request->get_param( 'product_id' );
 
 		$analytics = new WSS_Search_Analytics();
@@ -365,8 +372,14 @@ class WSS_Rest_Api {
 	 * @return WP_REST_Response
 	 */
 	public function handle_track_search( $request ) {
-		$query = $request->get_param( 'query' );
-		$total = $request->get_param( 'total' );
+		// Only the direct-Meilisearch mode logs from the browser (the other
+		// modes log server-side); rate-limited like the search route.
+		if ( wss_is_local_engine() || ! $this->check_rate_limit() ) {
+			return rest_ensure_response( array( 'tracked' => false ) );
+		}
+
+		$query = substr( (string) $request->get_param( 'query' ), 0, 100 );
+		$total = min( (int) $request->get_param( 'total' ), 1000000 );
 
 		$this->log_search( $query, (int) $total );
 
@@ -501,12 +514,20 @@ class WSS_Rest_Api {
 		$ip    = $this->get_client_ip();
 		$key   = 'wss_rate_' . md5( $ip );
 
-		$current = (int) get_transient( $key );
-		if ( $current >= $limit ) {
+		// Fixed 60 s window: the start time is kept (re-setting the transient
+		// TTL on each call made it a sliding window that never reset while
+		// the visitor kept typing).
+		$now  = time();
+		$data = get_transient( $key );
+		if ( ! is_array( $data ) || ! isset( $data['c'], $data['t'] ) || ( $now - (int) $data['t'] ) >= 60 ) {
+			$data = array( 'c' => 0, 't' => $now );
+		}
+		if ( $data['c'] >= $limit ) {
 			return false;
 		}
 
-		set_transient( $key, $current + 1, 60 );
+		++$data['c'];
+		set_transient( $key, $data, max( 1, 60 - ( $now - (int) $data['t'] ) ) );
 		return true;
 	}
 

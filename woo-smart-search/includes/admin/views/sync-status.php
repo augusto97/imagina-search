@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 $is_ecommerce = wss_is_ecommerce_mode();
 $is_mixed     = 'mixed' === wss_get_content_source();
-$last_sync     = wss_get_option( 'last_sync', 0 );
+$last_sync     = wss_get_last_sync();
 
 // Determine content counts and labels.
 if ( $is_mixed ) {

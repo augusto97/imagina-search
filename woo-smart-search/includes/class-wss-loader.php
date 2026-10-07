@@ -25,6 +25,9 @@ class WSS_Loader {
 	 * Run the loader to initialize all plugin components.
 	 */
 	public function run() {
+		// Create missing tables after updates that skipped the activation hook.
+		WSS_Activator::maybe_upgrade();
+
 		// One-time fix: restore defaults for display settings that were incorrectly reset.
 		$this->maybe_fix_display_settings();
 
@@ -88,8 +91,9 @@ class WSS_Loader {
 		// never register. Register a custom WP-Cron interval as a fallback for
 		// sites where Action Scheduler is unavailable.
 		add_filter( 'cron_schedules', array( $this, 'add_reindex_cron_schedule' ) );
-		add_action( 'init', array( $this, 'schedule_health_check' ), 20 );
-		add_action( 'init', array( $this, 'schedule_periodic_reindex' ), 20 );
+		add_action( 'wss_health_check', array( $this, 'run_health_check' ) );
+		add_action( 'wss_cron_health_check', array( $this, 'run_health_check' ) );
+		add_action( 'init', array( $this, 'maybe_schedule_jobs' ), 20 );
 
 		// Auto-fallback filter for when Meilisearch is down.
 		add_filter( 'wss_use_native_search', array( $this, 'maybe_fallback_to_native' ) );
@@ -109,6 +113,13 @@ class WSS_Loader {
 	 * @return array
 	 */
 	public function add_reindex_cron_schedule( $schedules ) {
+		// Health check fallback interval (the reindex one is far too long and
+		// isn't registered at all when re-indexing is disabled).
+		$schedules['wss_5min'] = array(
+			'interval' => 300,
+			'display'  => __( 'Every 5 minutes (Woo Smart Search)', 'woo-smart-search' ),
+		);
+
 		$minutes = (int) wss_get_option( 'reindex_interval', 360 );
 		if ( $minutes > 0 ) {
 			$schedules['wss_reindex'] = array(
@@ -120,14 +131,31 @@ class WSS_Loader {
 	}
 
 	/**
+	 * Make sure the recurring jobs are scheduled.
+	 *
+	 * Checking Action Scheduler costs DB queries, so it runs at most every
+	 * 10 minutes (timestamp kept in an autoloaded option = no extra query).
+	 * Saving the settings clears the timestamp to force an immediate check.
+	 */
+	public function maybe_schedule_jobs() {
+		$last = (int) get_option( 'wss_jobs_checked_at', 0 );
+		$now  = time();
+		if ( $last > $now - 600 && $last <= $now ) {
+			return;
+		}
+		update_option( 'wss_jobs_checked_at', $now, true );
+
+		$this->schedule_health_check();
+		$this->schedule_periodic_reindex();
+		WSS_Search_Analytics::schedule_cleanup();
+	}
+
+	/**
 	 * Schedule periodic health check every 5 minutes.
 	 *
 	 * Hooked to `init` so Action Scheduler is loaded; falls back to WP-Cron.
 	 */
 	public function schedule_health_check() {
-		add_action( 'wss_health_check', array( $this, 'run_health_check' ) );
-		add_action( 'wss_cron_health_check', array( $this, 'run_health_check' ) );
-
 		if ( function_exists( 'as_has_scheduled_action' ) && function_exists( 'as_schedule_recurring_action' ) ) {
 			if ( ! as_has_scheduled_action( 'wss_health_check' ) ) {
 				as_schedule_recurring_action( time() + 300, 300, 'wss_health_check', array(), 'woo-smart-search' );
@@ -141,7 +169,7 @@ class WSS_Loader {
 
 		// WP-Cron fallback.
 		if ( ! wp_next_scheduled( 'wss_cron_health_check' ) ) {
-			wp_schedule_event( time() + 300, 'wss_reindex', 'wss_cron_health_check' );
+			wp_schedule_event( time() + 300, 'wss_5min', 'wss_cron_health_check' );
 		}
 	}
 
@@ -199,6 +227,13 @@ class WSS_Loader {
 		if ( wss_is_local_engine() ) {
 			delete_transient( 'wss_connection_error' );
 			update_option( 'wss_meilisearch_available', true );
+			return;
+		}
+
+		// Not configured yet (fresh install): nothing is down, so don't email
+		// the admin every hour about it.
+		$settings = get_option( 'wss_settings', array() );
+		if ( empty( $settings['api_key'] ) ) {
 			return;
 		}
 
@@ -360,7 +395,7 @@ class WSS_Loader {
 			$stats      = $engine->get_index_stats( $index_name );
 			$doc_count  = isset( $stats['numberOfDocuments'] ) ? (int) $stats['numberOfDocuments'] : 0;
 
-			$sync_ts = wss_get_option( 'last_sync', 0 );
+			$sync_ts = wss_get_last_sync();
 			if ( $sync_ts ) {
 				$last_sync = human_time_diff( $sync_ts ) . ' ' . __( 'ago', 'woo-smart-search' );
 			}

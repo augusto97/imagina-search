@@ -20,7 +20,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 $widget_layout = isset( $render_layout ) && '' !== $render_layout ? $render_layout : ( $settings['widget_layout'] ?? 'standard' );
 $device_class  = isset( $render_device ) ? $render_device : '';
 $id_suffix     = isset( $render_id_sfx ) ? $render_id_sfx : '';
-$results_id    = 'wss-results-list' . $id_suffix;
+// Unique per widget instance: themes often print two (header + mobile bar),
+// and duplicate IDs break aria-controls.
+$GLOBALS['wss_widget_instance'] = ( $GLOBALS['wss_widget_instance'] ?? 0 ) + 1;
+$results_id    = 'wss-results-list' . $id_suffix . ( $GLOBALS['wss_widget_instance'] > 1 ? '-' . $GLOBALS['wss_widget_instance'] : '' );
 // When desktop + mobile layouts share the same markup, JS swaps the
 // wss-layout-* class by viewport using these attributes (no second render).
 $swap_mobile_layout = isset( $render_mobile_layout ) ? $render_mobile_layout : '';
@@ -48,6 +51,10 @@ if ( ! $show_icon ) {
 	$wrapper_classes .= ' wss-icon-hidden';
 }
 
+// Only a plain CSS length: esc_attr() lets ';' through (CSS injection via the shortcode).
+if ( ! preg_match( '/^\d{1,4}(\.\d+)?(px|%|em|rem|vw)$/', (string) $width ) ) {
+	$width = '100%';
+}
 $inline_styles = 'width:' . esc_attr( $width );
 if ( $input_height > 0 ) {
 	$inline_styles .= ';--wss-input-height:' . $input_height . 'px';
@@ -62,6 +69,7 @@ if ( $border_radius >= 0 ) {
 			type="search"
 			class="wss-search-input"
 			placeholder="<?php echo esc_attr( $placeholder ); ?>"
+			aria-label="<?php echo esc_attr( $placeholder ); ?>"
 			maxlength="100"
 			autocomplete="off"
 			aria-autocomplete="list"
@@ -110,7 +118,7 @@ if ( $border_radius >= 0 ) {
 
 	<?php if ( 'fullscreen' === $widget_layout ) : ?>
 	<!-- Fullscreen overlay (Shopify-style) -->
-	<div class="wss-fullscreen-overlay" aria-label="<?php esc_attr_e( 'Search', 'woo-smart-search' ); ?>">
+	<div class="wss-fullscreen-overlay" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e( 'Search', 'woo-smart-search' ); ?>">
 		<div class="wss-fullscreen-header">
 			<h3 class="wss-fullscreen-title"><?php echo esc_html( $i18n['searchOurStore'] ); ?></h3>
 			<button class="wss-fullscreen-close" type="button" aria-label="<?php esc_attr_e( 'Close', 'woo-smart-search' ); ?>">
@@ -121,7 +129,7 @@ if ( $border_radius >= 0 ) {
 			<span class="wss-search-icon">
 				<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
 			</span>
-			<input type="search" class="wss-fullscreen-input" placeholder="<?php echo esc_attr( $placeholder ); ?>" maxlength="100" autocomplete="off" />
+			<input type="search" class="wss-fullscreen-input" placeholder="<?php echo esc_attr( $placeholder ); ?>" aria-label="<?php echo esc_attr( $placeholder ); ?>" maxlength="100" autocomplete="off" />
 			<button class="wss-search-clear wss-fullscreen-clear" style="display:none" type="button" aria-label="<?php esc_attr_e( 'Clear', 'woo-smart-search' ); ?>">&times;</button>
 		</div>
 		<div class="wss-fullscreen-body">

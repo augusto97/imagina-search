@@ -62,6 +62,19 @@ class WSS_Admin_Ajax {
 
 		$settings = get_option( 'wss_settings', array() );
 
+		// Connection details (where the stored master key is sent) can only be
+		// changed by administrators, not shop managers.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			foreach ( array( 'host', 'port', 'protocol', 'api_key', 'search_api_key', 'search_engine' ) as $locked ) {
+				unset( $_POST[ $locked ] );
+			}
+		}
+
+		// Custom CSS is printed on every page: require unfiltered_html.
+		if ( ! current_user_can( 'unfiltered_html' ) ) {
+			unset( $_POST['custom_css'], $_POST['rp_custom_css'] );
+		}
+
 		// Connection tab fields.
 		$text_fields = array(
 			'host', 'port', 'protocol', 'index_name',
@@ -130,6 +143,10 @@ class WSS_Admin_Ajax {
 		// cryptic error on the next sync).
 		if ( isset( $_POST['api_key'] ) ) {
 			$raw_key = sanitize_text_field( wp_unslash( $_POST['api_key'] ) );
+			// Never re-encrypt an already-stored (encrypted) value echoed back.
+			if ( WSS_Meilisearch::is_encrypted_value( $raw_key ) ) {
+				$raw_key = '';
+			}
 			if ( ! empty( $raw_key ) ) {
 				if ( strlen( $raw_key ) < 8 || strlen( $raw_key ) > 512 || preg_match( '/\s/', $raw_key ) ) {
 					wp_send_json_error( array(
@@ -200,7 +217,7 @@ class WSS_Admin_Ajax {
 		// every save, so changes made in other tabs persist too. Absent
 		// fields only reset to 'no' for the submitted tab (legacy checkbox
 		// forms send nothing for unchecked boxes).
-		$all_bools = array_unique( array_merge( $appearance_bools, $search_bools, $indexing_bools ) );
+		$all_bools = array_unique( array_merge( $appearance_bools, $search_bools, $indexing_bools, $synonyms_bools ) );
 
 		foreach ( $all_bools as $field ) {
 			if ( isset( $_POST[ $field ] ) ) {
@@ -263,7 +280,13 @@ class WSS_Admin_Ajax {
 		}
 
 		if ( isset( $_POST['wp_post_types'] ) && is_array( $_POST['wp_post_types'] ) ) {
-			$settings['wp_post_types'] = array_map( 'sanitize_text_field', wp_unslash( $_POST['wp_post_types'] ) );
+			// Public post types only (never shop_coupon, revisions, etc.).
+			$public_types              = get_post_types( array( 'public' => true ) );
+			$submitted_types           = array_map( 'sanitize_key', wp_unslash( $_POST['wp_post_types'] ) );
+			$settings['wp_post_types'] = array_values( array_diff( array_intersect( $submitted_types, $public_types ), array( 'attachment' ) ) );
+			if ( empty( $settings['wp_post_types'] ) ) {
+				$settings['wp_post_types'] = array( 'post' );
+			}
 		} elseif ( 'content_sources' === $submitted_tab ) {
 			$settings['wp_post_types'] = array( 'post' );
 		}
@@ -306,11 +329,16 @@ class WSS_Admin_Ajax {
 		}
 
 		update_option( 'wss_settings', $settings );
+		// Refresh wss_get_option()'s static cache so the code below (synonym
+		// push, filterable attributes) sees the settings just saved.
+		wss_get_option( 'search_engine', '', true );
 
 		// Reschedule periodic reindex if interval changed.
 		if ( isset( $_POST['reindex_interval'] ) && function_exists( 'as_unschedule_all_actions' ) ) {
 			as_unschedule_all_actions( 'wss_periodic_reindex', array(), 'woo-smart-search' );
 		}
+		// Re-check the recurring jobs on the next request.
+		delete_option( 'wss_jobs_checked_at' );
 
 		// Invalidate cached CSS variables.
 		delete_transient( 'wss_css_vars_' . WSS_VERSION );
@@ -370,18 +398,23 @@ class WSS_Admin_Ajax {
 
 		// Use form values, but fall back to saved API key when field is empty
 		// (the password field is always rendered empty for security).
-		$api_key = isset( $_POST['api_key'] ) ? sanitize_text_field( wp_unslash( $_POST['api_key'] ) ) : '';
-		if ( empty( $api_key ) ) {
-			$saved_key = wss_get_option( 'api_key', '' );
-			$api_key   = ! empty( $saved_key ) ? WSS_Meilisearch::decrypt_key( $saved_key ) : '';
-		}
-
 		$config = array(
 			'host'     => isset( $_POST['host'] ) ? sanitize_text_field( wp_unslash( $_POST['host'] ) ) : '',
 			'port'     => isset( $_POST['port'] ) ? sanitize_text_field( wp_unslash( $_POST['port'] ) ) : '',
 			'protocol' => isset( $_POST['protocol'] ) ? sanitize_text_field( wp_unslash( $_POST['protocol'] ) ) : 'http',
-			'api_key'  => $api_key,
 		);
+
+		$api_key = isset( $_POST['api_key'] ) ? sanitize_text_field( wp_unslash( $_POST['api_key'] ) ) : '';
+		if ( empty( $api_key ) || WSS_Meilisearch::is_encrypted_value( $api_key ) ) {
+			// The saved key is only sent to the saved server: testing another
+			// host requires typing the key, so it can't be exfiltrated.
+			$same_server = $config['host'] === (string) wss_get_option( 'host', '' )
+				&& (string) $config['port'] === (string) wss_get_option( 'port', '' )
+				&& $config['protocol'] === (string) wss_get_option( 'protocol', 'http' );
+			$saved_key   = wss_get_option( 'api_key', '' );
+			$api_key     = ( $same_server && ! empty( $saved_key ) ) ? WSS_Meilisearch::decrypt_key( $saved_key ) : '';
+		}
+		$config['api_key'] = $api_key;
 
 		$engine = WSS_Meilisearch::create( $config );
 		if ( ! $engine ) {
@@ -444,6 +477,12 @@ class WSS_Admin_Ajax {
 
 			delete_option( 'wss_skip_index_configure' );
 
+			// Run products first, then content (see complete_sync handover):
+			// two concurrent chains would fight over the shared progress.
+			if ( function_exists( 'as_unschedule_all_actions' ) && wss_is_woocommerce_active() ) {
+				as_unschedule_all_actions( 'wss_bulk_post_sync_batch', array(), 'woo-smart-search' );
+			}
+
 			$total = 0;
 			$messages = array();
 			foreach ( $results as $r ) {
@@ -463,6 +502,8 @@ class WSS_Admin_Ajax {
 					'status'    => 'running',
 					'started'   => time(),
 					'errors'    => 0,
+					'mixed'     => wss_is_woocommerce_active(),
+					'phase'     => 'products',
 				),
 				false
 			);
@@ -670,37 +711,35 @@ class WSS_Admin_Ajax {
 	 * progress bar then sits at 0%. This lets the open admin page pump the
 	 * batches itself, independent of cron. It takes ownership of the Action
 	 * Scheduler chain (unschedules the pending batch actions) so the same page
-	 * is not processed twice, and serializes with a short lock.
+	 * is not processed twice; batches serialize on a cross-process lock.
 	 */
 	public function run_sync_batch() {
 		$this->verify_request();
 
-		$progress = get_option( 'wss_sync_progress' );
+		$progress = wss_get_sync_progress();
 
-		if ( ! is_array( $progress ) || 'running' !== ( $progress['status'] ?? '' ) ) {
-			wp_send_json_success( is_array( $progress ) ? $progress : array( 'status' => 'idle' ) );
+		if ( empty( $progress ) || 'running' !== ( $progress['status'] ?? '' ) ) {
+			if ( ! empty( $progress ) ) {
+				$ts                          = (int) wss_get_last_sync();
+				$progress['last_sync_label'] = $ts ? date_i18n( 'Y-m-d H:i', $ts ) : '';
+			}
+			wp_send_json_success( ! empty( $progress ) ? $progress : array( 'status' => 'idle' ) );
 			return;
 		}
-
-		// Serialize: a concurrent poll or an Action Scheduler run must not
-		// process the same page at the same time.
-		if ( get_transient( 'wss_sync_batch_lock' ) ) {
-			wp_send_json_success( $progress );
-			return;
-		}
-		set_transient( 'wss_sync_batch_lock', 1, 120 );
 
 		// Take ownership from Action Scheduler so batches are not run twice.
+		// (process_bulk_sync_batch also holds a cross-process lock and skips
+		// pages another worker already handled.)
 		if ( function_exists( 'as_unschedule_all_actions' ) ) {
 			as_unschedule_all_actions( 'wss_bulk_sync_batch', array(), 'woo-smart-search' );
 			as_unschedule_all_actions( 'wss_bulk_post_sync_batch', array(), 'woo-smart-search' );
 		}
 
-		$next_page = (int) ( $progress['current'] ?? 0 ) + 1;
-
+		$next_page      = (int) ( $progress['current'] ?? 0 ) + 1;
 		$content_source = wss_get_content_source();
+		$posts_phase    = ! empty( $progress['mixed'] ) && 'posts' === ( $progress['phase'] ?? '' );
 
-		if ( ( wss_is_ecommerce_mode() || 'mixed' === $content_source ) && class_exists( 'WSS_Product_Sync' ) ) {
+		if ( ! $posts_phase && ( wss_is_ecommerce_mode() || 'mixed' === $content_source ) && class_exists( 'WSS_Product_Sync' ) ) {
 			$sync = new WSS_Product_Sync();
 			$sync->process_bulk_sync_batch( array( 'page' => $next_page ), false );
 		} elseif ( class_exists( 'WSS_Post_Sync' ) ) {
@@ -708,10 +747,12 @@ class WSS_Admin_Ajax {
 			$sync->process_bulk_sync_batch( array( 'page' => $next_page ), false );
 		}
 
-		delete_transient( 'wss_sync_batch_lock' );
-
-		$updated = get_option( 'wss_sync_progress' );
-		wp_send_json_success( is_array( $updated ) ? $updated : array( 'status' => 'idle' ) );
+		$updated = wss_get_sync_progress();
+		if ( ! empty( $updated ) && 'completed' === ( $updated['status'] ?? '' ) ) {
+			$ts                         = (int) wss_get_last_sync();
+			$updated['last_sync_label'] = $ts ? date_i18n( 'Y-m-d H:i', $ts ) : '';
+		}
+		wp_send_json_success( ! empty( $updated ) ? $updated : array( 'status' => 'idle' ) );
 	}
 
 	/**
@@ -819,7 +860,14 @@ class WSS_Admin_Ajax {
 		$csv_rows   = array();
 		$csv_rows[] = array( 'Type', 'Message', 'Context', 'Date' );
 		foreach ( $logs as $log ) {
-			$csv_rows[] = array( $log['type'], $log['message'], $log['context'], $log['created_at'] );
+			// Neutralise spreadsheet formulas (=, +, -, @) in exported cells.
+			$csv_rows[] = array_map(
+				function ( $cell ) {
+					$cell = (string) $cell;
+					return ( '' !== $cell && in_array( $cell[0], array( '=', '+', '-', '@', "\t", "\r" ), true ) ) ? "'" . $cell : $cell;
+				},
+				array( $log['type'], $log['message'], $log['context'], $log['created_at'] )
+			);
 		}
 
 		$csv = '';
@@ -845,7 +893,7 @@ class WSS_Admin_Ajax {
 		$index_name = wss_get_option( 'index_name', 'woo_products' );
 		$stats      = $engine->get_index_stats( $index_name );
 
-		$stats['last_sync'] = wss_get_option( 'last_sync', 0 );
+		$stats['last_sync'] = wss_get_last_sync();
 
 		wp_send_json_success( $stats );
 	}
@@ -1003,7 +1051,7 @@ class WSS_Admin_Ajax {
 		$this->verify_request();
 
 		$engine = WSS_Local_Engine::get_instance();
-		$engine->invalidate_cache();
+		$engine->invalidate_cache( '', true );
 
 		wss_log( __( 'Search cache purged manually.', 'woo-smart-search' ), 'info' );
 

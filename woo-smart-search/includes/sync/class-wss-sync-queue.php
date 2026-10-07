@@ -36,6 +36,20 @@ class WSS_Sync_Queue {
 	private static $shutdown_registered = false;
 
 	/**
+	 * Products queued in this request (product_id => action).
+	 *
+	 * @var array
+	 */
+	private static $seen = array();
+
+	/**
+	 * Whether processing was already scheduled in this request.
+	 *
+	 * @var bool
+	 */
+	private static $scheduled = false;
+
+	/**
 	 * Initialize queue processing hooks.
 	 */
 	public function init() {
@@ -55,29 +69,49 @@ class WSS_Sync_Queue {
 	public static function add( int $product_id, string $action = 'update' ) {
 		global $wpdb;
 
-		$table = $wpdb->prefix . 'wss_sync_queue';
+		// One product save fires ~15 hooks (meta, terms, save_post, WC update…):
+		// queue each product/action once per request.
+		if ( isset( self::$seen[ $product_id ] ) && self::$seen[ $product_id ] === $action ) {
+			return;
+		}
+		self::$seen[ $product_id ] = $action;
 
-		// UPDATE-first to avoid the check-then-insert race under concurrent
-		// API updates. If no pending row was updated, insert a new one.
-		$updated = $wpdb->query(
+		$table = $wpdb->prefix . 'wss_sync_queue';
+		$now   = current_time( 'mysql', true ); // UTC everywhere in this table.
+
+		// Reuse the pending row if there is one. (Checking UPDATE's affected
+		// rows is not enough: MySQL reports 0 when the values are unchanged,
+		// which inserted a duplicate row per hook.)
+		$existing = $wpdb->get_var(
 			$wpdb->prepare(
-				"UPDATE {$table} SET action = %s, scheduled_at = %s WHERE product_id = %d AND status = 'pending' LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				$action,
-				current_time( 'mysql' ),
+				"SELECT id FROM {$table} WHERE product_id = %d AND status = 'pending' LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				$product_id
 			)
 		);
 
-		if ( ! $updated ) {
+		if ( $existing ) {
+			$wpdb->update(
+				$table,
+				array(
+					'action'       => $action,
+					'scheduled_at' => $now,
+					'priority'     => 0,
+				),
+				array( 'id' => (int) $existing ),
+				array( '%s', '%s', '%d' ),
+				array( '%d' )
+			);
+		} else {
 			$wpdb->insert(
 				$table,
 				array(
 					'product_id'   => $product_id,
 					'action'       => $action,
-					'scheduled_at' => current_time( 'mysql' ),
+					'priority'     => 0,
+					'scheduled_at' => $now,
 					'status'       => 'pending',
 				),
-				array( '%d', '%s', '%s', '%s' )
+				array( '%d', '%s', '%d', '%s', '%s' )
 			);
 		}
 
@@ -142,6 +176,11 @@ class WSS_Sync_Queue {
 	 * WP-Cron, and finally processes immediately as a last resort.
 	 */
 	private static function ensure_processing_scheduled() {
+		if ( self::$scheduled ) {
+			return;
+		}
+		self::$scheduled = true;
+
 		// 1. Action Scheduler (bundled with WooCommerce).
 		if ( function_exists( 'as_has_scheduled_action' ) ) {
 			if ( ! as_has_scheduled_action( 'wss_process_sync_queue' ) ) {
@@ -200,13 +239,42 @@ class WSS_Sync_Queue {
 			$post_sync = new WSS_Post_Sync();
 		}
 
-		// Get pending items (max 50 at a time).
+		// One drain at a time: shutdown handlers of concurrent requests and the
+		// scheduled run would otherwise index the same items in parallel.
+		if ( ! wss_acquire_lock( 'queue', 300 ) ) {
+			return;
+		}
+
+		try {
+			$this->drain( $table, $product_sync, $post_sync );
+		} finally {
+			wss_release_lock( 'queue' );
+		}
+	}
+
+	/**
+	 * Process one batch of due items. Caller holds the queue lock.
+	 *
+	 * @param string                $table        Queue table.
+	 * @param WSS_Product_Sync|null $product_sync Product handler.
+	 * @param WSS_Post_Sync|null    $post_sync    Post handler.
+	 */
+	private function drain( $table, $product_sync, $post_sync ) {
+		global $wpdb;
+
+		$now = current_time( 'mysql', true );
+
+		// Due pending items only (max 50 at a time), so the retry backoff works.
 		$items = $wpdb->get_results(
-			"SELECT * FROM {$table} WHERE status = 'pending' ORDER BY scheduled_at ASC LIMIT 50", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$wpdb->prepare(
+				"SELECT * FROM {$table} WHERE status = 'pending' AND scheduled_at <= %s ORDER BY scheduled_at ASC LIMIT 50", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$now
+			),
 			ARRAY_A
 		);
 
 		if ( empty( $items ) ) {
+			$this->schedule_next_due( $table );
 			return;
 		}
 
@@ -224,9 +292,15 @@ class WSS_Sync_Queue {
 			$is_product = ( 'product' === $post_type ) && $product_sync;
 
 			if ( 'delete' === $action ) {
-				$success = $is_product
-					? $product_sync->delete_single_product( $post_id )
-					: ( $post_sync ? $post_sync->delete_single_post( $post_id ) : false );
+				// A hard-deleted post no longer has a post type: both handlers
+				// remove the same document ID, so use whichever is available.
+				if ( $is_product || ( ! $post_type && $product_sync ) ) {
+					$success = $product_sync->delete_single_product( $post_id );
+				} elseif ( $post_sync ) {
+					$success = $post_sync->delete_single_post( $post_id );
+				} elseif ( $product_sync ) {
+					$success = $product_sync->delete_single_product( $post_id );
+				}
 			} else {
 				$success = $is_product
 					? $product_sync->sync_single_product( $post_id )
@@ -239,7 +313,7 @@ class WSS_Sync_Queue {
 					$table,
 					array(
 						'status'       => 'completed',
-						'processed_at' => current_time( 'mysql' ),
+						'processed_at' => current_time( 'mysql', true ),
 					),
 					array( 'id' => $item['id'] ),
 					array( '%s', '%s' ),
@@ -269,7 +343,7 @@ class WSS_Sync_Queue {
 						array(
 							'status'       => 'failed',
 							'priority'     => $retries,
-							'processed_at' => current_time( 'mysql' ),
+							'processed_at' => current_time( 'mysql', true ),
 						),
 						array( 'id' => $item['id'] ),
 						array( '%s', '%d', '%s' ),
@@ -305,7 +379,7 @@ class WSS_Sync_Queue {
 		// incremental / periodic syncs, not only manual Full Syncs. Lets the
 		// field work as a health signal (a stale value = nothing is syncing).
 		if ( $processed > 0 ) {
-			wss_update_option( 'last_sync', time() );
+			wss_touch_last_sync();
 		}
 
 		// Clean old completed entries (older than 24 hours).
@@ -323,12 +397,25 @@ class WSS_Sync_Queue {
 			)
 		);
 
-		// If more pending items remain, schedule another run quickly.
-		$remaining = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE status = 'pending'" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		// If more pending items remain, schedule the next run for when the
+		// earliest one is due.
+		$this->schedule_next_due( $table );
+	}
 
-		if ( $remaining > 0 ) {
-			self::schedule_retry( 5 );
+	/**
+	 * Schedule a run for the earliest pending item (≥ 5 s from now).
+	 *
+	 * @param string $table Queue table.
+	 */
+	private function schedule_next_due( $table ) {
+		global $wpdb;
+
+		$next = $wpdb->get_var( "SELECT MIN(scheduled_at) FROM {$table} WHERE status = 'pending'" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
+		if ( ! $next ) {
+			return;
 		}
+		$due = strtotime( $next . ' UTC' );
+		self::schedule_retry( max( 5, (int) $due - time() ) );
 	}
 
 	/**
@@ -338,7 +425,11 @@ class WSS_Sync_Queue {
 	 */
 	public static function add_wake_up() {
 		global $wpdb;
-		$table     = $wpdb->prefix . 'wss_sync_queue';
+		$table = $wpdb->prefix . 'wss_sync_queue';
+
+		// Items that exhausted their retries during the outage get a new chance.
+		$wpdb->query( $wpdb->prepare( "UPDATE {$table} SET status = 'pending', priority = 0, scheduled_at = %s WHERE status = 'failed'", current_time( 'mysql', true ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
+
 		$remaining = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE status = 'pending'" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		if ( $remaining > 0 ) {

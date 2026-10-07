@@ -181,7 +181,13 @@ class WSS_Admin {
 				}
 			}
 
-			$last_sync = wss_get_option( 'last_sync', 0 );
+			$last_sync = wss_get_last_sync();
+
+			// The stored (encrypted) API key never goes to the browser: the
+			// form only needs to know whether one is set.
+			$admin_settings                = $settings;
+			$admin_settings['has_api_key'] = ! empty( $settings['api_key'] );
+			unset( $admin_settings['api_key'] );
 
 			wp_localize_script(
 				'wss-admin-app',
@@ -190,7 +196,7 @@ class WSS_Admin {
 					'ajaxUrl'            => admin_url( 'admin-ajax.php' ),
 					'nonce'              => wp_create_nonce( 'wss_admin_nonce' ),
 					'version'            => WSS_VERSION,
-					'settings'           => $settings,
+					'settings'           => $admin_settings,
 					'postTypes'          => $post_types_data,
 					'wpCustomFields'     => $wp_custom_fields,
 					'productCategories'  => $product_categories,

@@ -22,6 +22,7 @@ $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}wss_search_log" ); // phpcs:i
 $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}wss_index_documents" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
 $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}wss_index_terms" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
 $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}wss_index_postings" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
+$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}wss_search_cache" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
 
 // Clear all transients.
 $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_wss_%' OR option_name LIKE '_transient_timeout_wss_%'" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
@@ -35,4 +36,10 @@ if ( function_exists( 'as_unschedule_all_actions' ) ) {
 	as_unschedule_all_actions( 'wss_periodic_reindex' );
 	as_unschedule_all_actions( 'wss_health_check' );
 	as_unschedule_all_actions( 'wss_cleanup_search_logs' );
+	as_unschedule_all_actions( '', array(), 'woo-smart-search' );
+}
+
+// WP-Cron fallbacks.
+foreach ( array( 'wss_cron_health_check', 'wss_cron_periodic_reindex', 'wss_cron_process_queue' ) as $wss_hook ) {
+	wp_clear_scheduled_hook( $wss_hook );
 }

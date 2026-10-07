@@ -31,38 +31,44 @@ class WSS_Activator {
 
 	/**
 	 * Create custom database tables.
+	 *
+	 * Note: dbDelta() needs plain "CREATE TABLE name" statements. With
+	 * "CREATE TABLE IF NOT EXISTS" it parses every table name as "IF", so only
+	 * the last statement survived and wss_logs / wss_sync_queue were never
+	 * created on fresh installs. Each table now gets its own dbDelta() call.
 	 */
-	private static function create_tables() {
+	public static function create_tables() {
 		global $wpdb;
 
 		$charset_collate = $wpdb->get_charset_collate();
 
-		$sql = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wss_logs (
+		$tables = array(
+			"CREATE TABLE {$wpdb->prefix}wss_logs (
 			id bigint(20) NOT NULL AUTO_INCREMENT,
 			type varchar(20) NOT NULL DEFAULT 'info',
 			message text NOT NULL,
 			context longtext,
 			created_at datetime NOT NULL,
-			PRIMARY KEY (id),
+			PRIMARY KEY  (id),
 			KEY type (type),
 			KEY created_at (created_at)
-		) {$charset_collate};
+			) {$charset_collate};",
 
-		CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wss_sync_queue (
+			"CREATE TABLE {$wpdb->prefix}wss_sync_queue (
 			id bigint(20) NOT NULL AUTO_INCREMENT,
 			product_id bigint(20) NOT NULL,
 			action varchar(20) NOT NULL DEFAULT 'update',
-			priority int(11) NOT NULL DEFAULT 10,
+			priority int(11) NOT NULL DEFAULT 0,
 			scheduled_at datetime NOT NULL,
 			processed_at datetime DEFAULT NULL,
 			status varchar(20) NOT NULL DEFAULT 'pending',
-			PRIMARY KEY (id),
+			PRIMARY KEY  (id),
 			KEY product_id (product_id),
 			KEY status (status),
 			KEY scheduled_at (scheduled_at)
-		) {$charset_collate};
+			) {$charset_collate};",
 
-		CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wss_search_log (
+			"CREATE TABLE {$wpdb->prefix}wss_search_log (
 			id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
 			query varchar(255) NOT NULL DEFAULT '',
 			results_count int(11) NOT NULL DEFAULT 0,
@@ -70,16 +76,40 @@ class WSS_Activator {
 			ip_address varchar(45) NOT NULL DEFAULT '',
 			user_agent varchar(255) NOT NULL DEFAULT '',
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY (id),
+			PRIMARY KEY  (id),
 			KEY idx_query (query(191)),
 			KEY idx_created_at (created_at),
 			KEY idx_results_count (results_count)
-		) {$charset_collate};";
+			) {$charset_collate};",
+		);
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-		dbDelta( $sql );
+		foreach ( $tables as $sql ) {
+			dbDelta( $sql );
+		}
 
 		update_option( 'wss_db_version', WSS_VERSION );
+	}
+
+	/**
+	 * Create/upgrade tables when the plugin was updated without re-activation
+	 * (e.g. uploading a new ZIP), since the activation hook doesn't run then.
+	 */
+	public static function maybe_upgrade() {
+		if ( get_option( 'wss_db_version' ) === WSS_VERSION ) {
+			return;
+		}
+		self::create_tables();
+		if ( class_exists( 'WSS_Local_Engine' ) ) {
+			WSS_Local_Engine::create_tables();
+		}
+
+		// Queue rows from older versions: `priority` (the retry counter)
+		// defaulted to 10, so the first failure exhausted all retries, and
+		// scheduled_at was stored in local time (the queue now uses UTC).
+		global $wpdb;
+		$table = $wpdb->prefix . 'wss_sync_queue';
+		$wpdb->query( $wpdb->prepare( "UPDATE {$table} SET priority = 0, scheduled_at = %s WHERE status = 'pending'", current_time( 'mysql', true ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery
 	}
 
 	/**

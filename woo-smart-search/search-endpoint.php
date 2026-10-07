@@ -18,9 +18,30 @@ if ( ! isset( $_GET['wss_action'] ) || 'search' !== $_GET['wss_action'] ) { // p
 // Load WordPress in SHORTINIT mode (minimal bootstrap).
 define( 'SHORTINIT', true );
 
-// Find wp-load.php by walking up directories.
-$wp_load = dirname( dirname( dirname( dirname( __FILE__ ) ) ) ) . '/wp-load.php';
-if ( ! file_exists( $wp_load ) ) {
+// Find wp-load.php by walking up directories. Start from both the resolved
+// file path and the requested script path (they differ when the plugin folder
+// is a symlink), and also check a "wp/" subfolder (Bedrock-style installs
+// where wp-content lives outside the WordPress core directory).
+$wp_load    = '';
+$wss_starts = array( dirname( __FILE__ ) );
+if ( ! empty( $_SERVER['SCRIPT_FILENAME'] ) ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+	$wss_starts[] = dirname( $_SERVER['SCRIPT_FILENAME'] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+}
+foreach ( array_unique( $wss_starts ) as $wss_dir ) {
+	for ( $wss_i = 0; $wss_i < 6 && ! $wp_load; $wss_i++ ) {
+		$wss_dir = dirname( $wss_dir );
+		foreach ( array( $wss_dir . '/wp-load.php', $wss_dir . '/wp/wp-load.php' ) as $wss_candidate ) {
+			if ( file_exists( $wss_candidate ) ) {
+				$wp_load = $wss_candidate;
+				break;
+			}
+		}
+	}
+	if ( $wp_load ) {
+		break;
+	}
+}
+if ( ! $wp_load ) {
 	http_response_code( 500 );
 	echo '{"error":"WordPress not found"}';
 	exit;
@@ -49,45 +70,93 @@ if ( $site_url && $origin ) {
 	}
 }
 
-// Rate limiting: simple IP-based throttle (max 60 requests per minute).
+// Only serve while the plugin is active and the local engine is selected:
+// otherwise a stale local index (possibly with since-unpublished content)
+// would stay publicly searchable.
+$wss_settings_raw = $wpdb->get_var( "SELECT option_value FROM {$wpdb->options} WHERE option_name = 'wss_settings' LIMIT 1" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+$wss_settings_arr = is_serialized( (string) $wss_settings_raw ) ? @unserialize( trim( $wss_settings_raw ), array( 'allowed_classes' => false ) ) : array(); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.PHP.DiscouragedPHPFunctions
+$wss_active_raw   = $wpdb->get_var( "SELECT option_value FROM {$wpdb->options} WHERE option_name = 'active_plugins' LIMIT 1" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+$wss_active       = is_serialized( (string) $wss_active_raw ) ? (array) @unserialize( trim( $wss_active_raw ), array( 'allowed_classes' => false ) ) : array(); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.PHP.DiscouragedPHPFunctions
+$wss_basename     = basename( __DIR__ ) . '/woo-smart-search.php';
+$wss_is_active    = in_array( $wss_basename, $wss_active, true );
+if ( ! $wss_is_active && is_multisite() ) {
+	// option.php (get_site_option) isn't loaded in SHORTINIT: read sitemeta.
+	$wss_network_raw = $wpdb->get_var( "SELECT meta_value FROM {$wpdb->sitemeta} WHERE meta_key = 'active_sitewide_plugins' LIMIT 1" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	$wss_network     = is_serialized( (string) $wss_network_raw ) ? @unserialize( trim( $wss_network_raw ), array( 'allowed_classes' => false ) ) : array(); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.PHP.DiscouragedPHPFunctions
+	$wss_is_active   = is_array( $wss_network ) && isset( $wss_network[ $wss_basename ] );
+}
+if ( ! $wss_is_active || ! is_array( $wss_settings_arr ) || 'local' !== ( $wss_settings_arr['search_engine'] ?? '' ) ) {
+	http_response_code( 404 );
+	echo '{"error":"Local search is not enabled"}';
+	exit;
+}
+
+// Rate limiting: fixed 60-second window per IP. (The window start is kept,
+// not refreshed on every request — refreshing made it a sliding window that
+// blocked anyone typing continuously.) A matching _transient_timeout_ row lets
+// WordPress' expired-transient cleanup delete the counters.
 $wss_client_ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? preg_replace( '/[^0-9a-fA-F.:\/]/', '', $_SERVER['REMOTE_ADDR'] ) : '127.0.0.1'; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
 $wss_rate_key   = 'wss_rl_' . md5( $wss_client_ip );
-$wss_rate_limit = 60;
-$wss_rate_row   = $wpdb->get_row( $wpdb->prepare(
-	"SELECT option_value, UNIX_TIMESTAMP() AS now_ts FROM {$wpdb->options} WHERE option_name = %s LIMIT 1",
+$wss_rate_limit = 120; // Shared IPs (mobile carrier NAT, offices) need headroom.
+$wss_now        = time();
+$wss_rate_row   = $wpdb->get_var( $wpdb->prepare(
+	"SELECT option_value FROM {$wpdb->options} WHERE option_name = %s LIMIT 1",
 	'_transient_' . $wss_rate_key
 ) );
 $wss_rate_count = 0;
+$wss_rate_start = $wss_now;
 if ( $wss_rate_row ) {
-	$rate_data = @json_decode( $wss_rate_row->option_value, true );
-	if ( is_array( $rate_data ) && isset( $rate_data['c'], $rate_data['t'] ) ) {
-		if ( ( $wss_rate_row->now_ts - $rate_data['t'] ) < 60 ) {
-			$wss_rate_count = (int) $rate_data['c'];
-		}
+	$rate_data = json_decode( $wss_rate_row, true );
+	if ( is_array( $rate_data ) && isset( $rate_data['c'], $rate_data['t'] ) && ( $wss_now - (int) $rate_data['t'] ) < 60 ) {
+		$wss_rate_count = (int) $rate_data['c'];
+		$wss_rate_start = (int) $rate_data['t'];
 	}
 }
 if ( $wss_rate_count >= $wss_rate_limit ) {
 	http_response_code( 429 );
-	header( 'Retry-After: 60' );
+	header( 'Retry-After: ' . max( 1, 60 - ( $wss_now - $wss_rate_start ) ) );
 	echo '{"error":"Rate limit exceeded"}';
 	exit;
 }
-// Update counter.
-$new_rate = wp_json_encode( array( 'c' => $wss_rate_count + 1, 't' => time() ) );
+$new_rate = wp_json_encode( array( 'c' => $wss_rate_count + 1, 't' => $wss_rate_start ) );
 $wpdb->query( $wpdb->prepare(
 	"INSERT INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, 'no')
 	 ON DUPLICATE KEY UPDATE option_value = %s",
 	'_transient_' . $wss_rate_key, $new_rate, $new_rate
 ) );
+if ( 0 === $wss_rate_count ) {
+	$wss_expires = $wss_rate_start + 120;
+	$wpdb->query( $wpdb->prepare(
+		"INSERT INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %d, 'no')
+		 ON DUPLICATE KEY UPDATE option_value = %d",
+		'_transient_timeout_' . $wss_rate_key, $wss_expires, $wss_expires
+	) );
+}
 
-// Parse request parameters.
-$query      = isset( $_GET['q'] ) ? trim( stripslashes( $_GET['q'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification, WordPress.Security.ValidatedSanitizedInput
-$limit      = isset( $_GET['limit'] ) ? max( 1, min( 100, (int) $_GET['limit'] ) ) : 12; // phpcs:ignore WordPress.Security.NonceVerification
-$page       = isset( $_GET['page'] ) ? max( 1, (int) $_GET['page'] ) : 1; // phpcs:ignore WordPress.Security.NonceVerification
+// Parse request parameters (strings only: `q[]=` used to be a fatal TypeError).
+$wss_get = static function ( $key ) {
+	return ( isset( $_GET[ $key ] ) && is_string( $_GET[ $key ] ) ) ? stripslashes( $_GET[ $key ] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification, WordPress.Security.ValidatedSanitizedInput
+};
+$query      = trim( $wss_get( 'q' ) );
+$limit      = '' !== $wss_get( 'limit' ) ? max( 1, min( 100, (int) $wss_get( 'limit' ) ) ) : 12;
+$page       = '' !== $wss_get( 'page' ) ? max( 1, min( 100, (int) $wss_get( 'page' ) ) ) : 1;
 $offset     = ( $page - 1 ) * $limit;
-$filter_str = isset( $_GET['filters'] ) ? stripslashes( $_GET['filters'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification, WordPress.Security.ValidatedSanitizedInput
-$sort       = isset( $_GET['sort'] ) ? stripslashes( $_GET['sort'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification, WordPress.Security.ValidatedSanitizedInput
-$facets_str = isset( $_GET['facets'] ) ? stripslashes( $_GET['facets'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification, WordPress.Security.ValidatedSanitizedInput
+$filter_str = $wss_get( 'filters' );
+$sort       = $wss_get( 'sort' );
+$facets_str = $wss_get( 'facets' );
+
+// Bound the filter expression (it is evaluated per candidate document).
+if ( strlen( $filter_str ) > 1000 || preg_match_all( '/\s(AND|OR)\s/i', $filter_str ) > 30 ) {
+	$filter_str = '';
+}
+
+// Outside mixed mode the index only holds one content source, so the
+// `content_source = "…"` condition the widget always sends matches every
+// document — drop it instead of decoding thousands of documents to check.
+if ( 'mixed' !== ( $wss_settings_arr['content_source'] ?? 'auto' ) && '' !== $filter_str ) {
+	$filter_str = trim( preg_replace( '/(^|\s+AND\s+)content_source\s*=\s*"(woocommerce|wordpress)"(?=\s+AND\s+|$)/i', '', trim( $filter_str ) ) );
+	$filter_str = trim( preg_replace( '/^AND\s+/i', '', $filter_str ) );
+}
 
 // Sanitize filter string — strip dangerous characters (only allow field names, operators, values).
 $filter_str = preg_replace( '/[^\w\s=<>!"\'\-.,()&\/]/u', '', $filter_str );
@@ -114,7 +183,7 @@ if ( '' === $query || strlen( $query ) < 2 ) {
 }
 
 // Sanitize query — strip HTML and limit length.
-$query = substr( strip_tags( $query ), 0, 100 );
+$query = function_exists( 'mb_substr' ) ? mb_substr( strip_tags( $query ), 0, 100 ) : substr( strip_tags( $query ), 0, 100 );
 
 // Load plugin constants and the local engine.
 if ( ! defined( 'WSS_VERSION' ) ) {
@@ -122,6 +191,16 @@ if ( ! defined( 'WSS_VERSION' ) ) {
 }
 if ( ! defined( 'WSS_PLUGIN_DIR' ) ) {
 	define( 'WSS_PLUGIN_DIR', dirname( __FILE__ ) . '/' );
+}
+
+// remove_accents() (used to fold accents in queries) calls get_locale(),
+// which SHORTINIT doesn't load — without this, any accented query was a fatal.
+if ( ! function_exists( 'get_locale' ) ) {
+	function get_locale() {
+		global $wpdb;
+		$locale = $wpdb->get_var( "SELECT option_value FROM {$wpdb->options} WHERE option_name = 'WPLANG' LIMIT 1" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		return $locale ? $locale : 'en_US';
+	}
 }
 
 // Provide minimal wp_strip_all_tags if not available.
@@ -166,8 +245,7 @@ require_once WSS_PLUGIN_DIR . 'includes/class-wss-search-engine.php';
 require_once WSS_PLUGIN_DIR . 'includes/class-wss-local-engine.php';
 
 // Get settings.
-$settings   = $wpdb->get_var( "SELECT option_value FROM {$wpdb->options} WHERE option_name = 'wss_settings' LIMIT 1" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-$settings   = $settings ? maybe_unserialize( $settings ) : array();
+$settings   = $wss_settings_arr; // Read (class-safe) during the activation check above.
 $index_name = isset( $settings['index_name'] ) ? $settings['index_name'] : 'woo_products';
 
 // Provide get_option for the engine's load_settings().

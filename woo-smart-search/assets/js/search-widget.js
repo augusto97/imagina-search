@@ -9,7 +9,15 @@
 	var config = window.wssConfig || {};
 	var cache = {};
 	var popularCache = null;
-	var activeController = null;
+
+	// Send the REST nonce only for logged-in users: on full-page-cached HTML a
+	// guest nonce expires after 12-24h and WordPress then rejects the request
+	// with 403 (rest_cookie_invalid_nonce). Guests need no nonce at all.
+	function restHeaders(extra) {
+		var h = extra || {};
+		if (config.nonce) h['X-WP-Nonce'] = config.nonce;
+		return h;
+	}
 
 	// Ultra-fast mode: direct Meilisearch search (bypasses WordPress entirely).
 	var useDirect = !!(config.meiliUrl && config.meiliKey && config.meiliIndex);
@@ -190,6 +198,11 @@
 		var mobileBackBtn = wrapper.querySelector('.wss-mobile-back-btn');
 		var selectedIndex = -1;
 		var debounceTimer = null;
+		var suppressFullscreenOpen = false;
+		// Per-widget request state: a newer search (or clearing the input)
+		// supersedes older in-flight ones, so stale responses never render.
+		var activeController = null;
+		var searchSeq = 0;
 		var isMobileOverlay = false;
 		var lastQuery = '';
 
@@ -220,7 +233,7 @@
 		// Fullscreen: the main input triggers the overlay.
 		if (isFullscreen) {
 			input.addEventListener('focus', function () {
-				openFullscreen();
+				if (!suppressFullscreenOpen) openFullscreen();
 			});
 			input.addEventListener('click', function () {
 				openFullscreen();
@@ -231,6 +244,7 @@
 					var query = fullscreenInput.value.trim();
 					clearTimeout(debounceTimer);
 					if (query.length < (config.minQueryLength || 2)) {
+						cancelSearch();
 						clearFullscreenResults();
 						toggleFullscreenClear(false);
 						return;
@@ -277,6 +291,7 @@
 				var query = input.value.trim();
 				clearTimeout(debounceTimer);
 				if (query.length < (config.minQueryLength || 2)) {
+					cancelSearch();
 					hideDropdown();
 					toggleClear(false);
 					return;
@@ -291,6 +306,7 @@
 			if (clearBtn) {
 				clearBtn.addEventListener('click', function () {
 					input.value = '';
+					cancelSearch();
 					hideDropdown();
 					toggleClear(false);
 					input.focus();
@@ -369,7 +385,7 @@
 			if (!isExpanded || !popularContainer) return;
 			if (popularCache) { renderPopularSearches(popularCache); return; }
 			if (!config.popularUrl) return;
-			fetch(config.popularUrl + '?limit=8', { headers: { 'X-WP-Nonce': config.nonce } })
+			fetch(config.popularUrl + '?limit=8', { headers: restHeaders() })
 				.then(function (r) { return r.json(); })
 				.then(function (data) {
 					popularCache = data.searches || [];
@@ -451,6 +467,21 @@
 			showState(suggestionsContainer);
 		}
 
+		// Hide a facet column whose list ended up empty (no stray headings
+		// like "Related Tags" / "Brands" over a blank column).
+		function toggleFacetColumn(list, selector) {
+			var col = list ? list.closest(selector) : null;
+			if (col) col.style.display = list.children.length ? '' : 'none';
+		}
+
+		// Facet entries sorted by count, without empty values.
+		function facetEntries(data) {
+			if (!data || typeof data !== 'object') return [];
+			return Object.entries(data)
+				.filter(function (e) { return e[0] !== '' && e[0] != null; })
+				.sort(function (a, b) { return b[1] - a[1]; });
+		}
+
 		/* ---- Falabella: Render columns ---- */
 
 		function renderFalabellaColumns(facets) {
@@ -468,16 +499,17 @@
 					if (headingEl) headingEl.textContent = facets.brand ? (config.i18n.relatedBrands || 'Related Brands') : (config.i18n.relatedTags || 'Related Tags');
 				}
 				if (brandData && typeof brandData === 'object') {
-					var entries = Object.entries(brandData).sort(function (a, b) { return b[1] - a[1]; });
+					var entries = facetEntries(brandData);
 					entries.slice(0, 10).forEach(function (entry) {
 						var li = document.createElement('li');
 						var a = document.createElement('a');
-						a.href = getSearchPageUrl(lastQuery + '&filter_' + brandFilterKey + '=' + encodeURIComponent(entry[0]));
+						a.href = getSearchPageUrl(lastQuery, 'filter_' + brandFilterKey + '=' + encodeURIComponent(decodeHtml(entry[0])));
 						a.textContent = decodeHtml(entry[0]);
 						li.appendChild(a);
 						falabellaBrandsList.appendChild(li);
 					});
 				}
+				toggleFacetColumn(falabellaBrandsList, '.wss-falabella-col');
 			}
 
 			// Categories column.
@@ -485,7 +517,7 @@
 				falabellaCategoriesList.innerHTML = '';
 				var cats = facets.categories;
 				if (cats && typeof cats === 'object') {
-					var catEntries = Object.entries(cats).sort(function (a, b) { return b[1] - a[1]; });
+					var catEntries = facetEntries(cats);
 					catEntries.slice(0, 10).forEach(function (entry) {
 						var li = document.createElement('li');
 						var a = document.createElement('a');
@@ -495,6 +527,7 @@
 						falabellaCategoriesList.appendChild(li);
 					});
 				}
+				toggleFacetColumn(falabellaCategoriesList, '.wss-falabella-col');
 			}
 		}
 
@@ -508,7 +541,7 @@
 				fullscreenCatList.innerHTML = '';
 				var cats = facets.categories;
 				if (cats && typeof cats === 'object') {
-					var catEntries = Object.entries(cats).sort(function (a, b) { return b[1] - a[1]; });
+					var catEntries = facetEntries(cats);
 					catEntries.slice(0, 8).forEach(function (entry) {
 						var catName = decodeHtml(entry[0]);
 						var count = entry[1];
@@ -516,11 +549,12 @@
 						var a = document.createElement('a');
 						a.href = getSearchPageUrl(query, 'filter_categories=' + encodeURIComponent(catName));
 						a.innerHTML = '<span class="wss-fullscreen-cat-name">' + escHtml(catName) + '</span>' +
-							'<span class="wss-fullscreen-cat-count">' + count + ' articles</span>';
+							'<span class="wss-fullscreen-cat-count">' + count + ' ' + escHtml((config.i18n && config.i18n.articles) || 'articles') + '</span>';
 						li.appendChild(a);
 						fullscreenCatList.appendChild(li);
 					});
 				}
+				toggleFacetColumn(fullscreenCatList, '.wss-fullscreen-col');
 			}
 
 			// Brands column.
@@ -528,16 +562,17 @@
 				fullscreenBrandsList.innerHTML = '';
 				var brands = facets.brand;
 				if (brands && typeof brands === 'object') {
-					var brandEntries = Object.entries(brands).sort(function (a, b) { return b[1] - a[1]; });
+					var brandEntries = facetEntries(brands);
 					brandEntries.slice(0, 8).forEach(function (entry) {
 						var li = document.createElement('li');
 						var a = document.createElement('a');
-						a.href = getSearchPageUrl(lastQuery + '&filter_brand=' + encodeURIComponent(entry[0]));
+						a.href = getSearchPageUrl(lastQuery, 'filter_brand=' + encodeURIComponent(decodeHtml(entry[0])));
 						a.textContent = decodeHtml(entry[0]);
 						li.appendChild(a);
 						fullscreenBrandsList.appendChild(li);
 					});
 				}
+				toggleFacetColumn(fullscreenBrandsList, '.wss-fullscreen-col');
 			}
 
 			// View all link.
@@ -591,9 +626,13 @@
 				fullscreenOverlay.removeEventListener('keydown', trapFullscreenFocus);
 				if (fullscreenInput) input.value = fullscreenInput.value;
 				// Restore focus to where the user was before opening the overlay.
+				// (Focus returns to the trigger input; its focus handler must not
+				// reopen the overlay, or Escape / the close button never close it.)
 				if (fullscreenPrevFocus && typeof fullscreenPrevFocus.focus === 'function') {
+					suppressFullscreenOpen = true;
 					fullscreenPrevFocus.focus();
 					fullscreenPrevFocus = null;
+					setTimeout(function () { suppressFullscreenOpen = false; }, 0);
 				}
 			}
 		}
@@ -612,13 +651,29 @@
 
 		/* ---- Search ---- */
 
+		function cancelSearch() {
+			searchSeq++;
+			if (activeController) {
+				activeController.abort();
+				hideLoading();
+			}
+			activeController = null;
+		}
+
 		function performSearch(query) {
 			// Enforce max query length.
 			if (query.length > 100) query = query.substring(0, 100);
 			lastQuery = query;
 
-			if (cache[query]) {
-				renderResults(cache[query], query);
+			// Results with and without facets differ: separate cache entries.
+			var cacheKey = (needsFacets ? 'f|' : '') + query;
+
+			cancelSearch();
+			var mySeq = searchSeq;
+
+			if (cache[cacheKey]) {
+				if (!isFullscreen) showDropdown();
+				renderResults(cache[cacheKey], query);
 				return;
 			}
 
@@ -627,8 +682,8 @@
 			}
 			showLoading();
 
-			if (activeController) activeController.abort();
 			activeController = new AbortController();
+			var signal = activeController.signal;
 
 			var limit = config.maxResults || 8;
 			var defaultFacets = config.isEcommerce || config.isMixed
@@ -645,7 +700,7 @@
 				var fallbackUrl = config.apiUrl + '?q=' + encodeURIComponent(q) + '&limit=' + lim + facetsParam;
 				return fetch(fallbackUrl, {
 					method: 'GET',
-					headers: { 'X-WP-Nonce': config.nonce },
+					headers: restHeaders(),
 					signal: sig
 				})
 				.then(function (response) {
@@ -656,27 +711,28 @@
 
 			if (useLocal) {
 				// Local engine: SHORTINIT endpoint (ultra-fast, no WP overhead).
-				searchPromise = localSearch(query, limit, facets, activeController.signal)
+				searchPromise = localSearch(query, limit, facets, signal)
 					.catch(function (err) {
 						if (err.name === 'AbortError') throw err;
 						console.warn('WSS: Local search failed, falling back to WP REST API', err.message);
-						return wpFallbackSearch(query, limit, activeController.signal);
+						return wpFallbackSearch(query, limit, signal);
 					});
 			} else if (useDirect) {
 				// Ultra-fast: direct Meilisearch POST, with automatic WP fallback on failure.
-				searchPromise = meiliSearch(query, limit, facets, activeController.signal)
+				searchPromise = meiliSearch(query, limit, facets, signal)
 					.catch(function (err) {
 						if (err.name === 'AbortError') throw err;
 						console.warn('WSS: Direct Meilisearch failed, falling back to WP REST API', err.message);
-						return wpFallbackSearch(query, limit, activeController.signal);
+						return wpFallbackSearch(query, limit, signal);
 					});
 			} else {
-				searchPromise = wpFallbackSearch(query, limit, activeController.signal);
+				searchPromise = wpFallbackSearch(query, limit, signal);
 			}
 
 			searchPromise
 				.then(function (data) {
-					cache[query] = data;
+					cache[cacheKey] = data;
+					if (mySeq !== searchSeq) return; // superseded by a newer search
 					prefetchImages(data.hits || []);
 					renderResults(data, query);
 					trackSearch(query, data.total || 0);
@@ -687,10 +743,11 @@
 					} catch (err) { /* ignore */ }
 				})
 				.catch(function (err) {
-					if (err.name === 'AbortError') return;
+					if (err.name === 'AbortError' || mySeq !== searchSeq) return;
 					showError();
 				})
 				.finally(function () {
+					if (mySeq !== searchSeq) return;
 					hideLoading();
 					if (!isFullscreen) hideSkeleton();
 				});
@@ -844,7 +901,7 @@
 
 		function createResultItem(hit, index, query) {
 			var a = document.createElement('a');
-			a.href = hit.permalink || '#';
+			a.href = /^(https?:)?\/\//i.test(hit.permalink || '') || String(hit.permalink || '').charAt(0) === '/' ? hit.permalink : '#';
 			a.className = 'wss-result-item';
 			a.setAttribute('role', 'option');
 			a.setAttribute('aria-selected', 'false');
@@ -971,7 +1028,7 @@
 			try {
 				fetch(config.trackClickUrl, {
 					method: 'POST',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': config.nonce },
+					headers: restHeaders({ 'Content-Type': 'application/json' }),
 					body: JSON.stringify({ query: query, product_id: productId }),
 					keepalive: true
 				});
@@ -1000,7 +1057,22 @@
 				wrapper.classList.add('wss-mobile-open');
 				document.body.classList.add('wss-body-locked');
 				if (backdrop) backdrop.classList.add('wss-visible');
+			} else {
+				keepDropdownInViewport();
 			}
+		}
+
+		// Desktop: a dropdown wider than its input (min-width / wide layouts)
+		// must not spill past the screen edge when the search sits at the
+		// right (or left) of the header — that caused horizontal scrolling.
+		function keepDropdownInViewport() {
+			dropdown.style.marginLeft = '';
+			var rect = dropdown.getBoundingClientRect();
+			var gutter = 12;
+			var shift = 0;
+			if (rect.right > window.innerWidth - gutter) shift = (window.innerWidth - gutter) - rect.right;
+			if (rect.left + shift < gutter) shift = gutter - rect.left;
+			if (shift) dropdown.style.marginLeft = Math.round(shift) + 'px';
 		}
 
 		function hideDropdown() {
@@ -1036,18 +1108,14 @@
 
 		function hideLoading() {
 			if (spinner) spinner.style.display = 'none';
-			var activeInput = isFullscreen ? fullscreenInput : input;
-			if (!activeInput.value.trim() && icon) icon.style.display = '';
+			// Always bring the magnifier back: hiding it while text was typed
+			// left an empty gap at the start of the input.
+			if (icon) icon.style.display = '';
 		}
 
 		function toggleClear(show) {
-			if (show) {
-				if (clearBtn) clearBtn.style.display = '';
-				if (icon) icon.style.display = 'none';
-			} else {
-				if (clearBtn) clearBtn.style.display = 'none';
-				if (icon) icon.style.display = '';
-			}
+			// The magnifier stays visible (the clear button has its own spot).
+			if (clearBtn) clearBtn.style.display = show ? '' : 'none';
 		}
 
 		function showState(el) { if (el) el.classList.add('wss-visible'); }
@@ -1125,10 +1193,11 @@
 		return url;
 	}
 
+	// Attribute-safe escaping (the textContent/innerHTML trick leaves quotes
+	// unescaped, which let names like `x" onload="…` break out of attributes).
+	var ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 	function escHtml(str) {
-		var div = document.createElement('div');
-		div.appendChild(document.createTextNode(str));
-		return div.innerHTML;
+		return String(str == null ? '' : str).replace(/[&<>"']/g, function (c) { return ESC_MAP[c]; });
 	}
 
 	function decodeHtml(str) {

@@ -210,7 +210,19 @@ class WSS_Product_Sync {
 	 * @param mixed  $meta_value Meta value.
 	 */
 	public function on_meta_change( $meta_id, $object_id, $meta_key, $meta_value ) {
-		if ( 'product' !== get_post_type( $object_id ) ) {
+		$post_type = get_post_type( $object_id );
+
+		// Variation price/stock lives in the parent's document.
+		if ( 'product_variation' === $post_type ) {
+			$parent_id = (int) wp_get_post_parent_id( $object_id );
+			if ( ! $parent_id ) {
+				return;
+			}
+			$object_id = $parent_id;
+			$post_type = 'product';
+		}
+
+		if ( 'product' !== $post_type ) {
 			return;
 		}
 
@@ -397,53 +409,85 @@ class WSS_Product_Sync {
 
 		$last_reindex = (int) get_option( 'wss_last_periodic_reindex', 0 );
 		$cutoff       = $last_reindex > 0 ? gmdate( 'Y-m-d H:i:s', $last_reindex ) : gmdate( 'Y-m-d H:i:s', time() - DAY_IN_SECONDS );
+		$batch_limit  = 2000;
+		$next_cutoff  = time();
 
-		// 1) Products whose post row was modified (covers title, status,
-		//    slug, description, and any plugin that calls wp_update_post).
-		$stale_ids = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		// 1) Products whose post row was modified (title, status, slug,
+		//    description, any plugin that calls wp_update_post). Any status:
+		//    a product moved to draft/private must leave the index too.
+		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts}
-				WHERE post_type = 'product' AND post_status = 'publish'
+				"SELECT ID, post_modified_gmt FROM {$wpdb->posts}
+				WHERE post_type = 'product' AND post_status NOT IN ('auto-draft','inherit')
 				AND post_modified_gmt > %s
 				ORDER BY post_modified_gmt ASC
-				LIMIT 500",
-				$cutoff
+				LIMIT %d",
+				$cutoff,
+				$batch_limit
 			)
 		);
+		$stale_ids = wp_list_pluck( (array) $rows, 'ID' );
+		// More changes than one batch: continue from the last one next run
+		// (moving the cutoff to "now" used to skip everything past the limit).
+		if ( count( $rows ) >= $batch_limit ) {
+			$last_row    = end( $rows );
+			$next_cutoff = max( 1, (int) strtotime( $last_row->post_modified_gmt . ' UTC' ) - 1 );
+		}
 
-		// 2) Products whose meta was changed (covers direct-DB price/stock
-		//    updates from ERPs, WP All Import, bulk-edit plugins, etc.).
-		//    WooCommerce stores a _last_stock_change timestamp on stock
-		//    updates and _price_last_change in some versions, but the most
-		//    reliable check is looking at the postmeta table directly for
-		//    any row modified after our cutoff by checking the meta_id
-		//    auto-increment (larger ID = newer row).
+		// 2) Products whose core meta rows were added since the last run
+		//    (API / ERP / bulk-edit writes through update_post_meta on new
+		//    rows). Variation meta maps to the parent product.
 		$last_meta_id = (int) get_option( 'wss_last_periodic_reindex_meta_id', 0 );
+		$max_meta_id  = (int) $wpdb->get_var( "SELECT MAX(meta_id) FROM {$wpdb->postmeta}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		if ( $last_meta_id > 0 ) {
-			$meta_stale_ids = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$meta_rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 				$wpdb->prepare(
-					"SELECT DISTINCT p.ID
+					"SELECT pm.meta_id, IF( p.post_type = 'product_variation', p.post_parent, p.ID ) AS pid
 					FROM {$wpdb->postmeta} pm
 					INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
-					WHERE p.post_type = 'product' AND p.post_status = 'publish'
-					AND pm.meta_id > %d
+					WHERE pm.meta_id > %d
+					AND p.post_type IN ('product','product_variation')
 					AND pm.meta_key IN ('_price','_regular_price','_sale_price','_stock','_stock_status','_sku','_sale_price_dates_from','_sale_price_dates_to')
 					ORDER BY pm.meta_id ASC
-					LIMIT 500",
-					$last_meta_id
+					LIMIT %d",
+					$last_meta_id,
+					$batch_limit
 				)
 			);
-
-			if ( ! empty( $meta_stale_ids ) ) {
-				$stale_ids = array_unique( array_merge( $stale_ids ?: array(), $meta_stale_ids ) );
+			if ( ! empty( $meta_rows ) ) {
+				$stale_ids = array_merge( $stale_ids, wp_list_pluck( $meta_rows, 'pid' ) );
+				if ( count( $meta_rows ) >= $batch_limit ) {
+					$last_meta    = end( $meta_rows );
+					$max_meta_id  = (int) $last_meta->meta_id; // Resume here next run.
+				}
 			}
 		}
-
-		// Store the current max meta_id for next run's comparison.
-		$current_max_meta_id = (int) $wpdb->get_var( "SELECT MAX(meta_id) FROM {$wpdb->postmeta}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-		if ( $current_max_meta_id > 0 ) {
-			update_option( 'wss_last_periodic_reindex_meta_id', $current_max_meta_id, false );
+		if ( $max_meta_id > 0 ) {
+			update_option( 'wss_last_periodic_reindex_meta_id', $max_meta_id, false );
 		}
+
+		// 3) Rolling refresh: raw SQL UPDATEs (some ERPs/importers) change
+		//    neither post_modified nor meta_id, so re-queue a slice of the
+		//    catalog on every run — the whole catalog is refreshed about
+		//    once a week.
+		$total_products = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'product' AND post_status = 'publish'" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		if ( $total_products > 0 ) {
+			$interval_min = max( 5, (int) wss_get_option( 'reindex_interval', 360 ) );
+			$runs_a_week  = max( 1, (int) floor( WEEK_IN_SECONDS / ( $interval_min * 60 ) ) );
+			$slice        = min( 2000, max( 100, (int) ceil( $total_products / $runs_a_week ) ) );
+			$cursor       = (int) get_option( 'wss_reindex_cursor', 0 );
+			$slice_ids    = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+				$wpdb->prepare(
+					"SELECT ID FROM {$wpdb->posts} WHERE post_type = 'product' AND post_status = 'publish' AND ID > %d ORDER BY ID ASC LIMIT %d",
+					$cursor,
+					$slice
+				)
+			);
+			$stale_ids = array_merge( $stale_ids, $slice_ids );
+			update_option( 'wss_reindex_cursor', count( $slice_ids ) < $slice ? 0 : (int) end( $slice_ids ), false );
+		}
+
+		$stale_ids = array_values( array_unique( array_filter( array_map( 'absint', $stale_ids ) ) ) );
 
 		if ( ! empty( $stale_ids ) ) {
 			foreach ( $stale_ids as $product_id ) {
@@ -460,7 +504,7 @@ class WSS_Product_Sync {
 			);
 		}
 
-		update_option( 'wss_last_periodic_reindex', time(), false );
+		update_option( 'wss_last_periodic_reindex', $next_cutoff, false );
 
 		// Prune orphaned index entries, but at most once every 6 hours to
 		// avoid the full index scan on every short reindex interval.
@@ -618,14 +662,64 @@ class WSS_Product_Sync {
 	 * @param array $batch_args Batch arguments containing 'page'.
 	 */
 	public function process_bulk_sync_batch( $batch_args, $schedule_next = true ) {
+		$page = isset( $batch_args['page'] ) ? (int) $batch_args['page'] : 1;
+
+		// One batch at a time across processes (browser pump + Action Scheduler).
+		if ( ! wss_acquire_lock( 'sync_batch' ) ) {
+			if ( $schedule_next && function_exists( 'as_schedule_single_action' ) ) {
+				// Retry later; it is skipped if the page was handled meanwhile.
+				as_schedule_single_action( time() + 15, 'wss_bulk_sync_batch', array( array( 'page' => $page ) ), 'woo-smart-search' );
+			}
+			return;
+		}
+
+		$result = $this->run_bulk_sync_batch( $page, $schedule_next );
+
+		wss_release_lock( 'sync_batch' );
+
+		// Schedule next batch (chain pattern). Skipped when a caller (the
+		// browser-driven Full Sync) drives the batches itself.
+		if ( 'processed' === $result && $schedule_next ) {
+			$next_args = array( 'page' => $page + 1 );
+
+			if ( function_exists( 'as_schedule_single_action' ) ) {
+				as_schedule_single_action( time() + 5, 'wss_bulk_sync_batch', array( $next_args ), 'woo-smart-search' );
+			} else {
+				// Fallback: process next batch immediately.
+				$this->process_bulk_sync_batch( $next_args );
+			}
+		}
+	}
+
+	/**
+	 * Process one page of the full sync. Caller must hold the sync lock.
+	 *
+	 * @param int  $page          Page number (1-based).
+	 * @param bool $schedule_next Whether Action Scheduler drives the chain.
+	 * @return string 'processed', 'done', 'skipped' or 'failed'.
+	 */
+	private function run_bulk_sync_batch( $page, $schedule_next ) {
+		$progress = wss_get_sync_progress();
+
+		// Skip stale or duplicate jobs: sync not running, not the products phase
+		// of a mixed sync, or this page was already processed by another worker.
+		if ( empty( $progress ) || 'running' !== ( $progress['status'] ?? '' ) ) {
+			return 'skipped';
+		}
+		if ( ! empty( $progress['mixed'] ) && 'products' !== ( $progress['phase'] ?? 'products' ) ) {
+			return 'skipped';
+		}
+		if ( $page <= (int) ( $progress['current'] ?? 0 ) ) {
+			return 'skipped';
+		}
+
 		$engine = wss_get_engine();
 
 		if ( ! $engine ) {
 			self::mark_sync_failed( __( 'Search engine not available during batch processing.', 'woo-smart-search' ) );
-			return;
+			return 'failed';
 		}
 
-		$page       = isset( $batch_args['page'] ) ? (int) $batch_args['page'] : 1;
 		$batch_size = (int) wss_get_option( 'batch_size', 100 );
 		$index_name = wss_get_option( 'index_name', 'woo_products' );
 
@@ -639,14 +733,18 @@ class WSS_Product_Sync {
 
 		if ( empty( $product_ids ) ) {
 			// No more products; mark sync as completed.
-			self::complete_sync();
-			return;
+			self::complete_sync( $schedule_next );
+			return 'done';
 		}
 
 		$documents = array();
 		$errors    = 0;
 
-		$index_hidden = ( 'yes' === wss_get_option( 'index_hidden', 'no' ) );
+		// Load posts, meta and terms for the whole page in a few queries
+		// instead of several per product (N+1).
+		if ( function_exists( '_prime_post_caches' ) ) {
+			_prime_post_caches( array_map( 'absint', $product_ids ), true, true );
+		}
 
 		foreach ( $product_ids as $product_id ) {
 			$product = wc_get_product( $product_id );
@@ -656,8 +754,9 @@ class WSS_Product_Sync {
 				continue;
 			}
 
-			// Skip hidden products unless "Index Hidden" is checked.
-			if ( ! $index_hidden && 'hidden' === $product->get_catalog_visibility() ) {
+			// Same rules as incremental sync (hidden / shop-only visibility,
+			// password-protected, excluded categories, stock).
+			if ( ! $this->should_index_product( $product ) ) {
 				continue;
 			}
 
@@ -701,7 +800,7 @@ class WSS_Product_Sync {
 		// Update progress + circuit breaker: abort after 3 consecutive failed
 		// batches instead of queueing hundreds of doomed jobs while the engine
 		// is down.
-		$progress = get_option( 'wss_sync_progress', array() );
+		$progress = wss_get_sync_progress();
 
 		if ( ! empty( $progress ) ) {
 			$progress['processed']            += count( $product_ids );
@@ -717,38 +816,32 @@ class WSS_Product_Sync {
 				$progress['status'] = 'failed';
 				update_option( 'wss_sync_progress', $progress, false );
 				wss_log( __( 'Bulk sync aborted: 3 consecutive batch failures (engine unavailable?).', 'woo-smart-search' ), 'error' );
-				return;
+				return 'failed';
 			}
 		}
 
-		// Schedule next batch (chain pattern). Skipped when a caller (the
-		// browser-driven Full Sync) drives the batches itself, so Action
-		// Scheduler and the browser do not process the same pages.
-		if ( $schedule_next ) {
-			$next_page = $page + 1;
-			$next_args = array( 'page' => $next_page );
-
-			if ( function_exists( 'as_schedule_single_action' ) ) {
-				as_schedule_single_action(
-					time() + 5,
-					'wss_bulk_sync_batch',
-					array( $next_args ),
-					'woo-smart-search'
-				);
-			} else {
-				// Fallback: process next batch immediately.
-				$this->process_bulk_sync_batch( $next_args );
-			}
-		}
+		return 'processed';
 	}
 
 	/**
 	 * Mark sync as completed and fire completion hooks.
 	 */
-	private static function complete_sync() {
-		$progress = get_option( 'wss_sync_progress', array() );
+	private static function complete_sync( $schedule_next = true ) {
+		$progress = wss_get_sync_progress();
 
 		if ( empty( $progress ) ) {
+			return;
+		}
+
+		// Mixed mode runs products first, then content: hand over to posts.
+		if ( ! empty( $progress['mixed'] ) && 'products' === ( $progress['phase'] ?? 'products' ) ) {
+			$progress['phase']   = 'posts';
+			$progress['current'] = 0;
+			update_option( 'wss_sync_progress', $progress, false );
+
+			if ( $schedule_next && function_exists( 'as_schedule_single_action' ) ) {
+				as_schedule_single_action( time(), 'wss_bulk_post_sync_batch', array( array( 'page' => 1 ) ), 'woo-smart-search' );
+			}
 			return;
 		}
 
@@ -775,7 +868,7 @@ class WSS_Product_Sync {
 			$progress['errors'] > 0 ? 'warning' : 'info'
 		);
 
-		wss_update_option( 'last_sync', time() );
+		wss_touch_last_sync();
 	}
 
 	/**
@@ -810,10 +903,7 @@ class WSS_Product_Sync {
 		$valid_ids = array();
 
 		if ( $is_ecommerce || $is_mixed ) {
-			$product_ids = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-				"SELECT ID FROM {$wpdb->posts} WHERE post_type = 'product' AND post_status = 'publish'" // phpcs:ignore WordPress.DB.PreparedSQL
-			);
-			$valid_ids = array_merge( $valid_ids, array_map( 'intval', $product_ids ) );
+			$valid_ids = array_merge( $valid_ids, self::get_indexable_product_ids() );
 		}
 
 		if ( ! $is_ecommerce || $is_mixed ) {
@@ -822,7 +912,7 @@ class WSS_Product_Sync {
 				$placeholders = implode( ',', array_fill( 0, count( $post_types ), '%s' ) );
 				$post_ids     = $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 					$wpdb->prepare(
-						"SELECT ID FROM {$wpdb->posts} WHERE post_type IN ({$placeholders}) AND post_status = 'publish'", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						"SELECT ID FROM {$wpdb->posts} WHERE post_type IN ({$placeholders}) AND post_status = 'publish' AND post_password = ''", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 						...$post_types
 					)
 				);
@@ -850,6 +940,53 @@ class WSS_Product_Sync {
 		}
 
 		return count( $orphans );
+	}
+
+	/**
+	 * IDs of all products that pass the indexing rules (published, no
+	 * password, stock / visibility / excluded-category settings), computed in
+	 * SQL so pruning removes products that no longer qualify after a settings
+	 * change — not only deleted/unpublished ones.
+	 *
+	 * @return int[]
+	 */
+	private static function get_indexable_product_ids(): array {
+		global $wpdb;
+
+		$where = array( "p.post_type = 'product'", "p.post_status = 'publish'", "p.post_password = ''" );
+		$args  = array();
+
+		if ( 'yes' !== wss_get_option( 'index_out_of_stock', 'yes' ) ) {
+			$where[] = "EXISTS ( SELECT 1 FROM {$wpdb->postmeta} sm WHERE sm.post_id = p.ID AND sm.meta_key = '_stock_status' AND sm.meta_value = 'instock' )";
+		}
+
+		$excluded_tt = array();
+		if ( 'yes' !== wss_get_option( 'index_hidden', 'no' ) ) {
+			$term = get_term_by( 'slug', 'exclude-from-search', 'product_visibility' );
+			if ( $term ) {
+				$excluded_tt[] = (int) $term->term_taxonomy_id;
+			}
+		}
+		$exclude_cats = wss_get_option( 'exclude_categories', array() );
+		if ( ! empty( $exclude_cats ) && is_array( $exclude_cats ) ) {
+			foreach ( array_map( 'absint', $exclude_cats ) as $cat_id ) {
+				$term = get_term( $cat_id, 'product_cat' );
+				if ( $term && ! is_wp_error( $term ) ) {
+					$excluded_tt[] = (int) $term->term_taxonomy_id;
+				}
+			}
+		}
+		if ( ! empty( $excluded_tt ) ) {
+			$where[] = 'NOT EXISTS ( SELECT 1 FROM ' . $wpdb->term_relationships . ' tr WHERE tr.object_id = p.ID AND tr.term_taxonomy_id IN (' . implode( ',', array_fill( 0, count( $excluded_tt ), '%d' ) ) . ') )';
+			$args    = array_merge( $args, $excluded_tt );
+		}
+
+		$sql = "SELECT p.ID FROM {$wpdb->posts} p WHERE " . implode( ' AND ', $where );
+		if ( $args ) {
+			$sql = $wpdb->prepare( $sql, $args ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		}
+
+		return array_map( 'intval', (array) $wpdb->get_col( $sql ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
 	}
 
 	/**
@@ -1162,6 +1299,13 @@ class WSS_Product_Sync {
 			return;
 		}
 
+		// While the engine is unreachable this would otherwise retry (two HTTP
+		// calls) on every admin page load, including heartbeat requests.
+		if ( get_transient( 'wss_fa_retry' ) ) {
+			return;
+		}
+		set_transient( 'wss_fa_retry', 1, 15 * MINUTE_IN_SECONDS );
+
 		if ( self::update_filterable_attributes() ) {
 			update_option( $version_key, WSS_VERSION, true );
 		}
@@ -1250,8 +1394,14 @@ class WSS_Product_Sync {
 			return false;
 		}
 
-		// Respect "index hidden".
-		if ( 'yes' !== wss_get_option( 'index_hidden', 'no' ) && 'hidden' === $product->get_catalog_visibility() ) {
+		// Password-protected products: their content must not be searchable.
+		if ( '' !== (string) get_post_field( 'post_password', $product->get_id() ) ) {
+			return false;
+		}
+
+		// Respect "index hidden". "Shop only" (catalog) products are also
+		// excluded from search by WooCommerce itself.
+		if ( 'yes' !== wss_get_option( 'index_hidden', 'no' ) && in_array( $product->get_catalog_visibility(), array( 'hidden', 'catalog' ), true ) ) {
 			return false;
 		}
 

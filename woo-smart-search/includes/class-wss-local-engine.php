@@ -61,9 +61,36 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	private $memory_cache = array();
 
 	/**
+	 * Search cache generation (see invalidate_cache()).
+	 *
+	 * @var int|null
+	 */
+	private $cache_gen = null;
+
+	/**
 	 * Default cache TTL in seconds (5 minutes).
 	 */
 	const CACHE_TTL = 300;
+
+	/**
+	 * Document fields stripped from search hits (used for matching/filtering
+	 * only, never rendered by the widget or the results page).
+	 */
+	const PRIVATE_FIELDS = array(
+		'search_codes',
+		'full_description',
+		'stock_quantity',
+		'custom_fields',
+		'attributes_text',
+		'variations_text',
+		'variation_skus',
+		'all_skus',
+		'visibility',
+		'menu_order',
+		'weight',
+		'dimensions',
+		'gallery',
+	);
 
 	/**
 	 * Get the singleton instance.
@@ -339,24 +366,38 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 			}
 
 			// Build inverted index from searchable fields.
-			$all_tokens = array();
+			// Name and SKU matches weigh more than description/category matches.
+			$field_weights = array(
+				'name'     => 3,
+				'sku'      => 3,
+				'all_skus' => 2,
+			);
+			$all_tokens    = array();
 			foreach ( $searchable as $field ) {
 				$value = $this->extract_field_value( $doc, $field );
 				if ( empty( $value ) ) {
 					continue;
 				}
+				$weight = $field_weights[ $field ] ?? 1;
 				$tokens = $this->tokenize( $value );
 				foreach ( $tokens as $token ) {
 					if ( ! isset( $all_tokens[ $token ] ) ) {
 						$all_tokens[ $token ] = 0;
 					}
-					++$all_tokens[ $token ];
+					$all_tokens[ $token ] += $weight;
 				}
 			}
 
-			// Also index all string/array values for facet filtering.
+			// Also index the human-readable filterable values (categories,
+			// brands, attributes…) as searchable words. Machine values are
+			// skipped: filters read the document JSON, and words like "simple"
+			// or "instock" matched every product of that type/status.
 			$filterable = isset( $settings['filterableAttributes'] ) ? $settings['filterableAttributes'] : array();
+			$machine    = array( 'type', 'stock_status', 'content_source', 'post_type', 'on_sale', 'featured', 'visibility', 'rating', 'price', 'price_min', 'price_max', 'category_ids', 'category_slugs', 'date_created', 'date_modified', 'id' );
 			foreach ( $filterable as $field ) {
+				if ( in_array( $field, $machine, true ) ) {
+					continue;
+				}
 				$value = $this->extract_field_value( $doc, $field );
 				if ( ! empty( $value ) ) {
 					$tokens = $this->tokenize( $value );
@@ -381,7 +422,10 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 					}
 				}
 			}
-			$all_tokens = array_merge( $all_tokens, $synonym_tokens );
+			// '+' keeps numeric-string keys ("551", "0065"); array_merge() renumbered
+			// them to 0, 1, 2…, so purely numeric terms (SKU fragments) were never
+			// indexed under their real value.
+			$all_tokens = $all_tokens + $synonym_tokens;
 
 			if ( empty( $all_tokens ) ) {
 				continue;
@@ -390,39 +434,29 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 			// Total tokens for TF calculation.
 			$total_tokens = array_sum( $all_tokens );
 
-			// Insert terms and postings.
-			foreach ( $all_tokens as $token => $count ) {
-				$tf = $count / max( $total_tokens, 1 );
+			// Insert terms and postings in bulk (one lookup + one multi-row
+			// insert per document instead of 2-3 queries per term).
+			$term_ids = $this->get_term_ids( array_map( 'strval', array_keys( $all_tokens ) ) );
+			$rows     = array();
+			$values   = array();
 
-				// Get or create term.
-				$term_id = $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			foreach ( $all_tokens as $token => $count ) {
+				$token = (string) $token;
+				if ( empty( $term_ids[ $token ] ) ) {
+					continue;
+				}
+				$rows[] = '(%s, %d, %d, %f)';
+				array_push( $values, $index_name, (int) $term_ids[ $token ], $doc_id, $count / max( $total_tokens, 1 ) );
+			}
+
+			foreach ( array_chunk( $rows, 500 ) as $i => $chunk ) {
+				$chunk_values = array_slice( $values, $i * 500 * 4, count( $chunk ) * 4 );
+				$wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 					$wpdb->prepare(
-						"SELECT id FROM {$terms_table} WHERE term = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-						$token
+						"INSERT INTO {$postings_table} (index_name, term_id, doc_id, tf) VALUES " . implode( ',', $chunk ), // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+						$chunk_values
 					)
 				);
-
-				if ( ! $term_id ) {
-					$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-						$terms_table,
-						array( 'term' => $token ),
-						array( '%s' )
-					);
-					$term_id = $wpdb->insert_id;
-				}
-
-				if ( $term_id ) {
-					$wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-						$postings_table,
-						array(
-							'index_name' => $index_name,
-							'term_id'    => $term_id,
-							'doc_id'     => $doc_id,
-							'tf'         => $tf,
-						),
-						array( '%s', '%d', '%d', '%f' )
-					);
-				}
 			}
 
 			++$indexed;
@@ -432,6 +466,123 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 			'success' => true,
 			'indexed' => $indexed,
 		);
+	}
+
+	/**
+	 * Sort document IDs by a document field ("price:asc", "name:desc", …).
+	 *
+	 * Relevance order is kept for ties (stable), and documents missing the
+	 * field go last.
+	 *
+	 * @param string $index_name Index name.
+	 * @param array  $ids        Document IDs in relevance order.
+	 * @param array  $sort       Sort rules; the first valid one is applied.
+	 * @return array
+	 */
+	private function sort_ids( string $index_name, array $ids, array $sort ): array {
+		global $wpdb;
+
+		$rule = (string) reset( $sort );
+		if ( ! preg_match( '/^([a-zA-Z_][a-zA-Z0-9_]*):(asc|desc)$/i', $rule, $m ) ) {
+			return $ids;
+		}
+		$field = $m[1];
+		$desc  = 'desc' === strtolower( $m[2] );
+
+		$values = array();
+		$table  = $wpdb->prefix . 'wss_index_documents';
+		foreach ( array_chunk( $ids, 500 ) as $chunk ) {
+			$placeholders = implode( ',', array_fill( 0, count( $chunk ), '%d' ) );
+			$rows         = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+				$wpdb->prepare(
+					"SELECT doc_id, doc_data FROM {$table} WHERE index_name = %s AND doc_id IN ({$placeholders})", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					array_merge( array( $index_name ), $chunk )
+				)
+			);
+			foreach ( (array) $rows as $row ) {
+				$doc = json_decode( $row->doc_data, true );
+				if ( is_array( $doc ) && isset( $doc[ $field ] ) && '' !== $doc[ $field ] && ! is_array( $doc[ $field ] ) ) {
+					$values[ (int) $row->doc_id ] = $doc[ $field ];
+				}
+			}
+		}
+
+		$rank = array_flip( array_values( $ids ) );
+		usort(
+			$ids,
+			function ( $a, $b ) use ( $values, $desc, $rank ) {
+				$has_a = isset( $values[ $a ] );
+				$has_b = isset( $values[ $b ] );
+				if ( $has_a !== $has_b ) {
+					return $has_a ? -1 : 1;
+				}
+				if ( $has_a ) {
+					$va  = $values[ $a ];
+					$vb  = $values[ $b ];
+					$cmp = ( is_numeric( $va ) && is_numeric( $vb ) )
+						? ( (float) $va <=> (float) $vb )
+						: strcmp( remove_accents( mb_strtolower( (string) $va ) ), remove_accents( mb_strtolower( (string) $vb ) ) );
+					if ( 0 !== $cmp ) {
+						return $desc ? -$cmp : $cmp;
+					}
+				}
+				return $rank[ $a ] <=> $rank[ $b ];
+			}
+		);
+
+		return $ids;
+	}
+
+	/**
+	 * Resolve term IDs for a list of terms, creating the missing ones.
+	 *
+	 * @param string[] $terms Folded terms.
+	 * @return array term => id
+	 */
+	private function get_term_ids( array $terms ): array {
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'wss_index_terms';
+		$terms = array_values( array_unique( array_filter( $terms, 'strlen' ) ) );
+		$map   = array();
+
+		foreach ( array_chunk( $terms, 200 ) as $chunk ) {
+			$placeholders = implode( ',', array_fill( 0, count( $chunk ), '%s' ) );
+			$lookup       = function () use ( $wpdb, $table, $placeholders, $chunk, &$map ) {
+				$found = $wpdb->get_results( $wpdb->prepare( "SELECT id, term FROM {$table} WHERE term IN ({$placeholders})", $chunk ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				foreach ( (array) $found as $row ) {
+					$map[ (string) $row->term ] = (int) $row->id;
+				}
+			};
+
+			$lookup();
+
+			$missing = array();
+			foreach ( $chunk as $term ) {
+				if ( ! isset( $map[ $term ] ) ) {
+					$missing[] = $term;
+				}
+			}
+			if ( empty( $missing ) ) {
+				continue;
+			}
+
+			// INSERT IGNORE: concurrent indexers may create the same term.
+			$wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$table} (term) VALUES " . implode( ',', array_fill( 0, count( $missing ), '(%s)' ) ), $missing ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$lookup();
+
+			// Collation-equivalent spellings map to an existing row: resolve one by one.
+			foreach ( $missing as $term ) {
+				if ( ! isset( $map[ $term ] ) ) {
+					$id = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table} WHERE term = %s", $term ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					if ( $id ) {
+						$map[ $term ] = (int) $id;
+					}
+				}
+			}
+		}
+
+		return $map;
 	}
 
 	/**
@@ -538,33 +689,30 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 		// Tokenize the query.
 		$query_tokens = $this->tokenize( $query );
 
-		// Expand query with synonyms.
-		$expanded_tokens = $query_tokens;
-		foreach ( $query_tokens as $token ) {
+		// Group the query: each original word plus its synonyms and collapsed
+		// code form. Documents matching more groups (words) rank first.
+		$token_groups = array();
+		foreach ( array_values( array_unique( $query_tokens ) ) as $gi => $token ) {
+			$group = array( $token );
 			if ( isset( $this->synonyms[ $token ] ) ) {
 				foreach ( $this->synonyms[ $token ] as $syn ) {
-					$expanded_tokens[] = $this->fold_term( $syn );
+					$group[] = $this->fold_term( $syn );
 				}
 			}
-		}
-
-		// Code fragments: also try a collapsed (alphanumeric-only) form of any
-		// token that carries a separator or a digit. SKUs are indexed in
-		// search_codes in collapsed form ("abc1234"), so a fragment typed with
-		// its separator ("abc-12", "00-123") would otherwise never match. The
-		// hyphen is the only separator the tokenizer keeps inside a word.
-		foreach ( $query_tokens as $token ) {
+			// Code fragments: also try a collapsed (alphanumeric-only) form of any
+			// token that carries a separator or a digit. SKUs are indexed in
+			// search_codes in collapsed form ("abc1234"), so a fragment typed with
+			// its separator ("abc-12", "00-123") would otherwise never match.
 			if ( preg_match( '/[^a-z0-9]/', $token ) || preg_match( '/\d/', $token ) ) {
 				$collapsed = preg_replace( '/[^a-z0-9]+/', '', $token );
 				if ( '' !== $collapsed && $collapsed !== $token && mb_strlen( $collapsed ) >= 3 ) {
-					$expanded_tokens[] = $collapsed;
+					$group[] = $collapsed;
 				}
 			}
+			$token_groups[ $gi ] = array_values( array_unique( array_filter( $group, 'strlen' ) ) );
 		}
 
-		$expanded_tokens = array_unique( $expanded_tokens );
-
-		if ( empty( $expanded_tokens ) ) {
+		if ( empty( $token_groups ) ) {
 			return $this->empty_result( $query );
 		}
 
@@ -580,23 +728,8 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 			return $this->empty_result( $query );
 		}
 
-		// Find matching term IDs — use LIKE for prefix matching (basic typo tolerance).
-		$term_conditions = array();
-		$term_params     = array();
-		foreach ( $expanded_tokens as $token ) {
-			$term_conditions[] = 't.term = %s';
-			$term_params[]     = $token;
-			// Prefix match for partial typing.
-			if ( mb_strlen( $token ) >= 3 ) {
-				$term_conditions[] = 't.term LIKE %s';
-				$term_params[]     = $wpdb->esc_like( $token ) . '%';
-			}
-		}
-
-		$term_where = implode( ' OR ', $term_conditions );
-
-		// Calculate TF-IDF scores for the exact/prefix matches.
-		$all_scored = $this->score_documents( $index_name, $total_docs, $term_where, $term_params );
+		// Exact + prefix matches (prefix = basic typo tolerance while typing).
+		$all_scored = $this->score_documents( $index_name, $total_docs, $token_groups, true );
 
 		// Typo tolerance (local engine): if the exact/prefix pass found nothing,
 		// fall back to fuzzy matching (Levenshtein) so small misspellings still
@@ -604,20 +737,15 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 		// otherwise zero-result queries, so correctly spelled searches pay no
 		// extra cost.
 		if ( empty( $all_scored ) && $this->fuzzy_enabled ) {
-			$fuzzy_terms = $this->find_fuzzy_terms( $expanded_tokens );
-			if ( ! empty( $fuzzy_terms ) ) {
-				$fuzzy_conditions = array();
-				$fuzzy_params     = array();
-				foreach ( $fuzzy_terms as $ft ) {
-					$fuzzy_conditions[] = 't.term = %s';
-					$fuzzy_params[]     = $ft;
+			$fuzzy_groups = array();
+			foreach ( $token_groups as $gi => $group ) {
+				$fuzzy = $this->find_fuzzy_terms( $group );
+				if ( ! empty( $fuzzy ) ) {
+					$fuzzy_groups[ $gi ] = $fuzzy;
 				}
-				$all_scored = $this->score_documents(
-					$index_name,
-					$total_docs,
-					implode( ' OR ', $fuzzy_conditions ),
-					$fuzzy_params
-				);
+			}
+			if ( ! empty( $fuzzy_groups ) ) {
+				$all_scored = $this->score_documents( $index_name, $total_docs, $fuzzy_groups, false );
 			}
 		}
 
@@ -651,6 +779,11 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 			$scored_ids = wp_list_pluck( $all_scored, 'doc_id' );
 		}
 
+		// Explicit sort (results page "Sort by"): relevance order is the default.
+		if ( ! empty( $options['sort'] ) && count( $scored_ids ) > 1 ) {
+			$scored_ids = $this->sort_ids( $index_name, $scored_ids, (array) $options['sort'] );
+		}
+
 		$total_hits = count( $scored_ids );
 
 		// Apply offset/limit.
@@ -681,8 +814,12 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 			if ( isset( $doc_map[ $did ] ) ) {
 				$hit = $doc_map[ $did ];
 
-				// Internal search-only field — never needs to reach the client.
-				unset( $hit['search_codes'] );
+				// Internal / indexing-only fields never reach the (public) client:
+				// stock quantities, custom field values and long texts were all
+				// exposed through the search endpoint.
+				foreach ( self::PRIVATE_FIELDS as $private_field ) {
+					unset( $hit[ $private_field ] );
+				}
 
 				// Add highlighting.
 				$hit['_formatted'] = array();
@@ -699,7 +836,9 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 		// Calculate facets if requested.
 		$facet_distribution = array();
 		if ( ! empty( $options['facets'] ) ) {
-			$facet_distribution = $this->calculate_facets( $index_name, $scored_ids, (array) $options['facets'] );
+			// Facet counts come from the most relevant 3000 matches: exact for
+			// normal result sets, approximate (but fast) for very broad queries.
+			$facet_distribution = $this->calculate_facets( $index_name, array_slice( $scored_ids, 0, 3000 ), (array) $options['facets'] );
 		}
 
 		$elapsed = ( microtime( true ) - $start_time ) * 1000;
@@ -766,49 +905,131 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	// ---- Internal helpers ----
 
 	/**
-	 * Run the TF-IDF scoring query for a set of term-match conditions.
+	 * Score documents with TF-IDF for groups of query tokens.
 	 *
-	 * Extracted so it can be reused for both the primary (exact/prefix) pass
-	 * and the fuzzy fallback pass.
+	 * Only the postings of the matching terms are read (the IDF used to be
+	 * computed over the whole postings table on every uncached search). Ranking:
+	 * documents matching more query words come first (like Meilisearch's
+	 * "words" rule), then by TF-IDF, with prefix matches weighted below exact.
 	 *
-	 * @param string $index_name  Index name.
-	 * @param int    $total_docs  Total documents (for IDF).
-	 * @param string $term_where  OR-joined term conditions (with placeholders).
-	 * @param array  $term_params Params bound to the term conditions.
+	 * @param string $index_name   Index name.
+	 * @param int    $total_docs   Total documents (for IDF).
+	 * @param array  $token_groups group index => folded tokens (word + synonyms).
+	 * @param bool   $allow_prefix Also match terms starting with a token (3+ chars).
 	 * @return array Scored rows (doc_id, score) ordered by score DESC.
 	 */
-	private function score_documents( string $index_name, int $total_docs, string $term_where, array $term_params ): array {
+	private function score_documents( string $index_name, int $total_docs, array $token_groups, bool $allow_prefix ): array {
 		global $wpdb;
-
-		if ( '' === $term_where || empty( $term_params ) ) {
-			return array();
-		}
 
 		$terms_table    = $wpdb->prefix . 'wss_index_terms';
 		$postings_table = $wpdb->prefix . 'wss_index_postings';
 
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
-		$sql = $wpdb->prepare(
-			"SELECT p.doc_id,
-				SUM( p.tf * LOG( ( %d + 1 ) / ( term_doc_count.cnt + 1 ) ) ) AS score
-			FROM {$postings_table} p
-			INNER JOIN {$terms_table} t ON t.id = p.term_id
-			INNER JOIN (
-				SELECT term_id, COUNT( DISTINCT doc_id ) AS cnt
-				FROM {$postings_table}
-				WHERE index_name = %s
-				GROUP BY term_id
-			) AS term_doc_count ON term_doc_count.term_id = p.term_id
-			WHERE p.index_name = %s AND ( {$term_where} )
-			GROUP BY p.doc_id
-			ORDER BY score DESC",
-			array_merge( array( $total_docs, $index_name, $index_name ), $term_params )
-		);
+		$conditions = array();
+		$params     = array();
+		$last_group = array_key_last( $token_groups );
+		foreach ( $token_groups as $gi => $group ) {
+			// The word being typed (last one) completes from 2 letters, like
+			// Meilisearch; earlier words need 3 to keep the term scan small.
+			$min_prefix = ( $gi === $last_group ) ? 2 : 3;
+			foreach ( $group as $token ) {
+				$conditions[] = 'term = %s';
+				$params[]     = $token;
+				if ( $allow_prefix && mb_strlen( $token ) >= $min_prefix ) {
+					$conditions[] = 'term LIKE %s';
+					$params[]     = $wpdb->esc_like( $token ) . '%';
+				}
+			}
+		}
+		if ( empty( $conditions ) ) {
+			return array();
+		}
 
-		$result = $wpdb->get_results( $sql );
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared
+		$terms = $wpdb->get_results(
+			$wpdb->prepare( "SELECT id, term FROM {$terms_table} WHERE " . implode( ' OR ', $conditions ) . ' LIMIT 3000', $params )
+		);
+		if ( empty( $terms ) ) {
+			return array();
+		}
+
+		// Which groups each term matches, and how strongly (exact 1.0, prefix 0.6).
+		$term_match = array();
+		foreach ( $terms as $row ) {
+			$term = (string) $row->term;
+			foreach ( $token_groups as $gi => $group ) {
+				foreach ( $group as $token ) {
+					$token = (string) $token;
+					if ( $term === $token ) {
+						$weight = 1.0;
+					} elseif ( $allow_prefix && 0 === strpos( $term, $token ) ) {
+						$weight = 0.6;
+					} else {
+						continue;
+					}
+					if ( $weight > ( $term_match[ (int) $row->id ][ $gi ] ?? 0 ) ) {
+						$term_match[ (int) $row->id ][ $gi ] = $weight;
+					}
+				}
+			}
+		}
+
+		$term_ids     = array_keys( $term_match );
+		$placeholders = implode( ',', array_fill( 0, count( $term_ids ), '%d' ) );
+
+		// Document frequency of the matching terms only.
+		$df_rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT term_id, COUNT(*) AS cnt FROM {$postings_table} WHERE index_name = %s AND term_id IN ({$placeholders}) GROUP BY term_id",
+				array_merge( array( $index_name ), $term_ids )
+			)
+		);
+		$idf = array();
+		foreach ( (array) $df_rows as $row ) {
+			$idf[ (int) $row->term_id ] = log( ( $total_docs + 1 ) / ( (int) $row->cnt + 1 ) ) + 0.1;
+		}
+
+		$postings = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT doc_id, term_id, tf FROM {$postings_table} WHERE index_name = %s AND term_id IN ({$placeholders})",
+				array_merge( array( $index_name ), $term_ids )
+			)
+		);
 		// phpcs:enable
 
-		return is_array( $result ) ? $result : array();
+		$scores   = array();
+		$coverage = array();
+		foreach ( (array) $postings as $row ) {
+			$tid = (int) $row->term_id;
+			$did = (int) $row->doc_id;
+			foreach ( $term_match[ $tid ] as $gi => $weight ) {
+				if ( $weight <= 0 ) {
+					continue;
+				}
+				$value = (float) $row->tf * ( $idf[ $tid ] ?? 0.1 ) * $weight;
+				// Per word keep the best-matching term, so many prefix variants
+				// of one word don't outweigh an exact match.
+				if ( $value > ( $coverage[ $did ][ $gi ] ?? 0 ) ) {
+					$coverage[ $did ][ $gi ] = $value;
+				}
+			}
+		}
+
+		foreach ( $coverage as $did => $groups ) {
+			// Matched words dominate; TF-IDF orders documents within that.
+			$scores[ $did ] = count( $groups ) * 1000 + array_sum( $groups );
+		}
+
+		arsort( $scores );
+
+		$result = array();
+		foreach ( $scores as $did => $score ) {
+			$result[] = (object) array(
+				'doc_id' => $did,
+				'score'  => $score,
+			);
+		}
+
+		return $result;
 	}
 
 	/**
@@ -994,10 +1215,14 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 			)
 		);
 
+		// Parse once, evaluate per document (it used to be re-parsed by regex
+		// for every candidate document).
+		$parsed = $this->parse_filter( $filter_str );
+
 		$result = array();
 		foreach ( $rows as $row ) {
 			$doc = json_decode( $row->doc_data, true );
-			if ( $this->evaluate_filter( $doc, $filter_str ) ) {
+			if ( is_array( $doc ) && $this->evaluate_parsed_filter( $doc, $parsed ) ) {
 				$result[] = (int) $row->doc_id;
 			}
 		}
@@ -1006,40 +1231,146 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	}
 
 	/**
-	 * Evaluate a filter expression against a document.
+	 * Parse a Meilisearch-style filter into AND-ed groups of OR-ed conditions.
 	 *
-	 * @param array  $doc    Document data.
+	 * Quote-aware: values such as "Bath and Body" or "Shoes (kids)" are no
+	 * longer split on the AND/OR inside them.
+	 *
 	 * @param string $filter Filter expression.
+	 * @return array List of groups; each group is a list of [field, op, value]
+	 *               (null for an unparseable condition, which never matches).
+	 */
+	private function parse_filter( string $filter ): array {
+		$groups = array();
+		foreach ( $this->split_top_level( $filter, 'AND' ) as $part ) {
+			$part = trim( $part );
+			if ( '' === $part ) {
+				continue;
+			}
+			if ( '(' === $part[0] && ')' === substr( $part, -1 ) ) {
+				$part = substr( $part, 1, -1 );
+			}
+			$group = array();
+			foreach ( $this->split_top_level( $part, 'OR' ) as $cond ) {
+				$group[] = $this->parse_condition( trim( $cond ) );
+			}
+			$groups[] = $group;
+		}
+		return $groups;
+	}
+
+	/**
+	 * Split on a keyword (AND / OR) outside quotes and parentheses.
+	 *
+	 * @param string $str     Expression.
+	 * @param string $keyword Keyword.
+	 * @return string[]
+	 */
+	private function split_top_level( string $str, string $keyword ): array {
+		$parts  = array();
+		$buf    = '';
+		$quote  = '';
+		$depth  = 0;
+		$len    = strlen( $str );
+		$kwlen  = strlen( $keyword );
+		for ( $i = 0; $i < $len; $i++ ) {
+			$ch = $str[ $i ];
+			if ( '' !== $quote ) {
+				if ( '\\' === $ch && $i + 1 < $len ) {
+					$buf .= $ch . $str[ ++$i ];
+					continue;
+				}
+				if ( $ch === $quote ) {
+					$quote = '';
+				}
+				$buf .= $ch;
+				continue;
+			}
+			if ( '"' === $ch || "'" === $ch ) {
+				$quote = $ch;
+			} elseif ( '(' === $ch ) {
+				++$depth;
+			} elseif ( ')' === $ch ) {
+				$depth = max( 0, $depth - 1 );
+			} elseif ( 0 === $depth && ctype_space( $ch ) && 0 === strcasecmp( substr( $str, $i + 1, $kwlen ), $keyword ) && ( $i + 1 + $kwlen < $len ) && ctype_space( $str[ $i + 1 + $kwlen ] ) ) {
+				$parts[] = $buf;
+				$buf     = '';
+				$i      += $kwlen + 1;
+				continue;
+			}
+			$buf .= $ch;
+		}
+		$parts[] = $buf;
+		return $parts;
+	}
+
+	/**
+	 * Parse `field op value` into [field, op, value], or null if invalid.
+	 *
+	 * @param string $condition Condition.
+	 * @return array|null
+	 */
+	private function parse_condition( string $condition ) {
+		if ( ! preg_match( '/^([A-Za-z0-9_.\- ]+?)\s*(>=|<=|!=|=|>|<)\s*(?:"((?:[^"\\\\]|\\\\.)*)"|\'([^\']*)\'|(\S+))\s*$/u', $condition, $m ) ) {
+			return null;
+		}
+		$value = '';
+		if ( isset( $m[3] ) && '' !== $m[3] ) {
+			$value = stripslashes( $m[3] );
+		} elseif ( isset( $m[4] ) && '' !== $m[4] ) {
+			$value = $m[4];
+		} elseif ( isset( $m[5] ) ) {
+			$value = $m[5];
+		}
+		return array( trim( $m[1] ), $m[2], $value );
+	}
+
+	/**
+	 * Evaluate a parsed filter against a document.
+	 *
+	 * @param array $doc    Document.
+	 * @param array $groups Output of parse_filter().
 	 * @return bool
 	 */
-	private function evaluate_filter( array $doc, string $filter ): bool {
-		// Split by AND (top level).
-		$and_parts = preg_split( '/\s+AND\s+/i', $filter );
+	private function evaluate_parsed_filter( array $doc, array $groups ): bool {
+		foreach ( $groups as $group ) {
+			$ok = false;
+			foreach ( $group as $cond ) {
+				if ( null !== $cond && $this->evaluate_condition( $doc, $cond[0], $cond[1], $cond[2] ) ) {
+					$ok = true;
+					break;
+				}
+			}
+			if ( ! $ok ) {
+				return false;
+			}
+		}
+		return true;
+	}
 
-		foreach ( $and_parts as $and_part ) {
-			$and_part = trim( $and_part );
+	/**
+	 * Evaluate one parsed condition.
+	 *
+	 * @param array  $doc      Document.
+	 * @param string $field    Field (dot notation allowed).
+	 * @param string $operator Operator.
+	 * @param string $value    Value.
+	 * @return bool
+	 */
+	private function evaluate_condition( array $doc, string $field, string $operator, string $value ): bool {
+		$doc_val = $this->extract_field_value( $doc, $field );
 
-			// Handle OR groups wrapped in parentheses.
-			if ( preg_match( '/^\((.+)\)$/', $and_part, $m ) ) {
-				$or_parts = preg_split( '/\s+OR\s+/i', $m[1] );
-				$or_match = false;
-				foreach ( $or_parts as $or_part ) {
-					if ( $this->evaluate_single_condition( $doc, trim( $or_part ) ) ) {
-						$or_match = true;
-						break;
-					}
-				}
-				if ( ! $or_match ) {
-					return false;
-				}
-			} else {
-				if ( ! $this->evaluate_single_condition( $doc, $and_part ) ) {
-					return false;
-				}
+		// Booleans are stored as true/false; filters say "true"/"false".
+		if ( is_bool( $doc_val ) ) {
+			$doc_val = $doc_val ? 'true' : 'false';
+			if ( '1' === $value ) {
+				$value = 'true';
+			} elseif ( '0' === $value ) {
+				$value = 'false';
 			}
 		}
 
-		return true;
+		return $this->evaluate_single_condition( $doc, $field . ' ' . $operator . ' "' . addcslashes( $value, '"' ) . '"', $doc_val, $value, $operator );
 	}
 
 	/**
@@ -1049,16 +1380,16 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	 * @param string $condition Single condition string.
 	 * @return bool
 	 */
-	private function evaluate_single_condition( array $doc, string $condition ): bool {
-		// Match: field operator "value" or field operator number.
-		if ( ! preg_match( '/^(.+?)\s*(>=|<=|!=|=|>|<)\s*"?([^"]*)"?\s*$/', $condition, $m ) ) {
-			return true; // Skip unparseable conditions.
+	private function evaluate_single_condition( array $doc, string $condition, $doc_val = null, $value = null, $operator = null ): bool {
+		if ( null === $operator ) {
+			// Legacy string form.
+			$parsed = $this->parse_condition( $condition );
+			if ( null === $parsed ) {
+				return false; // Unparseable conditions never match.
+			}
+			list( $field, $operator, $value ) = $parsed;
+			$doc_val = $this->extract_field_value( $doc, $field );
 		}
-
-		$field    = trim( $m[1] );
-		$operator = $m[2];
-		$value    = $m[3];
-		$doc_val  = $this->extract_field_value( $doc, $field );
 
 		// Array field: check if any element matches.
 		if ( is_array( $doc_val ) ) {
@@ -1166,20 +1497,51 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	 * @return string
 	 */
 	private function highlight_text( string $text, array $tokens ): string {
+		$tokens = array_filter( array_map( 'strval', $tokens ), 'strlen' );
 		if ( empty( $tokens ) ) {
 			return htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' );
 		}
 
-		// Escape HTML first to prevent XSS, then add highlight marks.
-		$safe = htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' );
-
+		// Tokens are accent-folded ("aviacion"): match any accented spelling
+		// in the original text, on the raw text (escaping first could match
+		// inside entities like "&amp;"), then escape each piece.
+		$variants = array(
+			'a' => '[aáàâäãå]',
+			'e' => '[eéèêë]',
+			'i' => '[iíìîï]',
+			'o' => '[oóòôöõ]',
+			'u' => '[uúùûü]',
+			'n' => '[nñ]',
+			'c' => '[cç]',
+		);
 		$patterns = array();
 		foreach ( $tokens as $token ) {
-			$patterns[] = preg_quote( htmlspecialchars( $token, ENT_QUOTES, 'UTF-8' ), '/' );
+			$chars = preg_split( '//u', $token, -1, PREG_SPLIT_NO_EMPTY );
+			$pat   = '';
+			foreach ( (array) $chars as $ch ) {
+				$pat .= $variants[ $ch ] ?? preg_quote( $ch, '/' );
+			}
+			$patterns[] = $pat;
 		}
-		$regex = '/(' . implode( '|', $patterns ) . ')/iu';
+		// Longest first so "pantalones" wins over "pantalon".
+		usort(
+			$patterns,
+			function ( $a, $b ) {
+				return strlen( $b ) <=> strlen( $a );
+			}
+		);
 
-		return preg_replace( $regex, '<mark>$1</mark>', $safe );
+		$parts = preg_split( '/(' . implode( '|', $patterns ) . ')/iu', $text, -1, PREG_SPLIT_DELIM_CAPTURE );
+		if ( false === $parts ) {
+			return htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' );
+		}
+
+		$out = '';
+		foreach ( $parts as $i => $part ) {
+			$safe = htmlspecialchars( $part, ENT_QUOTES, 'UTF-8' );
+			$out .= ( 1 === $i % 2 && '' !== $part ) ? '<mark>' . $safe . '</mark>' : $safe;
+		}
+		return $out;
 	}
 
 	/**
@@ -1220,6 +1582,8 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 			'filters' => $options['filters'] ?? '',
 			'sort'    => $options['sort'] ?? '',
 			'facets'  => $options['facets'] ?? array(),
+			// Bumped whenever documents change (cheap invalidation, no TRUNCATE).
+			'gen'     => $this->get_cache_generation(),
 		);
 		return md5( wp_json_encode( $key_parts ) );
 	}
@@ -1277,6 +1641,12 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 		$to_cache = $result;
 		unset( $to_cache['processingTimeMs'], $to_cache['_cacheHit'] );
 
+		// Keep the table bounded: purge expired rows now and then (this used
+		// to be never called, so the table grew with every unique keystroke).
+		if ( 1 === mt_rand( 1, 50 ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.rand_mt_rand -- wp_rand() is not loaded in SHORTINIT.
+			$this->purge_expired_cache();
+		}
+
 		// Use REPLACE to upsert (handles duplicate keys).
 		$wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare(
@@ -1294,17 +1664,38 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 	 *
 	 * @param string $index_name Index name (unused, clears all for simplicity).
 	 */
-	public function invalidate_cache( string $index_name = '' ) {
+	public function invalidate_cache( string $index_name = '', bool $hard = false ) {
 		global $wpdb;
 
-		$table = $wpdb->prefix . 'wss_search_cache';
+		$this->memory_cache = array();
+
+		if ( ! $hard ) {
+			// Start a new cache generation: old entries are never read again
+			// and expire via purge_expired_cache(). (A TRUNCATE on every single
+			// product save made the cache useless on busy stores.)
+			$this->cache_gen = $this->get_cache_generation() + 1;
+			update_option( 'wss_cache_gen', $this->cache_gen, true );
+			return;
+		}
 
 		if ( ! $this->cache_table_exists() ) {
 			return;
 		}
 
+		$table = $wpdb->prefix . 'wss_search_cache';
 		$wpdb->query( "TRUNCATE TABLE {$table}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$this->memory_cache = array();
+	}
+
+	/**
+	 * Current cache generation (memoized per request).
+	 *
+	 * @return int
+	 */
+	private function get_cache_generation(): int {
+		if ( null === $this->cache_gen ) {
+			$this->cache_gen = (int) get_option( 'wss_cache_gen', 0 );
+		}
+		return $this->cache_gen;
 	}
 
 	/**

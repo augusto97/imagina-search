@@ -65,8 +65,10 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 
 		$decrypted = self::decrypt_key( $api_key );
 
-		// Auto-migrate legacy encryption formats to v2 (random IV).
-		if ( strpos( $api_key, 'enc2_' ) !== 0 && ! empty( $decrypted ) && function_exists( 'openssl_encrypt' ) ) {
+		// Auto-migrate legacy encryption formats to v2 (random IV), and repair
+		// keys that were encrypted more than once.
+		$single_layer = 0 === strpos( $api_key, 'enc2_' ) && ! self::is_encrypted_value( self::decrypt_key_once( $api_key ) );
+		if ( ! $single_layer && ! empty( $decrypted ) && function_exists( 'openssl_encrypt' ) ) {
 			$settings['api_key'] = self::encrypt_key( $decrypted );
 			update_option( 'wss_settings', $settings );
 		}
@@ -402,6 +404,18 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 		}
 
 		$result = json_decode( wp_remote_retrieve_body( $response ), true );
+		$code   = (int) wp_remote_retrieve_response_code( $response );
+
+		// HTTP errors (bad filter/sort, auth, 5xx) are errors, not "0 results"
+		// — returning empty hits got them cached as a valid answer.
+		if ( $code < 200 || $code >= 300 ) {
+			return array(
+				'hits'               => array(),
+				'query'              => $query,
+				'estimatedTotalHits' => 0,
+				'error'              => is_array( $result ) && isset( $result['message'] ) ? $result['message'] : 'HTTP ' . $code,
+			);
+		}
 
 		return array(
 			'hits'               => isset( $result['hits'] ) ? $result['hits'] : array(),
@@ -531,6 +545,34 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 	 * @return string
 	 */
 	public static function decrypt_key( string $encrypted ): string {
+		// Saving settings from the Vue admin used to post the already-encrypted
+		// key back, which got encrypted again on every save. Peel off any
+		// nested layers so those installs keep working (real Meilisearch keys
+		// never start with these prefixes).
+		$key = self::decrypt_key_once( $encrypted );
+		for ( $i = 0; $i < 10 && self::is_encrypted_value( $key ); $i++ ) {
+			$key = self::decrypt_key_once( $key );
+		}
+		return $key;
+	}
+
+	/**
+	 * Whether a value looks like one produced by encrypt_key().
+	 *
+	 * @param string $value Value.
+	 * @return bool
+	 */
+	public static function is_encrypted_value( string $value ): bool {
+		return 0 === strpos( $value, 'enc2_' ) || 0 === strpos( $value, 'plain_' ) || 0 === strpos( $value, 'obf_' );
+	}
+
+	/**
+	 * Decrypt a single encryption layer.
+	 *
+	 * @param string $encrypted Encrypted value.
+	 * @return string
+	 */
+	private static function decrypt_key_once( string $encrypted ): string {
 		if ( empty( $encrypted ) ) {
 			return '';
 		}
@@ -627,7 +669,9 @@ class WSS_Meilisearch implements WSS_Search_Engine {
 				'Content-Type'  => 'application/json',
 				'Authorization' => 'Bearer ' . $this->api_key,
 			),
-			'timeout' => 30,
+			// Searches are interactive: fail fast so an outage doesn't hold a
+			// PHP worker for 30 s per visitor (the caller falls back).
+			'timeout' => ( 'POST' === $method && preg_match( '#/search$#', $path ) ) ? 5 : 30,
 		);
 		if ( null !== $body ) {
 			$args['body'] = wp_json_encode( $body );
