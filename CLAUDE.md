@@ -45,5 +45,8 @@ Los cambios de solo PHP/JS de frontend no requieren build.
 - Página de resultados: layout de móvil separado (`results_layout_mobile`) por swap de clase CSS.
 
 ## Notas de estado
-- Versión actual: **6.19.0**.
-- Tras la 6.19.0, hace falta **un reindexado completo una vez** para que los productos existentes generen `search_codes` (búsqueda por fragmentos "065", "0065", etc.).
+- Versión actual: **6.35.0** (auditoría completa).
+- Tras la 6.35.0, con motor local hace falta **un Full Sync una vez**: los términos numéricos (fragmentos de SKU "551", "0065") y los pesos por campo solo se aplican al reindexar.
+- Tablas: se crean/actualizan solas al cambiar `WSS_VERSION` (`WSS_Activator::maybe_upgrade()`); usar `CREATE TABLE` sin `IF NOT EXISTS` con dbDelta, una sentencia por llamada.
+- Locks entre procesos: `wss_acquire_lock()` / `wss_release_lock()` (INSERT IGNORE en options). Último sync: `wss_touch_last_sync()` / `wss_get_last_sync()` (opción propia, no dentro de `wss_settings`).
+- El endpoint SHORTINIT (`search-endpoint.php`) no carga `option.php`, `l10n.php` ni `pluggable.php`: no usar `get_site_option`, `wp_rand`, etc. en el camino de búsqueda local.

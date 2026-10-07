@@ -860,7 +860,14 @@ class WSS_Admin_Ajax {
 		$csv_rows   = array();
 		$csv_rows[] = array( 'Type', 'Message', 'Context', 'Date' );
 		foreach ( $logs as $log ) {
-			$csv_rows[] = array( $log['type'], $log['message'], $log['context'], $log['created_at'] );
+			// Neutralise spreadsheet formulas (=, +, -, @) in exported cells.
+			$csv_rows[] = array_map(
+				function ( $cell ) {
+					$cell = (string) $cell;
+					return ( '' !== $cell && in_array( $cell[0], array( '=', '+', '-', '@', "\t", "\r" ), true ) ) ? "'" . $cell : $cell;
+				},
+				array( $log['type'], $log['message'], $log['context'], $log['created_at'] )
+			);
 		}
 
 		$csv = '';

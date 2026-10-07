@@ -218,6 +218,36 @@ class WSS_Search_Analytics {
 	}
 
 	/**
+	 * Popular searches shown publicly (expanded widget layout).
+	 *
+	 * Unlike the admin report: last 30 days only, only queries that found
+	 * something, ranked by distinct visitors (so one visitor — or a script —
+	 * repeating a query can't push arbitrary text into the public list).
+	 *
+	 * @param int $limit Max items.
+	 * @return array Objects with query and count.
+	 */
+	public function get_public_popular( $limit = 8 ) {
+		global $wpdb;
+
+		$table = self::get_table_name();
+
+		return $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT query, COUNT(DISTINCT ip_address) AS count
+				FROM {$table}
+				WHERE query != '' AND results_count > 0 AND CHAR_LENGTH(query) <= 50 AND created_at >= %s
+				GROUP BY query
+				HAVING count >= 2
+				ORDER BY count DESC
+				LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				gmdate( 'Y-m-d H:i:s', time() - 30 * DAY_IN_SECONDS ),
+				absint( $limit )
+			)
+		);
+	}
+
+	/**
 	 * Get search queries that returned zero results.
 	 *
 	 * @param int $limit Maximum number of results to return.

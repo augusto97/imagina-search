@@ -315,16 +315,16 @@ class WSS_Rest_Api {
 	 * @return WP_REST_Response
 	 */
 	public function handle_popular( $request ) {
-		$limit = min( $request->get_param( 'limit' ), 20 );
+		$limit = max( 1, min( (int) $request->get_param( 'limit' ), 20 ) );
 
-		$cache_key = 'wss_popular_' . $limit;
+		$cache_key = 'wss_popular_v2_' . $limit;
 		$cached    = get_transient( $cache_key );
 		if ( false !== $cached ) {
 			return rest_ensure_response( $cached );
 		}
 
 		$analytics = new WSS_Search_Analytics();
-		$top       = $analytics->get_top_queries( $limit );
+		$top       = $analytics->get_public_popular( $limit );
 
 		$items = array();
 		foreach ( $top as $row ) {

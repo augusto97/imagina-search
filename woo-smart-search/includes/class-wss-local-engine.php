@@ -926,11 +926,15 @@ class WSS_Local_Engine implements WSS_Search_Engine {
 
 		$conditions = array();
 		$params     = array();
-		foreach ( $token_groups as $group ) {
+		$last_group = array_key_last( $token_groups );
+		foreach ( $token_groups as $gi => $group ) {
+			// The word being typed (last one) completes from 2 letters, like
+			// Meilisearch; earlier words need 3 to keep the term scan small.
+			$min_prefix = ( $gi === $last_group ) ? 2 : 3;
 			foreach ( $group as $token ) {
 				$conditions[] = 'term = %s';
 				$params[]     = $token;
-				if ( $allow_prefix && mb_strlen( $token ) >= 3 ) {
+				if ( $allow_prefix && mb_strlen( $token ) >= $min_prefix ) {
 					$conditions[] = 'term LIKE %s';
 					$params[]     = $wpdb->esc_like( $token ) . '%';
 				}

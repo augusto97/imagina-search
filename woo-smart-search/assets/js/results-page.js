@@ -889,8 +889,35 @@
 			}
 		} );
 
+		// Re-rendering the sidebar after each search used to drop keyboard
+		// focus (price inputs, checkboxes — closing the phone keyboard) and
+		// re-open groups the shopper had collapsed: preserve both.
+		var cssEsc = function ( v ) { return window.CSS && CSS.escape ? CSS.escape( v ) : String( v ).replace( /["\\]/g, '\\$&' ); };
+		var ae = document.activeElement;
+		var focusSel = null;
+		if ( ae && dom.sidebar.contains( ae ) ) {
+			if ( ae.classList.contains( 'wss-price-min' ) ) {
+				focusSel = '.wss-price-min';
+			} else if ( ae.classList.contains( 'wss-price-max' ) ) {
+				focusSel = '.wss-price-max';
+			} else if ( 'checkbox' === ae.type ) {
+				var fg = ae.closest( '.wss-filter-group' );
+				focusSel = fg ? '.wss-filter-group[data-filter="' + cssEsc( fg.dataset.filter ) + '"] input[value="' + cssEsc( ae.value ) + '"]' : null;
+			}
+		}
+		var collapsedGroups = Array.prototype.map.call( dom.sidebar.querySelectorAll( '.wss-filter-group.wss-collapsed' ), function ( g ) { return g.dataset.filter; } );
+
 		dom.sidebar.innerHTML = html;
 		// Events handled by delegation (bindSidebarDelegation) — nothing to re-bind.
+
+		collapsedGroups.forEach( function ( key ) {
+			var g = dom.sidebar.querySelector( '.wss-filter-group[data-filter="' + cssEsc( key ) + '"]' );
+			if ( g ) g.classList.add( 'wss-collapsed' );
+		} );
+		if ( focusSel ) {
+			var again = dom.sidebar.querySelector( focusSel );
+			if ( again ) again.focus( { preventScroll: true } );
+		}
 	}
 
 	// Human labels for machine values (stock_status facets showed "instock").
